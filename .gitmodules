@@ -1,3 +1,9 @@
 [submodule "datasets/complex-web-questions-dataset"]
 	path = datasets/complex-web-questions-dataset
 	url = git@github.com:yuancu/complex-web-questions-dataset.git
+[submodule "KG_pipelines/EPR-KGQA"]
+	path = KG_pipelines/EPR-KGQA
+	url = git@github.com:nju-websoft/EPR-KGQA.git
+[submodule "KG_pipelines/KG-R1"]
+	path = KG_pipelines/KG-R1
+	url = git@github.com:Jinyeop3110/KG-R1.git
