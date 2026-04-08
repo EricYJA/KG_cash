@@ -1,0 +1,13 @@
+__pycache__
+*.so
+*.a
+*.dot
+*.zip
+*.log
+*.pkl
+*.xlsx
+
+.idea
+.claude
+venv
+.venv
