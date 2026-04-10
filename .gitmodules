@@ -7,3 +7,6 @@
 [submodule "subKGs/KG-R1"]
 	path = subKGs/KG-R1
 	url = git@github.com:Jinyeop3110/KG-R1.git
+[submodule "subKGs/SubgraphRetrievalKBQA"]
+	path = subKGs/SubgraphRetrievalKBQA
+	url = git@github.com:RUCKBReasoning/SubgraphRetrievalKBQA.git
