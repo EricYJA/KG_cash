@@ -1,4 +1,6 @@
 # characterization/src/clustering.py
+import math
+
 import numpy as np
 from sklearn.cluster import KMeans, HDBSCAN
 from sklearn.metrics import silhouette_score, davies_bouldin_score, calinski_harabasz_score
@@ -30,7 +32,8 @@ def global_entity_clustering_kmeans(unique_entities, cluster_sizes=None):
     Clusters the global unique entities using KMeans and semantic embeddings.
     """
     if cluster_sizes is None:
-        cluster_sizes = [10, 50, 100, 500]
+        cluster_sizes = list(range(int(math.sqrt(len(unique_entities))), len(unique_entities)//2+1, 100))
+
 
     if not unique_entities:
         return {}
