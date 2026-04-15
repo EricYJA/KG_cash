@@ -14,7 +14,7 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(message)s",
     handlers=[
-        logging.FileHandler("sentiment_cache_comparison.log", mode="w"),
+        logging.FileHandler("sentiment_cache_comparison.txt", mode="w"),
         logging.StreamHandler()
     ]
 )

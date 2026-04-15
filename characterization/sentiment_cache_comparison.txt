@@ -1,0 +1,76 @@
+
+── Sentiment Cache Comparison: WebQSP  ──
+Total Queries: 2826 | Unique Queries: 2826
+
+Cache Size: 10 (Exact Match Global Hit Rate: 0.35%)
+  Sim Threshold >= 0.99    | Sentiment Hit:  0.35% | Diff: 0.00% | Avg Sem Hit Entity Overlap: 0.00%
+  Sim Threshold >= 0.95    | Sentiment Hit:  0.35% | Diff: 0.00% | Avg Sem Hit Entity Overlap: 0.00%
+  Sim Threshold >= 0.9     | Sentiment Hit:  0.35% | Diff: 0.00% | Avg Sem Hit Entity Overlap: 0.00%
+  Sim Threshold >= 0.85    | Sentiment Hit:  0.39% | Diff: +0.04% | Avg Sem Hit Entity Overlap: 100.00%
+  Sim Threshold >= 0.8     | Sentiment Hit:  0.42% | Diff: +0.07% | Avg Sem Hit Entity Overlap: 100.00%
+
+Cache Size: 50 (Exact Match Global Hit Rate: 1.77%)
+  Sim Threshold >= 0.99    | Sentiment Hit:  1.77% | Diff: 0.00% | Avg Sem Hit Entity Overlap: 0.00%
+  Sim Threshold >= 0.95    | Sentiment Hit:  1.91% | Diff: +0.14% | Avg Sem Hit Entity Overlap: 100.00%
+  Sim Threshold >= 0.9     | Sentiment Hit:  2.02% | Diff: +0.25% | Avg Sem Hit Entity Overlap: 71.43%
+  Sim Threshold >= 0.85    | Sentiment Hit:  2.16% | Diff: +0.39% | Avg Sem Hit Entity Overlap: 81.82%
+  Sim Threshold >= 0.8     | Sentiment Hit:  2.51% | Diff: +0.74% | Avg Sem Hit Entity Overlap: 85.71%
+
+Cache Size: 100 (Exact Match Global Hit Rate: 3.54%)
+  Sim Threshold >= 0.99    | Sentiment Hit:  3.61% | Diff: +0.07% | Avg Sem Hit Entity Overlap: 100.00%
+  Sim Threshold >= 0.95    | Sentiment Hit:  3.86% | Diff: +0.32% | Avg Sem Hit Entity Overlap: 100.00%
+  Sim Threshold >= 0.9     | Sentiment Hit:  4.53% | Diff: +0.99% | Avg Sem Hit Entity Overlap: 87.50%
+  Sim Threshold >= 0.85    | Sentiment Hit:  5.27% | Diff: +1.73% | Avg Sem Hit Entity Overlap: 90.82%
+  Sim Threshold >= 0.8     | Sentiment Hit:  5.91% | Diff: +2.37% | Avg Sem Hit Entity Overlap: 91.79%
+
+Cache Size: 200 (Exact Match Global Hit Rate: 7.08%)
+  Sim Threshold >= 0.99    | Sentiment Hit:  7.18% | Diff: +0.11% | Avg Sem Hit Entity Overlap: 100.00%
+  Sim Threshold >= 0.95    | Sentiment Hit:  7.71% | Diff: +0.64% | Avg Sem Hit Entity Overlap: 100.00%
+  Sim Threshold >= 0.9     | Sentiment Hit:  9.06% | Diff: +1.98% | Avg Sem Hit Entity Overlap: 91.96%
+  Sim Threshold >= 0.85    | Sentiment Hit: 10.16% | Diff: +3.08% | Avg Sem Hit Entity Overlap: 93.68%
+  Sim Threshold >= 0.8     | Sentiment Hit: 11.32% | Diff: +4.25% | Avg Sem Hit Entity Overlap: 94.58%
+
+Cache Size: 500 (Exact Match Global Hit Rate: 17.69%)
+  Sim Threshold >= 0.99    | Sentiment Hit: 17.91% | Diff: +0.21% | Avg Sem Hit Entity Overlap: 100.00%
+  Sim Threshold >= 0.95    | Sentiment Hit: 19.00% | Diff: +1.31% | Avg Sem Hit Entity Overlap: 100.00%
+  Sim Threshold >= 0.9     | Sentiment Hit: 21.37% | Diff: +3.68% | Avg Sem Hit Entity Overlap: 96.63%
+  Sim Threshold >= 0.85    | Sentiment Hit: 23.43% | Diff: +5.73% | Avg Sem Hit Entity Overlap: 95.99%
+  Sim Threshold >= 0.8     | Sentiment Hit: 25.51% | Diff: +7.82% | Avg Sem Hit Entity Overlap: 95.25%
+
+── Sentiment Cache Comparison: CWQ  ──
+Total Queries: 27639 | Unique Queries: 27628
+
+Cache Size: 10 (Exact Match Global Hit Rate: 0.07%)
+  Sim Threshold >= 0.99    | Sentiment Hit:  0.08% | Diff: +0.00% | Avg Sem Hit Entity Overlap: 100.00%
+  Sim Threshold >= 0.95    | Sentiment Hit:  0.11% | Diff: +0.04% | Avg Sem Hit Entity Overlap: 100.00%
+  Sim Threshold >= 0.9     | Sentiment Hit:  0.15% | Diff: +0.08% | Avg Sem Hit Entity Overlap: 95.24%
+  Sim Threshold >= 0.85    | Sentiment Hit:  0.24% | Diff: +0.17% | Avg Sem Hit Entity Overlap: 86.96%
+  Sim Threshold >= 0.8     | Sentiment Hit:  0.36% | Diff: +0.29% | Avg Sem Hit Entity Overlap: 70.00%
+
+Cache Size: 50 (Exact Match Global Hit Rate: 0.22%)
+  Sim Threshold >= 0.99    | Sentiment Hit:  0.22% | Diff: +0.00% | Avg Sem Hit Entity Overlap: 100.00%
+  Sim Threshold >= 0.95    | Sentiment Hit:  0.28% | Diff: +0.06% | Avg Sem Hit Entity Overlap: 97.92%
+  Sim Threshold >= 0.9     | Sentiment Hit:  0.42% | Diff: +0.20% | Avg Sem Hit Entity Overlap: 87.50%
+  Sim Threshold >= 0.85    | Sentiment Hit:  0.63% | Diff: +0.41% | Avg Sem Hit Entity Overlap: 77.53%
+  Sim Threshold >= 0.8     | Sentiment Hit:  0.88% | Diff: +0.65% | Avg Sem Hit Entity Overlap: 65.33%
+
+Cache Size: 100 (Exact Match Global Hit Rate: 0.40%)
+  Sim Threshold >= 0.99    | Sentiment Hit:  0.41% | Diff: +0.00% | Avg Sem Hit Entity Overlap: 100.00%
+  Sim Threshold >= 0.95    | Sentiment Hit:  0.50% | Diff: +0.10% | Avg Sem Hit Entity Overlap: 96.91%
+  Sim Threshold >= 0.9     | Sentiment Hit:  0.70% | Diff: +0.30% | Avg Sem Hit Entity Overlap: 90.45%
+  Sim Threshold >= 0.85    | Sentiment Hit:  1.06% | Diff: +0.66% | Avg Sem Hit Entity Overlap: 78.60%
+  Sim Threshold >= 0.8     | Sentiment Hit:  1.69% | Diff: +1.28% | Avg Sem Hit Entity Overlap: 67.00%
+
+Cache Size: 200 (Exact Match Global Hit Rate: 0.76%)
+  Sim Threshold >= 0.99    | Sentiment Hit:  0.77% | Diff: +0.01% | Avg Sem Hit Entity Overlap: 100.00%
+  Sim Threshold >= 0.95    | Sentiment Hit:  0.95% | Diff: +0.19% | Avg Sem Hit Entity Overlap: 94.55%
+  Sim Threshold >= 0.9     | Sentiment Hit:  1.31% | Diff: +0.54% | Avg Sem Hit Entity Overlap: 88.94%
+  Sim Threshold >= 0.85    | Sentiment Hit:  1.86% | Diff: +1.10% | Avg Sem Hit Entity Overlap: 78.02%
+  Sim Threshold >= 0.8     | Sentiment Hit:  2.95% | Diff: +2.18% | Avg Sem Hit Entity Overlap: 65.15%
+
+Cache Size: 500 (Exact Match Global Hit Rate: 1.85%)
+  Sim Threshold >= 0.99    | Sentiment Hit:  1.87% | Diff: +0.02% | Avg Sem Hit Entity Overlap: 86.67%
+  Sim Threshold >= 0.95    | Sentiment Hit:  2.23% | Diff: +0.38% | Avg Sem Hit Entity Overlap: 94.87%
+  Sim Threshold >= 0.9     | Sentiment Hit:  3.08% | Diff: +1.23% | Avg Sem Hit Entity Overlap: 86.88%
+  Sim Threshold >= 0.85    | Sentiment Hit:  4.33% | Diff: +2.48% | Avg Sem Hit Entity Overlap: 77.39%
+  Sim Threshold >= 0.8     | Sentiment Hit:  6.35% | Diff: +4.50% | Avg Sem Hit Entity Overlap: 67.29%
