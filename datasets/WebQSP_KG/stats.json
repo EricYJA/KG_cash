@@ -1,0 +1,35 @@
+{
+  "examples": 4737,
+  "notes": [
+    "This KG is the union of question-specific extracted subgraphs from EPR-KGQA.",
+    "Literal values are preserved as string node ids so the graph stays loadable by src/kg_backend."
+  ],
+  "output_dir": "/home/ccyuan/Project/KG_cash/datasets/WebQSP_KG",
+  "per_split": {
+    "dev": {
+      "examples": 250,
+      "tuple_mentions": 35676,
+      "unique_triples": 30186
+    },
+    "test": {
+      "examples": 1639,
+      "tuple_mentions": 229428,
+      "unique_triples": 141958
+    },
+    "train": {
+      "examples": 2848,
+      "tuple_mentions": 436710,
+      "unique_triples": 221334
+    }
+  },
+  "source_dir": "/home/ccyuan/Project/KG_cash/ref_KG_projects/EPR-KGQA/data/dataset/WebQSP",
+  "splits": [
+    "train",
+    "dev",
+    "test"
+  ],
+  "tuple_mentions": 701814,
+  "unique_entities": 213506,
+  "unique_relations": 2073,
+  "unique_triples": 303547
+}

@@ -4,4 +4,11 @@ channels:
 dependencies:
   - python=3.11
   - pip
-  - tqdm
+  - fastapi
+  - httpx
+  - mypy
+  - pydantic
+  - pyarrow
+  - pytest
+  - ruff
+  - uvicorn
