@@ -6,7 +6,7 @@ import csv
 from collections.abc import Iterable
 from pathlib import Path
 
-import pyarrow.parquet as pq
+import pyarrow.parquet as pq  # type: ignore[import-untyped]
 
 from kg_backend.errors import KGDataError, MetadataValidationError
 from kg_backend.types import GraphData, TripleRecord
@@ -40,10 +40,14 @@ def _resolve_graph_paths(path: Path) -> tuple[Path, Path | None, Path | None]:
         base_dir = path
         triples_path = _pick_one(base_dir, "triples", required=True)
         if triples_path is None:
-            raise KGDataError(f"Expected either triples.tsv or triples.parquet in {base_dir}.")
+            raise KGDataError(
+                f"Expected either triples.tsv or triples.parquet in {base_dir}."
+            )
     elif path.is_file():
         if path.suffix not in {".tsv", ".parquet"}:
-            raise KGDataError("Triples input must be a directory or a TSV or Parquet triples file.")
+            raise KGDataError(
+                "Triples input must be a directory or a TSV or Parquet triples file."
+            )
         base_dir = path.parent
         triples_path = path
     else:
@@ -62,7 +66,9 @@ def _pick_one(directory: Path, stem: str, required: bool) -> Path | None:
             f"{', '.join(path.name for path in present)}."
         )
     if required and not present:
-        raise KGDataError(f"Expected either {stem}.tsv or {stem}.parquet in {directory}.")
+        raise KGDataError(
+            f"Expected either {stem}.tsv or {stem}.parquet in {directory}."
+        )
     return present[0] if present else None
 
 
@@ -115,7 +121,9 @@ def _load_tsv_rows(
         reader = csv.DictReader(handle, delimiter="\t")
         fieldnames = tuple(reader.fieldnames or ())
         _validate_columns(path, fieldnames, required_columns, kind)
-        return tuple({column: row[column] for column in required_columns} for row in reader)
+        return tuple(
+            {column: row[column] for column in required_columns} for row in reader
+        )
 
 
 def _load_parquet_rows(
@@ -134,7 +142,10 @@ def _load_parquet_rows(
 
 
 def _validate_columns(
-    path: Path, actual_columns: Iterable[str], required_columns: tuple[str, ...], kind: str
+    path: Path,
+    actual_columns: Iterable[str],
+    required_columns: tuple[str, ...],
+    kind: str,
 ) -> None:
     actual = set(actual_columns)
     missing = [column for column in required_columns if column not in actual]
@@ -157,7 +168,9 @@ def _validate_metadata_ids(
     relation_labels: dict[str, str],
 ) -> None:
     if entity_labels:
-        triple_entities = {triple.head for triple in triples} | {triple.tail for triple in triples}
+        triple_entities = {triple.head for triple in triples} | {
+            triple.tail for triple in triples
+        }
         missing_entities = sorted(triple_entities - entity_labels.keys())
         if missing_entities:
             raise MetadataValidationError(

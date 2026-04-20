@@ -2,41 +2,59 @@ from __future__ import annotations
 
 from collections import Counter
 from pathlib import Path
+from typing import Literal
 
-from kg_cache_backend import KGCache, KGStore, QueryExecutor
+from kg_backend.backend import UncachedKGBackend
+from kg_backend.errors import EntityNotFoundError, RelationNotFoundError
+from kg_backend.types import GraphStats
 
 from .config import LLMFrontendConfig
-from .schemas import BackendQueryResult, FrontierObservation, KGQueryAction, unique_strings
+from .schemas import (
+    BackendQueryResult,
+    FrontierObservation,
+    KGQueryAction,
+    unique_strings,
+)
 
 
 class KGBackendAdapter:
-    def __init__(
-        self,
-        store: KGStore,
-        cache: KGCache,
-        executor: QueryExecutor,
-        config: LLMFrontendConfig,
-    ) -> None:
-        self.store = store
-        self.cache = cache
-        self.executor = executor
+    """Thin llm_frontend adapter over the uncached KG backend."""
+
+    def __init__(self, backend: UncachedKGBackend, config: LLMFrontendConfig) -> None:
+        self.backend = backend
         self.config = config
 
     @classmethod
     def from_path(
         cls,
-        triples_path: str | Path,
+        data_path: str | Path,
         config: LLMFrontendConfig,
-        cache_mode: str = "none",
-        cache_capacity: int = 0,
-    ) -> "KGBackendAdapter":
-        store = KGStore.from_path(triples_path)
-        cache = KGCache(store, mode=cache_mode, capacity=cache_capacity)
-        executor = QueryExecutor(cache)
-        return cls(store=store, cache=cache, executor=executor, config=config)
+    ) -> KGBackendAdapter:
+        return cls(backend=UncachedKGBackend.from_data_path(data_path), config=config)
 
-    def initial_frontier(self, topic_entity: str | None) -> list[str]:
-        return self.executor.initial_frontier(topic_entity)
+    def stats(self) -> GraphStats:
+        return self.backend.stats()
+
+    def resolve_initial_frontier(self, seed_text: str | None) -> list[str]:
+        if not seed_text:
+            return []
+        entity_id = str(seed_text).strip()
+        if not entity_id:
+            return []
+        try:
+            self.backend.get_out_relations(entity_id)
+        except EntityNotFoundError:
+            pass
+        else:
+            return [entity_id]
+        if not self.backend.entity_name_exists(entity_id):
+            return []
+        return unique_strings(
+            self.backend.search_entity_ids_by_name(
+                entity_id,
+                limit=self.config.max_frontier_entities,
+            )
+        )
 
     def describe_frontier(self, frontier: list[str]) -> FrontierObservation:
         unique_frontier = unique_strings(frontier)
@@ -45,23 +63,30 @@ class KGBackendAdapter:
 
         forward_counts: Counter[str] = Counter()
         backward_counts: Counter[str] = Counter()
-        for entity in scan_entities:
-            for relation in self.cache.get_tail_relations(entity):
-                forward_counts[relation] += 1
-            for relation in self.cache.get_head_relations(entity):
-                backward_counts[relation] += 1
+        for entity_id in scan_entities:
+            try:
+                for relation_id in self.backend.get_out_relations(entity_id):
+                    forward_counts[relation_id] += 1
+                for relation_id in self.backend.get_in_relations(entity_id):
+                    backward_counts[relation_id] += 1
+            except EntityNotFoundError:
+                continue
 
         return FrontierObservation(
             frontier=unique_frontier,
             frontier_size=len(unique_frontier),
             sample_entities=sample_entities,
             forward_relations=[
-                relation
-                for relation, _ in forward_counts.most_common(self.config.max_relation_candidates)
+                relation_id
+                for relation_id, _ in forward_counts.most_common(
+                    self.config.max_relation_candidates
+                )
             ],
             backward_relations=[
-                relation
-                for relation, _ in backward_counts.most_common(self.config.max_relation_candidates)
+                relation_id
+                for relation_id, _ in backward_counts.most_common(
+                    self.config.max_relation_candidates
+                )
             ],
         )
 
@@ -71,29 +96,73 @@ class KGBackendAdapter:
         action: KGQueryAction,
     ) -> BackendQueryResult:
         input_frontier = unique_strings(current_frontier)
-        if not input_frontier and action.entity:
-            input_frontier = self.initial_frontier(action.entity)
 
-        step_result = self.executor.execute_step(
-            frontier=input_frontier,
-            relation=action.relation,
-        )
-        resolved_direction = {
-            "out": "forward",
-            "in": "backward",
-            "empty": "empty",
-            "identity": "identity",
-        }.get(step_result.direction, step_result.direction)
-        observation = self.describe_frontier(step_result.frontier)
+        frontier_after_hop: list[str] = []
+        resolved_direction = "empty"
+        primitive_calls = 0
+
+        if input_frontier:
+            if action.direction == "auto":
+                frontier_after_hop, resolved_direction, primitive_calls = (
+                    self._execute_auto_hop(
+                        input_frontier,
+                        action.relation,
+                    )
+                )
+            else:
+                hop_direction: Literal["out", "in"] = (
+                    "out" if action.direction == "forward" else "in"
+                )
+                frontier_after_hop, primitive_calls = self._collect_neighbors(
+                    input_frontier,
+                    action.relation,
+                    hop_direction,
+                )
+                if frontier_after_hop:
+                    resolved_direction = action.direction
+
+        output_frontier = unique_strings(frontier_after_hop)
+        observation = self.describe_frontier(output_frontier)
         return BackendQueryResult(
-            relation=action.relation,
-            requested_direction=action.direction,
             resolved_direction=resolved_direction,
-            input_frontier=step_result.frontier_before,
-            frontier_after_hop=step_result.frontier_after_hop,
-            output_frontier=step_result.frontier,
-            primitive_calls=step_result.primitive_calls,
-            cache_hits=step_result.cache_hits,
-            cache_misses=step_result.cache_misses,
+            output_frontier=output_frontier,
             observation=observation,
         )
+
+    def _execute_auto_hop(
+        self,
+        frontier: list[str],
+        relation_id: str,
+    ) -> tuple[list[str], str, int]:
+        forward_frontier, forward_calls = self._collect_neighbors(
+            frontier, relation_id, "out"
+        )
+        if forward_frontier:
+            return forward_frontier, "forward", forward_calls
+        backward_frontier, backward_calls = self._collect_neighbors(
+            frontier, relation_id, "in"
+        )
+        if backward_frontier:
+            return backward_frontier, "backward", forward_calls + backward_calls
+        return [], "empty", forward_calls + backward_calls
+
+    def _collect_neighbors(
+        self,
+        frontier: list[str],
+        relation_id: str,
+        direction: Literal["out", "in"],
+    ) -> tuple[list[str], int]:
+        neighbors: set[str] = set()
+        primitive_calls = 0
+        for entity_id in unique_strings(frontier):
+            try:
+                entity_neighbors = self.backend.get_neighbors(
+                    entity_id, relation_id, direction=direction
+                )
+            except EntityNotFoundError:
+                continue
+            except RelationNotFoundError:
+                return [], primitive_calls
+            primitive_calls += 1
+            neighbors.update(entity_neighbors)
+        return sorted(neighbors), primitive_calls

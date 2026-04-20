@@ -2,17 +2,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import json
-import os
+from pathlib import Path
+import shlex
 from typing import Protocol
-from urllib import error as urllib_error
-from urllib import request
 
-from .config import (
-    LLMFrontendConfig,
-    default_base_url_for_provider,
-    default_model_for_provider,
-    normalize_provider,
-)
+import httpx
+
+from .llm_config import ResolvedLLMConfig
 
 
 @dataclass(frozen=True)
@@ -25,100 +21,56 @@ class ChatMessage:
 
 
 class LLMClient(Protocol):
-    def complete_json(self, messages: list[ChatMessage], temperature: float = 0.0) -> str:
-        ...
+    def complete_json(
+        self, messages: list[ChatMessage], temperature: float = 0.0
+    ) -> str: ...
 
 
 class LLMChatClient:
+    """Minimal OpenAI-compatible chat completions client."""
+
     def __init__(
         self,
-        provider: str,
-        api_key: str,
-        model: str,
-        base_url: str,
+        connection_config: ResolvedLLMConfig,
         timeout_s: float,
     ) -> None:
-        self.provider = provider
-        self.api_key = api_key
-        self.model = model
-        self.base_url = base_url.rstrip("/")
+        self.vendor = connection_config.vendor
+        self.api_name = connection_config.vendor
+        self.api_key = connection_config.api_key
+        self.model = connection_config.model
+        self.base_url = _normalize_base_url(connection_config.base_url)
+        self.api_base_url = self.base_url
+        self.chat_completions_url = f"{self.base_url}/chat/completions"
         self.timeout_s = timeout_s
 
     @classmethod
-    def from_config(
+    def from_connection_config(
         cls,
-        config: LLMFrontendConfig,
-        model: str | None = None,
-        provider: str | None = None,
+        connection_config: ResolvedLLMConfig,
+        timeout_s: float,
     ) -> "LLMChatClient":
-        resolved_provider = normalize_provider(
-            provider or os.environ.get(config.llm_provider_env, config.provider)
-        )
-        api_key = os.environ.get(config.llm_api_key_env)
-        if not api_key and resolved_provider == "gemini":
-            api_key = os.environ.get("GEMINI_API_KEY")
-        if not api_key:
-            raise RuntimeError(f"Missing required environment variable: {config.llm_api_key_env}")
-        resolved_model = (
-            model
-            or os.environ.get(config.llm_model_env)
-            or config.model
-            or default_model_for_provider(resolved_provider)
-        )
-        if resolved_provider == "gemini" and _looks_like_non_gemini_model(resolved_model):
-            raise ValueError(
-                "Gemini provider selected but model "
-                f"{resolved_model!r} does not look like a Gemini model. "
-                "Use a Gemini model such as 'gemini-2.5-flash', or omit --model "
-                "and let the client pick the default Gemini model."
-            )
-        base_url = (
-            os.environ.get(config.llm_base_url_env)
-            or config.llm_base_url
-            or default_base_url_for_provider(resolved_provider)
-        )
-        return cls(
-            provider=resolved_provider,
-            api_key=api_key,
-            model=resolved_model,
-            base_url=base_url,
-            timeout_s=config.request_timeout_s,
-        )
+        return cls(connection_config=connection_config, timeout_s=timeout_s)
 
-    def complete_json(self, messages: list[ChatMessage], temperature: float = 0.0) -> str:
-        if self.provider == "gemini":
-            return self._complete_json_gemini(messages, temperature=temperature)
-        return self._complete_json_openai_compatible(messages, temperature=temperature)
-
-    def _complete_json_openai_compatible(
-        self,
-        messages: list[ChatMessage],
-        temperature: float = 0.0,
+    def complete_json(
+        self, messages: list[ChatMessage], temperature: float = 0.0
     ) -> str:
         payload = {
             "model": self.model,
-            "temperature": temperature,
-            "response_format": {"type": "json_object"},
-            "messages": [message.to_dict() for message in messages],
+            "stream": False,
+            "messages": _prepare_messages(messages),
         }
-        body = json.dumps(payload).encode("utf-8")
-        req = request.Request(
-            url=f"{self.base_url}/chat/completions",
-            data=body,
-            method="POST",
-            headers={
-                "Authorization": f"Bearer {self.api_key}",
-                "Content-Type": "application/json",
-            },
-        )
-        payload = _read_json_response(
-            req,
+        if temperature != 0.0:
+            payload["temperature"] = temperature
+        payload = _post_json(
+            url=self.chat_completions_url,
+            payload=payload,
+            vendor=self.vendor,
+            api_key=self.api_key,
             timeout_s=self.timeout_s,
-            provider=self.provider,
             model=self.model,
         )
 
-        message = payload["choices"][0]["message"]["content"]
+        message = _extract_message_content(payload)
         if isinstance(message, str):
             return message.strip()
         if isinstance(message, list):
@@ -131,91 +83,89 @@ class LLMChatClient:
             return "".join(parts).strip()
         return str(message).strip()
 
-    def _complete_json_gemini(
-        self,
-        messages: list[ChatMessage],
-        temperature: float = 0.0,
-    ) -> str:
-        system_parts: list[str] = []
-        contents: list[dict[str, object]] = []
-        for message in messages:
-            text = message.content.strip()
-            if not text:
-                continue
-            if message.role == "system":
-                system_parts.append(text)
-                continue
-            role = "model" if message.role == "assistant" else "user"
-            contents.append(
-                {
-                    "role": role,
-                    "parts": [{"text": text}],
-                }
-            )
 
-        payload: dict[str, object] = {
-            "contents": contents,
-            "generationConfig": {
-                "temperature": temperature,
-                "responseMimeType": "application/json",
-            },
-        }
-        if system_parts:
-            payload["system_instruction"] = {
-                "parts": [{"text": "\n\n".join(system_parts)}],
-            }
+def _normalize_base_url(base_url: str) -> str:
+    base_url = base_url.strip().rstrip("/")
+    if not base_url:
+        raise ValueError("LLM base URL must not be empty.")
+    return base_url
 
-        if self.model.startswith(("models/", "tunedModels/")):
-            model_name = self.model
-        else:
-            model_name = f"models/{self.model}"
-        body = json.dumps(payload).encode("utf-8")
-        req = request.Request(
-            url=f"{self.base_url}/{model_name}:generateContent",
-            data=body,
-            method="POST",
-            headers={
-                "x-goog-api-key": self.api_key,
-                "Content-Type": "application/json",
-            },
+
+def _prepare_messages(messages: list[ChatMessage]) -> list[dict[str, str]]:
+    prepared: list[dict[str, str]] = []
+
+    for message in messages:
+        content = _compact_text(message.content)
+        if not content:
+            continue
+
+        role = (
+            message.role if message.role in {"system", "user", "assistant"} else "user"
         )
-        response_payload = _read_json_response(
-            req,
-            timeout_s=self.timeout_s,
-            provider=self.provider,
-            model=self.model,
-        )
+        prepared.append({"role": role, "content": content})
 
-        candidates = response_payload.get("candidates") or []
-        for candidate in candidates:
-            content = candidate.get("content") or {}
-            parts = content.get("parts") or []
-            text_parts = [str(part.get("text", "")) for part in parts if part.get("text")]
-            if text_parts:
-                return "".join(text_parts).strip()
-
-        prompt_feedback = response_payload.get("promptFeedback")
-        if prompt_feedback:
-            raise RuntimeError(f"Gemini returned no text candidates: {prompt_feedback}")
-        raise RuntimeError("Gemini returned no text candidates.")
+    return prepared or [{"role": "user", "content": ""}]
 
 
-def _looks_like_non_gemini_model(model: str) -> bool:
-    text = model.strip().lower()
-    return text.startswith(("gpt-", "o1", "o3", "o4", "claude", "deepseek"))
+def _compact_text(text: str) -> str:
+    return " ".join(text.split())
 
 
-def _read_json_response(
-    req: request.Request,
+def _extract_message_content(payload: dict[str, object]) -> object:
+    choices = payload.get("choices")
+    if not isinstance(choices, list) or not choices:
+        raise RuntimeError("LLM response did not include any choices.")
+
+    first_choice = choices[0]
+    if not isinstance(first_choice, dict):
+        raise RuntimeError("LLM response choice payload was not an object.")
+
+    message = first_choice.get("message")
+    if not isinstance(message, dict) or "content" not in message:
+        raise RuntimeError("LLM response message payload did not include content.")
+
+    return message["content"]
+
+
+def _post_json(
+    url: str,
+    payload: dict[str, object],
+    vendor: str,
+    api_key: str,
     timeout_s: float,
-    provider: str,
     model: str,
 ) -> dict[str, object]:
     try:
-        with request.urlopen(req, timeout=timeout_s) as response:
-            return json.loads(response.read().decode("utf-8"))
-    except urllib_error.HTTPError as exc:
-        body = exc.read().decode("utf-8", errors="replace").strip()
+        response = httpx.post(
+            url,
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            },
+            json=payload,
+            timeout=timeout_s,
+        )
+    except httpx.TimeoutException as exc:
+        raise RuntimeError(
+            f"{vendor} request timed out after {timeout_s} seconds for model {model!r}."
+        ) from exc
+    except httpx.HTTPError as exc:
+        detail = str(exc).strip()
+        message = f"{vendor} request failed for model {model!r}."
+        if detail:
+            message += f" Detail: {detail}"
+        raise RuntimeError(message)
+
+    status_code = response.status_code
+    body = response.text.strip()
+    if status_code >= 400:
+        dump_dir = _dump_failed_request(
+            vendor=vendor,
+            url=url,
+            payload=payload,
+            status_code=status_code,
+            body=body,
+        )
         detail = body
         try:
             parsed = json.loads(body) if body else {}
@@ -225,15 +175,71 @@ def _read_json_response(
             pass
 
         message = (
-            f"{provider} request failed with HTTP {exc.code} for model {model!r}: "
-            f"{exc.reason}."
+            f"{vendor} request failed with HTTP {status_code} for model {model!r}."
         )
         if detail:
             message += f" Response body: {detail}"
-        if provider == "gemini" and exc.code == 404:
-            message += (
-                " This usually means the model name is invalid for Gemini or the "
-                "endpoint/model path does not exist. Try a Gemini model such as "
-                "'gemini-2.5-flash'."
-            )
-        raise RuntimeError(message) from exc
+        message += (
+            " Request dump:"
+            f" {dump_dir / f'{vendor}_last_request.json'}"
+            f" Replay script: {dump_dir / f'replay_{vendor}_last_request.sh'}"
+        )
+        raise RuntimeError(message)
+
+    try:
+        return response.json()
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(
+            f"{vendor} returned invalid JSON for model {model!r}: {body}"
+        ) from exc
+
+
+def _dump_failed_request(
+    vendor: str,
+    url: str,
+    payload: dict[str, object],
+    status_code: int,
+    body: str,
+) -> Path:
+    dump_dir = Path("artifacts")
+    dump_dir.mkdir(parents=True, exist_ok=True)
+
+    payload_path = (dump_dir / f"{vendor}_last_request.json").resolve()
+    meta_path = (dump_dir / f"{vendor}_last_request_meta.json").resolve()
+    script_path = (dump_dir / f"replay_{vendor}_last_request.sh").resolve()
+
+    payload_path.write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    meta_path.write_text(
+        json.dumps(
+            {
+                "vendor": vendor,
+                "url": url,
+                "status_code": status_code,
+                "response_body": body,
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    script_path.write_text(
+        "\n".join(
+            [
+                "#!/usr/bin/env bash",
+                "set -euo pipefail",
+                ': "${API_KEY:?API_KEY is required}"',
+                f"curl -sS -X POST {shlex.quote(url)} \\",
+                '  -H "Authorization: Bearer ${API_KEY}" \\',
+                '  -H "Content-Type: application/json" \\',
+                f"  --data-binary @{shlex.quote(str(payload_path))} | jq",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    script_path.chmod(0o755)
+    return dump_dir.resolve()

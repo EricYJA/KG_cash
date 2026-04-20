@@ -6,8 +6,13 @@ import json
 from .config import LLMFrontendConfig
 from .llm_client import ChatMessage, LLMClient
 from .memory import PlannerMemory
-from .prompts import build_system_prompt, build_user_prompt
-from .schemas import FrontierObservation, PlannerAction, QuestionExample, parse_planner_action
+from .prompts import build_compact_user_prompt, build_system_prompt, build_user_prompt
+from .schemas import (
+    FrontierObservation,
+    PlannerAction,
+    QuestionExample,
+    parse_planner_action,
+)
 
 
 def _strip_markdown_fences(text: str) -> str:
@@ -44,10 +49,40 @@ class LLMPlanner:
             ChatMessage(role="system", content=build_system_prompt(self.config)),
             ChatMessage(
                 role="user",
-                content=build_user_prompt(example=example, memory=memory, observation=observation),
+                content=build_user_prompt(
+                    example=example, memory=memory, observation=observation
+                ),
             ),
         ]
-        raw_output = self.client.complete_json(messages, temperature=self.config.temperature)
+        try:
+            raw_output = self.client.complete_json(
+                messages, temperature=self.config.temperature
+            )
+        except RuntimeError as exc:
+            if not _is_retryable_server_error(exc):
+                return PlannerDecision(action=None, raw_output=str(exc), error=str(exc))
+
+            fallback_messages = [
+                ChatMessage(
+                    role="user",
+                    content=build_compact_user_prompt(
+                        example=example,
+                        memory=memory,
+                        observation=observation,
+                    ),
+                )
+            ]
+            try:
+                raw_output = self.client.complete_json(
+                    fallback_messages,
+                    temperature=self.config.temperature,
+                )
+            except RuntimeError as fallback_exc:
+                return PlannerDecision(
+                    action=None,
+                    raw_output=str(fallback_exc),
+                    error=str(fallback_exc),
+                )
         cleaned = _strip_markdown_fences(raw_output)
         try:
             payload = json.loads(cleaned)
@@ -62,3 +97,8 @@ class LLMPlanner:
         except ValueError as exc:
             return PlannerDecision(action=None, raw_output=raw_output, error=str(exc))
         return PlannerDecision(action=action, raw_output=raw_output)
+
+
+def _is_retryable_server_error(exc: RuntimeError) -> bool:
+    text = str(exc)
+    return any(f"HTTP {status_code}" in text for status_code in (500, 502, 503, 504))

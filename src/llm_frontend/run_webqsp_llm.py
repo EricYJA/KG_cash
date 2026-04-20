@@ -4,51 +4,87 @@ import argparse
 import json
 from pathlib import Path
 
-from kg_cache_backend import load_webqsp_examples
-from kg_cache_backend.webqsp_loader import resolve_webqsp_path
-
 from .backend_adapter import KGBackendAdapter
 from .config import LLMFrontendConfig
 from .controller import IterativeKGController
+from .llm_config import (
+    DEFAULT_LLM_VENDOR,
+    LLM_API_KEY_ENV,
+    LLM_VENDOR_CHOICES,
+    resolve_llm_config,
+)
 from .llm_client import LLMChatClient
 from .planner import LLMPlanner
 from .schemas import QuestionExample
 from .trace import summarize_traces, write_trace_jsonl
+from .webqsp_loader import load_webqsp_examples
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Run the iterative LLM frontend on WebQSP or one question.")
-    parser.add_argument("--triples", type=Path, required=True, help="Flat triple JSONL or local subgraph file.")
-    parser.add_argument("--question", type=str, default=None, help="Run one ad-hoc question.")
+    parser = argparse.ArgumentParser(
+        description="Run the iterative LLM frontend on WebQSP or one question."
+    )
+    parser.add_argument(
+        "--kg-path",
+        "--triples",
+        dest="kg_path",
+        type=Path,
+        required=True,
+        help="KG directory or triples file for kg_backend.",
+    )
+    parser.add_argument(
+        "--question", type=str, default=None, help="Run one ad-hoc question."
+    )
     parser.add_argument("--question-id", type=str, default="manual-0")
-    parser.add_argument("--topic-entity", type=str, default=None)
-    parser.add_argument("--webqsp", type=Path, default=None, help="WebQSP file or dataset directory.")
+    parser.add_argument(
+        "--webqsp", type=Path, default=None, help="WebQSP file or dataset directory."
+    )
     parser.add_argument("--split", choices=["train", "test"], default="train")
     parser.add_argument("--limit", type=int, default=None)
-    parser.add_argument("--output", type=Path, default=None, help="Output JSONL for LLM traces.")
     parser.add_argument(
-        "--provider",
-        choices=["openai_compatible", "gemini"],
-        default=None,
-        help="Override the LLM provider. Defaults to LLM_PROVIDER or gemini.",
+        "--output", type=Path, default=None, help="Output JSONL for LLM traces."
     )
-    parser.add_argument("--model", type=str, default=None, help="Override the LLM model name.")
+    parser.add_argument(
+        "--vendor",
+        "--VENDOR",
+        dest="vendor",
+        choices=LLM_VENDOR_CHOICES,
+        default=DEFAULT_LLM_VENDOR,
+        help="Vendor preset from llm_config.py.",
+    )
+    parser.add_argument(
+        "--api-key",
+        "--API_KEY",
+        dest="api_key",
+        type=str,
+        default=None,
+        help=f"Override the API key instead of using {LLM_API_KEY_ENV}.",
+    )
+    parser.add_argument(
+        "--base-url",
+        "--BASE_URL",
+        dest="base_url",
+        type=str,
+        default=None,
+        help="Override the preset base URL.",
+    )
+    parser.add_argument(
+        "--model",
+        "--MODEL",
+        dest="model",
+        type=str,
+        default=None,
+        help="Override the preset model name.",
+    )
+    parser.add_argument(
+        "--initial-entity-search-limit",
+        type=int,
+        default=3,
+        help="Maximum number of LLM initial-entity attempts before returning an empty answer.",
+    )
     parser.add_argument("--max-steps", type=int, default=6)
     parser.add_argument("--temperature", type=float, default=0.0)
-    parser.add_argument("--cache", choices=["none", "lru", "lfu"], default="none")
-    parser.add_argument("--cache-capacity", type=int, default=0)
     return parser
-
-
-def _question_example_from_trace(trace) -> QuestionExample:
-    return QuestionExample(
-        question_id=trace.question_id,
-        question=trace.raw_question,
-        topic_entity=trace.topic_entity,
-        gold_inferential_chain=list(trace.inferential_chain),
-        gold_answers=trace.gold_answer_ids(),
-        split=trace.split,
-    )
 
 
 def _load_examples(args: argparse.Namespace) -> list[QuestionExample]:
@@ -57,15 +93,12 @@ def _load_examples(args: argparse.Namespace) -> list[QuestionExample]:
             QuestionExample(
                 question_id=args.question_id,
                 question=args.question,
-                topic_entity=args.topic_entity,
                 split=None,
             )
         ]
     if args.webqsp is None:
         raise SystemExit("Provide either --question or --webqsp.")
-    resolved_webqsp = resolve_webqsp_path(args.webqsp, args.split)
-    traces = load_webqsp_examples(resolved_webqsp, split=args.split, limit=args.limit)
-    return [_question_example_from_trace(trace) for trace in traces]
+    return load_webqsp_examples(args.webqsp, split=args.split, limit=args.limit)
 
 
 def main() -> None:
@@ -73,24 +106,25 @@ def main() -> None:
     if args.question and args.webqsp is not None:
         raise SystemExit("Use either --question or --webqsp, not both.")
 
-    default_config = LLMFrontendConfig()
-    config = LLMFrontendConfig(
-        provider=args.provider or default_config.provider,
+    connection_config = resolve_llm_config(
+        vendor=args.vendor,
+        api_key=args.api_key,
         model=args.model,
+        base_url=args.base_url,
+    )
+    config = LLMFrontendConfig(
         temperature=args.temperature,
+        initial_entity_search_limit=args.initial_entity_search_limit,
         max_steps=args.max_steps,
     )
-    client = LLMChatClient.from_config(
-        config,
-        model=args.model,
-        provider=args.provider,
+    client = LLMChatClient.from_connection_config(
+        connection_config=connection_config,
+        timeout_s=config.request_timeout_s,
     )
     planner = LLMPlanner(client=client, config=config)
     backend = KGBackendAdapter.from_path(
-        triples_path=args.triples,
+        data_path=args.kg_path,
         config=config,
-        cache_mode=args.cache,
-        cache_capacity=args.cache_capacity,
     )
     controller = IterativeKGController(planner=planner, backend=backend, config=config)
 
@@ -101,21 +135,19 @@ def main() -> None:
         write_trace_jsonl(args.output, traces)
 
     summary = summarize_traces(traces)
+    stats = backend.stats()
     summary.update(
         {
-            "provider": client.provider,
-            "triples_path": str(args.triples),
+            "api": client.api_name,
+            "vendor": client.vendor,
+            "kg_path": str(args.kg_path),
             "output_path": str(args.output) if args.output is not None else None,
             "model": client.model,
             "base_url": client.base_url,
-            "cache_mode": backend.cache.mode,
-            "cache_capacity": backend.cache.capacity,
-            "cache_hits": backend.cache.hits,
-            "cache_misses": backend.cache.misses,
-            "primitive_calls": backend.cache.primitive_calls,
-            "store_triples": backend.store.triple_count,
-            "store_entities": backend.store.entity_count,
-            "store_relations": backend.store.relation_count,
+            "api_base_url": client.api_base_url,
+            "num_entities": stats.num_entities,
+            "num_relations": stats.num_relations,
+            "num_triples": stats.num_triples,
         }
     )
     print(json.dumps(summary, indent=2))
