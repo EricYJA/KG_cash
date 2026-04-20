@@ -9,8 +9,11 @@ from typing import Protocol
 from kg_backend.errors import EntityNotFoundError, RelationNotFoundError
 from kg_backend.index import AdjacencyIndex, build_adjacency_index
 from kg_backend.loader import load_graph_data
+from kg_backend.name_lookup import build_entity_name_index
 from kg_backend.types import (
     Direction,
+    EntityNameExistsQuery,
+    EntityNameExistsResult,
     ExtractSubgraphQuery,
     FollowPathQuery,
     FollowPathResult,
@@ -23,6 +26,8 @@ from kg_backend.types import (
     NeighborsResult,
     PathStep,
     RelationsResult,
+    SearchEntityIdsByNameQuery,
+    SearchEntityIdsByNameResult,
     SubgraphEdge,
     SubgraphResult,
 )
@@ -41,6 +46,12 @@ class KGBackend(Protocol):
         self, entity_id: str, relation_id: str, direction: Direction = "out"
     ) -> list[str]:
         """Return sorted neighbor identifiers for one entity, relation, and direction."""
+
+    def search_entity_ids_by_name(self, name: str, limit: int = 10) -> list[str]:
+        """Return deterministic entity ids for one exact normalized entity name."""
+
+    def entity_name_exists(self, name: str) -> bool:
+        """Return whether one exact normalized entity name exists in the backend."""
 
     def follow_path(
         self, start_entities: Iterable[str], path: Sequence[PathStep]
@@ -72,6 +83,10 @@ class UncachedKGBackend:
 
         self._index = index
         self._data_path = str(Path(data_path).expanduser().resolve())
+        self._entity_name_index = build_entity_name_index(
+            self._data_path,
+            self._index.entity_labels,
+        )
 
     @classmethod
     def from_data_path(cls, data_path: str | Path) -> UncachedKGBackend:
@@ -85,13 +100,19 @@ class UncachedKGBackend:
         """Return sorted outgoing relation identifiers for one entity."""
 
         entity_idx = self._require_entity(entity_id)
-        return [self._index.relation_ids[idx] for idx in self._index.out_relations[entity_idx]]
+        return [
+            self._index.relation_ids[idx]
+            for idx in self._index.out_relations[entity_idx]
+        ]
 
     def get_in_relations(self, entity_id: str) -> list[str]:
         """Return sorted incoming relation identifiers for one entity."""
 
         entity_idx = self._require_entity(entity_id)
-        return [self._index.relation_ids[idx] for idx in self._index.in_relations[entity_idx]]
+        return [
+            self._index.relation_ids[idx]
+            for idx in self._index.in_relations[entity_idx]
+        ]
 
     def get_neighbors(
         self, entity_id: str, relation_id: str, direction: Direction = "out"
@@ -103,7 +124,20 @@ class UncachedKGBackend:
         if direction not in {"out", "in"}:
             raise ValueError(f"Unsupported direction: {direction}")
         adjacency = self._index.out_adj if direction == "out" else self._index.in_adj
-        return [self._index.entity_ids[idx] for idx in adjacency[entity_idx].get(relation_idx, ())]
+        return [
+            self._index.entity_ids[idx]
+            for idx in adjacency[entity_idx].get(relation_idx, ())
+        ]
+
+    def search_entity_ids_by_name(self, name: str, limit: int = 10) -> list[str]:
+        """Return deterministic entity ids for one exact normalized entity name."""
+
+        return self._entity_name_index.search_entity_ids_by_name(name, limit=limit)
+
+    def entity_name_exists(self, name: str) -> bool:
+        """Return whether one exact normalized entity name exists in the backend."""
+
+        return self._entity_name_index.entity_name_exists(name)
 
     def follow_path(
         self, start_entities: Iterable[str], path: Sequence[PathStep]
@@ -111,11 +145,15 @@ class UncachedKGBackend:
         """Follow a deterministic sequence of relation steps from start entities."""
 
         start_entity_ids = tuple(sorted(set(start_entities)))
-        current_entities = {self._require_entity(entity_id) for entity_id in start_entity_ids}
+        current_entities = {
+            self._require_entity(entity_id) for entity_id in start_entity_ids
+        }
 
         for step in path:
             relation_idx = self._require_relation(step.relation_id)
-            adjacency = self._index.out_adj if step.direction == "out" else self._index.in_adj
+            adjacency = (
+                self._index.out_adj if step.direction == "out" else self._index.in_adj
+            )
             next_entities: set[int] = set()
             for entity_idx in sorted(current_entities):
                 next_entities.update(adjacency[entity_idx].get(relation_idx, ()))
@@ -124,7 +162,9 @@ class UncachedKGBackend:
         return FollowPathResult(
             start_entities=start_entity_ids,
             path=tuple(path),
-            result_entities=tuple(self._index.entity_ids[idx] for idx in sorted(current_entities)),
+            result_entities=tuple(
+                self._index.entity_ids[idx] for idx in sorted(current_entities)
+            ),
         )
 
     def extract_subgraph(
@@ -138,12 +178,16 @@ class UncachedKGBackend:
         """Extract a deterministic hop-bounded subgraph from seed entities."""
 
         seed_entity_ids = tuple(sorted(set(seed_entities)))
-        visited_entities = {self._require_entity(entity_id) for entity_id in seed_entity_ids}
+        visited_entities = {
+            self._require_entity(entity_id) for entity_id in seed_entity_ids
+        }
         frontier = tuple(sorted(visited_entities))
         allowed_relation_indices = (
             None
             if allowed_relations is None
-            else {self._require_relation(relation_id) for relation_id in allowed_relations}
+            else {
+                self._require_relation(relation_id) for relation_id in allowed_relations
+            }
         )
 
         seen_edges: set[tuple[int, int, int]] = set()
@@ -190,7 +234,9 @@ class UncachedKGBackend:
             else tuple(sorted(allowed_relations)),
             max_edges=max_edges,
             truncated=truncated,
-            entities=tuple(self._index.entity_ids[idx] for idx in sorted(visited_entities)),
+            entities=tuple(
+                self._index.entity_ids[idx] for idx in sorted(visited_entities)
+            ),
             edges=sorted_edges,
         )
 
@@ -223,7 +269,9 @@ class UncachedKGBackend:
                 ),
             ).model_dump(mode="python")
         if isinstance(query, FollowPathQuery):
-            return self.follow_path(query.start_entities, query.path).model_dump(mode="python")
+            return self.follow_path(query.start_entities, query.path).model_dump(
+                mode="python"
+            )
         if isinstance(query, ExtractSubgraphQuery):
             return self.extract_subgraph(
                 seed_entities=query.seed_entities,
@@ -233,6 +281,21 @@ class UncachedKGBackend:
                 else set(query.allowed_relations),
                 direction=query.direction,
                 max_edges=query.max_edges,
+            ).model_dump(mode="python")
+        if isinstance(query, SearchEntityIdsByNameQuery):
+            return SearchEntityIdsByNameResult(
+                name=query.name,
+                entity_ids=tuple(
+                    self.search_entity_ids_by_name(
+                        name=query.name,
+                        limit=query.limit,
+                    )
+                ),
+            ).model_dump(mode="python")
+        if isinstance(query, EntityNameExistsQuery):
+            return EntityNameExistsResult(
+                name=query.name,
+                exists=self.entity_name_exists(query.name),
             ).model_dump(mode="python")
         message = f"Unsupported query type: {type(query)!r}"
         raise TypeError(message)
@@ -274,13 +337,19 @@ class UncachedKGBackend:
         expansions: list[tuple[tuple[int, int, int], int]] = []
         if direction in {"out", "both"}:
             for relation_idx in sorted(self._index.out_adj[entity_idx]):
-                if allowed_relations is not None and relation_idx not in allowed_relations:
+                if (
+                    allowed_relations is not None
+                    and relation_idx not in allowed_relations
+                ):
                     continue
                 for tail_idx in self._index.out_adj[entity_idx][relation_idx]:
                     expansions.append(((entity_idx, relation_idx, tail_idx), tail_idx))
         if direction in {"in", "both"}:
             for relation_idx in sorted(self._index.in_adj[entity_idx]):
-                if allowed_relations is not None and relation_idx not in allowed_relations:
+                if (
+                    allowed_relations is not None
+                    and relation_idx not in allowed_relations
+                ):
                     continue
                 for head_idx in self._index.in_adj[entity_idx][relation_idx]:
                     expansions.append(((head_idx, relation_idx, entity_idx), head_idx))

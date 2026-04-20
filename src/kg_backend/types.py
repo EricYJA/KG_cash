@@ -89,16 +89,33 @@ class ExtractSubgraphQuery(FrozenModel):
     max_edges: int | None = Field(default=None, ge=1)
 
 
+class SearchEntityIdsByNameQuery(FrozenModel):
+    """Typed query for exact entity-name to id lookup."""
+
+    op: Literal["search_entity_ids_by_name"] = "search_entity_ids_by_name"
+    name: str
+    limit: int = Field(default=10, ge=1)
+
+
+class EntityNameExistsQuery(FrozenModel):
+    """Typed query for exact entity-name existence checks."""
+
+    op: Literal["entity_name_exists"] = "entity_name_exists"
+    name: str
+
+
 KGQuery: TypeAlias = Annotated[
     GetOutRelationsQuery
     | GetInRelationsQuery
     | GetNeighborsQuery
     | FollowPathQuery
-    | ExtractSubgraphQuery,
+    | ExtractSubgraphQuery
+    | SearchEntityIdsByNameQuery
+    | EntityNameExistsQuery,
     Field(discriminator="op"),
 ]
 
-QUERY_ADAPTER = TypeAdapter(KGQuery)
+QUERY_ADAPTER: TypeAdapter[KGQuery] = TypeAdapter(KGQuery)
 
 
 def parse_query(payload: object) -> KGQuery:
@@ -154,6 +171,22 @@ class SubgraphResult(FrozenModel):
     truncated: bool
     entities: tuple[str, ...]
     edges: tuple[SubgraphEdge, ...]
+
+
+class SearchEntityIdsByNameResult(FrozenModel):
+    """Result payload for exact entity-name to id lookups."""
+
+    op: Literal["search_entity_ids_by_name"] = "search_entity_ids_by_name"
+    name: str
+    entity_ids: tuple[str, ...]
+
+
+class EntityNameExistsResult(FrozenModel):
+    """Result payload for exact entity-name existence checks."""
+
+    op: Literal["entity_name_exists"] = "entity_name_exists"
+    name: str
+    exists: bool
 
 
 class GraphStats(FrozenModel):

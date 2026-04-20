@@ -1,8 +1,12 @@
 {
+  "entity_name_pairs": 12952,
   "examples": 4737,
+  "named_entities": 12952,
   "notes": [
     "This KG is the union of question-specific extracted subgraphs from EPR-KGQA.",
-    "Literal values are preserved as string node ids so the graph stays loadable by src/kg_backend."
+    "Literal values are preserved as string node ids so the graph stays loadable by src/kg_backend.",
+    "entities.tsv uses recovered human-readable labels when available and falls back to raw ids otherwise.",
+    "entity_name_to_ids.tsv stores name-to-id pairs for reverse lookup because names are not unique."
   ],
   "output_dir": "/home/ccyuan/Project/KG_cash/datasets/WebQSP_KG",
   "per_split": {
@@ -31,5 +35,6 @@
   "tuple_mentions": 701814,
   "unique_entities": 213506,
   "unique_relations": 2073,
-  "unique_triples": 303547
+  "unique_triples": 303547,
+  "webqsp_data_dir": "/home/ccyuan/Project/KG_cash/datasets/WebQSP/data"
 }

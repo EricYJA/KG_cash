@@ -42,12 +42,15 @@ class PlannerMemory:
     max_history: int
     current_frontier: list[str] = field(default_factory=list)
     turns: list[MemoryTurn] = field(default_factory=list)
+    failed_initial_entities: list[str] = field(default_factory=list)
 
     def set_frontier(self, frontier: list[str]) -> None:
         self.current_frontier = unique_strings(frontier)
 
     def frontier_signature(self, frontier: list[str] | None = None) -> str:
-        values = unique_strings(frontier if frontier is not None else self.current_frontier)
+        values = unique_strings(
+            frontier if frontier is not None else self.current_frontier
+        )
         return "|".join(values) if values else "<empty>"
 
     def record_query(
@@ -78,6 +81,21 @@ class PlannerMemory:
     @property
     def steps_remaining(self) -> int:
         return max(self.max_steps - self.steps_used, 0)
+
+    def record_failed_initial_entity(self, entity: str) -> None:
+        text = str(entity).strip()
+        if not text:
+            return
+        self.failed_initial_entities.append(text)
+        if len(self.failed_initial_entities) > self.max_history:
+            self.failed_initial_entities = self.failed_initial_entities[
+                -self.max_history :
+            ]
+
+    def format_failed_initial_entities(self) -> str:
+        if not self.failed_initial_entities:
+            return "None."
+        return ", ".join(self.failed_initial_entities)
 
     def format_history(self) -> str:
         if not self.turns:

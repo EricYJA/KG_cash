@@ -11,7 +11,16 @@ The builder unions and deduplicates every `subgraph.tuples` triple across the re
 - `triples.tsv`
 - `entities.tsv`
 - `relations.tsv`
+- `entity_name_to_ids.tsv`
 - `stats.json`
+
+`entities.tsv` keeps the backend-friendly `id` / `label` schema, but the `label` column now uses a recovered human-readable name when one can be mined from:
+
+- `type.object.name` triples in the EPR WebQSP subgraphs
+- `datasets/WebQSP/data/WebQSP.train.json`
+- `datasets/WebQSP/data/WebQSP.test.json`
+
+If no name is found for an entity, the label falls back to the raw id. `entity_name_to_ids.tsv` is the reverse lookup file for name-to-id search and may contain multiple ids for the same name.
 
 Build or rebuild the dataset-specific subKG:
 

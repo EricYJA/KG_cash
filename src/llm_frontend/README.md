@@ -1,193 +1,160 @@
 # llm_frontend
 
-This package implements the LLM-side iterative frontend for the existing KG backend:
+`llm_frontend` is a small iterative LLM loop on top of `src/kg_backend`.
 
-`question -> LLM planner -> one KG hop -> backend frontier update -> LLM planner -> ... -> final answer`
+At each step, the model does one of three things:
 
-It reuses the backend already present in `src/kg_cache_backend/`:
+1. emits an `INITIAL_ENTITY` to choose a starting entity name or KG id
+2. emits a `KG_QUERY` to request one KG hop
+3. emits a `FINAL_ANSWER` to stop
 
-- `KGStore` for local triples
-- `KGCache` for backend caching
-- `QueryExecutor.execute_step(...)` for one-hop KG execution
-- `load_webqsp_examples(...)` for WebQSP loading
+The loop is:
 
-## Files
+`question -> LLM proposes an initial entity name -> frontend resolves it to entity ids -> one KG hop -> updated frontier -> ... -> final answer`
 
-- `config.py`: model and controller settings
-- `prompts.py`: iterative protocol prompt
-- `schemas.py`: action, observation, and trace dataclasses
-- `memory.py`: short planner memory
-- `llm_client.py`: minimal LLM HTTP client
-- `backend_adapter.py`: thin adapter over the existing backend
-- `planner.py`: prompt assembly and strict JSON action parsing
-- `controller.py`: iterative LLM/backend loop with loop detection
-- `trace.py`: JSONL trace writer
-- `run_webqsp_llm.py`: CLI runner
+The intermediate KG accesses are recorded in the output trace under `llm_kg_queries`.
 
-## Prompt Protocol
+Only the initial entity proposal uses name-to-id lookup. After the initial frontier is resolved, the iterative KG loop stays in backend ID space:
 
-The planner is restricted to exactly one JSON object per turn:
+- the frontier contains entity ids
+- each `KG_QUERY` traverses from entity ids to entity ids
+- the backend returns entity ids after each hop
+- later KG queries do not call name-to-id lookup again
 
-```json
-{"action":"KG_QUERY","relation":"people.person.parents","direction":"forward","entity":null,"frontier":"CURRENT_FRONTIER","reason":"Need the parent entities."}
-```
+## Setup
 
-or
-
-```json
-{"action":"FINAL_ANSWER","answers":["m.012345"],"reason":"The current frontier already matches the answer."}
-```
-
-The prompt includes:
-
-- the natural-language question
-- the topic entity when available
-- the current frontier size and whether the shown frontier view is complete or truncated
-- the currently shown frontier entities
-- candidate forward and backward relations from the current frontier
-- a compact summary of prior KG queries
-
-The frontend does not store chain-of-thought. It only stores the structured action, the backend observation, and the final answer trace.
-
-If the model emits `FINAL_ANSWER` with an empty `answers` list, the controller falls back to the current frontier and records `stop_reason="final_answer_frontier_fallback"`.
-
-## Environment
-
-Create or update the shared repository environment and activate it:
+Create or update the environment:
 
 ```bash
 conda env create -f environment.yml
-conda activate kg_cache
+conda activate kg-cache
 export PYTHONPATH=src:${PYTHONPATH}
 ```
 
-If `kg_cache` already exists:
+If the environment already exists:
 
 ```bash
 conda env update -f environment.yml --prune
-conda activate kg_cache
+conda activate kg-cache
 export PYTHONPATH=src:${PYTHONPATH}
 ```
 
-Then set the default Gemini configuration:
+Set the API key once:
 
 ```bash
 export LLM_API_KEY=...
-export LLM_PROVIDER=gemini
-export LLM_MODEL=gemini-2.5-flash
 ```
 
-Optional overrides:
+You can also pass the key directly with `--API_KEY`.
+
+## Main Parameters
+
+Required:
+
+- `--kg-path`: KG directory or triples file loaded by `kg_backend`
+- `--question "..."` or `--webqsp datasets/WebQSP`
+- `--API_KEY ...` or `LLM_API_KEY`
+
+Recommended for one manual question:
+
+- no extra seed entity is needed; the LLM must choose the initial entity itself
+
+Common optional parameters:
+
+- `--VENDOR`: one of `tamu`, `google`, `openai`
+- `--MODEL`: override the vendor default model
+- `--BASE_URL`: override the vendor default base URL
+- `--initial-entity-search-limit`: maximum number of failed initial-entity attempts before the run returns an empty answer
+- `--max-steps`: maximum number of iterative KG steps
+- `--temperature`: planner temperature
+- `--output`: JSONL file for traces
+
+## Vendor Defaults
+
+If you do not pass `--MODEL` or `--BASE_URL`, the runner uses preset defaults:
+
+- `tamu`: model `protected.gemini-2.0-flash-lite`, base URL `https://chat-api.tamu.ai/api`
+- `google`: model `gemini-2.0-flash`, base URL `https://generativelanguage.googleapis.com/v1beta/openai`
+- `openai`: model `gpt-4.1-mini`, base URL `https://api.openai.com/v1`
+
+Resolution order:
+
+- API key: `--API_KEY` > `LLM_API_KEY`
+- model: `--MODEL` > preset default
+- base URL: `--BASE_URL` > preset default
+
+## Run One Simple Iterative Query
+
+This is the simplest manual run. The model will iteratively generate KG accesses until it stops or reaches `--max-steps`.
+The initial entity is now resolved from an entity name through `kg_backend` metadata.
+
+Example with Google:
 
 ```bash
-export LLM_BASE_URL=https://generativelanguage.googleapis.com/v1beta
-```
+export PYTHONPATH=src
+export LLM_API_KEY=...
 
-Provider notes:
-
-- If `LLM_PROVIDER` is unset, the frontend now defaults to `gemini`
-- `LLM_PROVIDER=gemini` uses `LLM_BASE_URL` or defaults to `https://generativelanguage.googleapis.com/v1beta`
-- `LLM_PROVIDER=openai_compatible` uses `LLM_BASE_URL` or defaults to `https://api.openai.com/v1`
-- For Gemini, `GEMINI_API_KEY` is also accepted as a fallback if `LLM_API_KEY` is unset
-
-`llm_client.py` uses the standard library HTTP client, so no extra dependency is required beyond the shared `kg_cache` environment.
-
-## How To Run
-
-Run one question:
-
-```bash
-PYTHONPATH=src python3 -m llm_frontend.run_webqsp_llm \
+python -m llm_frontend.run_webqsp_llm \
+  --kg-path datasets/WebQSP_KG \
   --question "what is the name of justin bieber brother" \
-  --topic-entity m.06w2sn5 \
-  --triples subKGs/EPR-KGQA/data/dataset/WebQSP/train_simple.jsonl \
-  --model gemini-2.5-flash \
+  --VENDOR google \
   --max-steps 4 \
-  --output artifacts/llm_frontend_single.jsonl
+  --output artifacts/google_single_trace.jsonl
 ```
 
-Run a small WebQSP subset:
+Example with TAMU:
 
 ```bash
-PYTHONPATH=src python3 -m llm_frontend.run_webqsp_llm \
-  --webqsp datasets/WebQSP \
-  --split test \
-  --triples subKGs/EPR-KGQA/data/dataset/WebQSP/test_simple.jsonl \
-  --limit 5 \
-  --model gemini-2.5-flash \
-  --max-steps 6 \
-  --cache lru \
-  --cache-capacity 512 \
-  --output artifacts/webqsp_test_llm_traces.jsonl
-```
-
-Run the same workflow while relying on the default Gemini provider and model selection:
-
-```bash
-export LLM_PROVIDER=gemini
+export PYTHONPATH=src
 export LLM_API_KEY=...
-export LLM_MODEL=gemini-2.5-flash
 
-PYTHONPATH=src python3 -m llm_frontend.run_webqsp_llm \
-  --provider gemini \
-  --webqsp datasets/WebQSP \
-  --split test \
-  --triples subKGs/EPR-KGQA/data/dataset/WebQSP/test_simple.jsonl \
-  --limit 5 \
-  --model gemini-2.5-flash \
-  --max-steps 6 \
-  --cache lru \
-  --cache-capacity 512 \
-  --output artifacts/webqsp_test_llm_traces_gemini.jsonl
+python -m llm_frontend.run_webqsp_llm \
+  --kg-path datasets/WebQSP_KG \
+  --question "what is the name of justin bieber brother" \
+  --VENDOR tamu \
+  --max-steps 4 \
+  --output artifacts/tamu_single_trace.jsonl
 ```
 
-Use an OpenAI-compatible endpoint instead:
+If you want to override the default model or endpoint:
 
 ```bash
-export LLM_PROVIDER=openai_compatible
-export LLM_API_KEY=...
-export LLM_MODEL=gpt-4.1-mini
-export LLM_BASE_URL=https://api.openai.com/v1
-
-PYTHONPATH=src python3 -m llm_frontend.run_webqsp_llm \
-  --provider openai_compatible \
-  --webqsp datasets/WebQSP \
-  --split test \
-  --triples subKGs/EPR-KGQA/data/dataset/WebQSP/test_simple.jsonl \
-  --limit 5 \
-  --model gpt-4.1-mini \
-  --max-steps 6 \
-  --cache lru \
-  --cache-capacity 512 \
-  --output artifacts/webqsp_test_llm_traces_openai_compatible.jsonl
+python -m llm_frontend.run_webqsp_llm \
+  --kg-path datasets/WebQSP_KG \
+  --question "what is the name of justin bieber brother" \
+  --VENDOR google \
+  --MODEL gemini-2.0-flash \
+  --BASE_URL https://generativelanguage.googleapis.com/v1beta/openai \
+  --API_KEY ... \
+  --output artifacts/google_single_trace.jsonl
 ```
 
-## Trace Format
+## Output
 
-Each JSONL record contains:
+The command prints a short JSON summary to stdout.
+
+If `--output` is set, it also writes one JSONL trace per example. Each trace includes:
 
 - `question_id`
 - `question`
-- `topic_entity`
-- `gold_inferential_chain`
+- `llm_initial_entity`
+- `llm_initial_frontier`
 - `llm_kg_queries`
 - `llm_final_answer`
-- `gold_answers`
 - `num_steps`
 - `stop_reason`
 
-Each `llm_kg_queries` item contains:
+Each `llm_kg_queries` item includes only:
 
 - `step_id`
 - `relation`
 - `direction`
-- `requested_direction`
-- `input_frontier`
+- `resolved_direction`
 - `output_frontier`
-- `raw_model_output`
 
-## Assumptions
+## Notes
 
-- The adapter uses `QueryExecutor.execute_step(...)` for KG hops and preserves its current semantics.
-- `direction` in the model output is treated as a hint; the backend still resolves the actual hop direction automatically and the trace stores that resolved direction.
-- For ad-hoc questions there is no entity linker. The best path is to provide `--topic-entity`. If the starting frontier is empty, the model may still supply `entity` in its first `KG_QUERY`.
+- `--question` and `--webqsp` are mutually exclusive.
+- The adapter uses `UncachedKGBackend` directly. There is no query-result caching in this frontend path.
+- Name-to-id lookup is only used for the initial entity proposal. Later KG traversal does not need name lookup because it already operates on entity ids.
+- If the LLM cannot resolve any initial entity name within `--initial-entity-search-limit` attempts, the run stops with an empty final answer.
