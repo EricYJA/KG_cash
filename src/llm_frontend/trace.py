@@ -26,12 +26,12 @@ def summarize_traces(traces: list[LLMRunTrace]) -> dict[str, object]:
         if evaluated else None
     )
 
-    per_question: dict[str, object] = {}
-    for t in traces:
-        entry: dict[str, object] = {"stop_reason": t.stop_reason}
-        if t.gold_answers:
-            entry["hit"] = bool(set(t.llm_final_answer) & set(t.gold_answers))
-        per_question[t.question_id] = entry
+    # per_question: dict[str, object] = {}
+    # for t in traces:
+    #     entry: dict[str, object] = {"stop_reason": t.stop_reason}
+    #     if t.gold_answers:
+    #         entry["hit"] = bool(set(t.llm_final_answer) & set(t.gold_answers))
+    #     per_question[t.question_id] = entry
 
     summary: dict[str, object] = {
         "examples": len(traces),
@@ -41,6 +41,6 @@ def summarize_traces(traces: list[LLMRunTrace]) -> dict[str, object]:
     }
     if hit1 is not None:
         summary["hit1"] = round(hit1, 4)
-    summary["per_question"] = per_question
+    # summary["per_question"] = per_question
     summary["results"] = [trace.to_dict() for trace in traces]
     return summary

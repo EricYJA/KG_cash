@@ -1,8 +1,9 @@
-"""Backend protocol and uncached adjacency-backed implementation."""
+"""Backend protocol and uncached/cached adjacency-backed implementations."""
 
 from __future__ import annotations
 
-from collections import Counter
+from abc import ABC, abstractmethod
+from collections import Counter, OrderedDict
 from collections.abc import Iterable, Sequence
 from pathlib import Path
 from typing import Protocol
@@ -402,3 +403,242 @@ class UncachedKGBackend:
                 for head_idx in self._index.in_adj[entity_idx][relation_idx]:
                     expansions.append(((head_idx, relation_idx, entity_idx), head_idx))
         return expansions
+
+
+_EntityAdj = dict[str, tuple[str, ...]]
+
+
+class CachePolicy(ABC):
+    """Abstract base for per-entity neighborhood cache replacement policies."""
+
+    def __init__(self, maxsize: int) -> None:
+        self._maxsize = maxsize
+        self._requests: int = 0
+        self._hits: int = 0
+
+    def get(self, key: str) -> _EntityAdj | None:
+        """Return cached adjacency for key (or None on miss), tracking hit/miss stats."""
+        result = self._lookup(key)
+        self._requests += 1
+        if result is not None:
+            self._hits += 1
+        return result
+
+    @abstractmethod
+    def _lookup(self, key: str) -> _EntityAdj | None:
+        """Policy-specific cache lookup; return value or None."""
+
+    @abstractmethod
+    def put(self, key: str, value: _EntityAdj) -> None:
+        """Insert key→value, evicting one entry if the cache is full."""
+
+    @abstractmethod
+    def __len__(self) -> int: ...
+
+    @abstractmethod
+    def clear(self) -> None: ...
+
+    def info(self) -> dict[str, object]:
+        hit_rate = self._hits / self._requests if self._requests > 0 else 0.0
+        return {
+            "size": len(self),
+            "maxsize": self._maxsize,
+            "requests": self._requests,
+            "hits": self._hits,
+            "misses": self._requests - self._hits,
+            "hit_rate": round(hit_rate, 4),
+        }
+
+
+class LRUPolicy(CachePolicy):
+    """Least-recently-used eviction backed by OrderedDict."""
+
+    def __init__(self, maxsize: int) -> None:
+        super().__init__(maxsize)
+        self._cache: OrderedDict[str, _EntityAdj] = OrderedDict()
+
+    def _lookup(self, key: str) -> _EntityAdj | None:
+        if key not in self._cache:
+            return None
+        self._cache.move_to_end(key)
+        return self._cache[key]
+
+    def put(self, key: str, value: _EntityAdj) -> None:
+        if len(self._cache) >= self._maxsize:
+            self._cache.popitem(last=False)
+        self._cache[key] = value
+
+    def __len__(self) -> int:
+        return len(self._cache)
+
+    def clear(self) -> None:
+        self._cache.clear()
+
+
+class LFUPolicy(CachePolicy):
+    """Least-frequently-used eviction. Ties broken by insertion order."""
+
+    def __init__(self, maxsize: int) -> None:
+        super().__init__(maxsize)
+        self._cache: dict[str, _EntityAdj] = {}
+        self._freq: Counter[str] = Counter()
+
+    def _lookup(self, key: str) -> _EntityAdj | None:
+        if key not in self._cache:
+            return None
+        self._freq[key] += 1
+        return self._cache[key]
+
+    def put(self, key: str, value: _EntityAdj) -> None:
+        if len(self._cache) >= self._maxsize:
+            lfu_key = min(self._freq, key=lambda k: self._freq[k])
+            del self._cache[lfu_key]
+            del self._freq[lfu_key]
+        self._cache[key] = value
+        self._freq[key] = 1
+
+    def __len__(self) -> int:
+        return len(self._cache)
+
+    def clear(self) -> None:
+        self._cache.clear()
+        self._freq.clear()
+
+
+class OraclePolicy(CachePolicy):
+    """Pre-populated, frozen cache. Top-K entities are loaded upfront; no changes at runtime."""
+
+    def __init__(self, preloaded: dict[str, _EntityAdj]) -> None:
+        super().__init__(maxsize=len(preloaded))
+        self._cache: dict[str, _EntityAdj] = preloaded
+
+    @classmethod
+    def from_index(
+        cls,
+        index: AdjacencyIndex,
+        entity_ids: list[str],
+        maxsize: int,
+    ) -> OraclePolicy:
+        """Build adjacency for up to maxsize entities from the KG index."""
+        preloaded: dict[str, _EntityAdj] = {}
+        for entity_id in entity_ids:
+            if len(preloaded) >= maxsize:
+                break
+            try:
+                entity_idx = index.entity_id_to_idx[entity_id]
+            except KeyError:
+                continue
+            preloaded[entity_id] = {
+                index.relation_ids[relation_idx]: tuple(
+                    index.entity_ids[tail_idx] for tail_idx in tail_indices
+                )
+                for relation_idx, tail_indices in index.out_adj[entity_idx].items()
+            }
+        return cls(preloaded)
+
+    def _lookup(self, key: str) -> _EntityAdj | None:
+        return self._cache.get(key)
+
+    def put(self, key: str, value: _EntityAdj) -> None:
+        pass  # frozen: no new entries at runtime
+
+    def __len__(self) -> int:
+        return len(self._cache)
+
+    def clear(self) -> None:
+        self._cache.clear()
+
+
+class CachedKGBackend(UncachedKGBackend):
+    """KG backend with a pluggable per-entity cache over outgoing adjacency."""
+
+    def __init__(
+        self,
+        index: AdjacencyIndex,
+        data_path: str | Path,
+        policy: CachePolicy,
+    ) -> None:
+        super().__init__(index, data_path)
+        self._policy = policy
+
+    @classmethod
+    def from_data_path(  # type: ignore[override]
+        cls,
+        data_path: str | Path,
+        policy: CachePolicy,
+    ) -> CachedKGBackend:
+        graph_data = load_graph_data(data_path)
+        index = build_adjacency_index(graph_data)
+        return cls(index=index, data_path=data_path, policy=policy)
+
+    @classmethod
+    def with_oracle_policy(
+        cls,
+        data_path: str | Path,
+        top_entity_ids: list[str],
+        cache_size: int,
+    ) -> CachedKGBackend:
+        """Load the KG once and pre-populate an Oracle policy with top-frequency entities."""
+        graph_data = load_graph_data(data_path)
+        index = build_adjacency_index(graph_data)
+        policy = OraclePolicy.from_index(index, top_entity_ids, cache_size)
+        return cls(index=index, data_path=data_path, policy=policy)
+
+    def _get_entity_adjacency(self, entity_id: str) -> _EntityAdj:
+        """Return outgoing adjacency for one entity, consulting the cache first."""
+        cached = self._policy.get(entity_id)
+        if cached is not None:
+            return cached
+
+        try:
+            entity_idx = self._index.entity_id_to_idx[entity_id]
+        except KeyError:
+            return {}
+
+        adjacency: _EntityAdj = {
+            self._index.relation_ids[relation_idx]: tuple(
+                self._index.entity_ids[tail_idx]
+                for tail_idx in tail_indices
+            )
+            for relation_idx, tail_indices in self._index.out_adj[entity_idx].items()
+        }
+        self._policy.put(entity_id, adjacency)
+        return adjacency
+
+    def get_neighborhood(
+        self,
+        entity_ids: list[str],
+        *,
+        excluded_relations: frozenset[str] = frozenset(),
+        scan_limit: int = 12,
+        max_relations: int = 12,
+        max_neighbors_per_relation: int = 5,
+    ) -> list[tuple[str, list[str]]]:
+        scan_entities = entity_ids[:scan_limit]
+
+        entity_adjacencies = {
+            entity_id: self._get_entity_adjacency(entity_id)
+            for entity_id in scan_entities
+        }
+
+        relation_counts: Counter[str] = Counter()
+        for adjacency in entity_adjacencies.values():
+            for relation_id in adjacency:
+                if relation_id not in excluded_relations:
+                    relation_counts[relation_id] += 1
+
+        result: list[tuple[str, list[str]]] = []
+        for relation_id, _ in relation_counts.most_common(max_relations):
+            neighbors: set[str] = set()
+            for adjacency in entity_adjacencies.values():
+                neighbors.update(adjacency.get(relation_id, ()))
+            capped = sorted(neighbors)[:max_neighbors_per_relation]
+            if capped:
+                result.append((relation_id, capped))
+        return result
+
+    def cache_info(self) -> dict[str, object]:
+        return self._policy.info()
+
+    def cache_clear(self) -> None:
+        self._policy.clear()
