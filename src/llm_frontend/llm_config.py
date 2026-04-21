@@ -38,7 +38,8 @@ LLM_PRESET_CONFIGS: dict[str, LLMPresetConfig] = {
     ),
     "google": LLMPresetConfig(
         vendor="google",
-        default_model="gemini-2.0-flash",
+        # default_model="gemini-2.5-flash",
+        default_model="gemini-3-flash-preview",
         default_base_url="https://generativelanguage.googleapis.com/v1beta/openai",
     ),
     "tamu": LLMPresetConfig(

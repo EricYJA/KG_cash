@@ -17,4 +17,6 @@ class LLMFrontendConfig:
     repeat_query_limit: int = 2
     repeat_frontier_limit: int = 3
     fallback_answer_limit: int = 10
-    request_timeout_s: float = 60.0
+    request_timeout_s: float = 120.0
+    max_neighbors_per_relation: int = 5
+    max_explore_entities: int = 5

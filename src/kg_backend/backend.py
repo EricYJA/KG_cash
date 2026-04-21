@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections import Counter
 from collections.abc import Iterable, Sequence
 from pathlib import Path
 from typing import Protocol
@@ -299,6 +300,53 @@ class UncachedKGBackend:
             ).model_dump(mode="python")
         message = f"Unsupported query type: {type(query)!r}"
         raise TypeError(message)
+
+    def get_neighborhood(
+        self,
+        entity_ids: list[str],
+        *,
+        excluded_relations: frozenset[str] = frozenset(),
+        scan_limit: int = 12,
+        max_relations: int = 12,
+        max_neighbors_per_relation: int = 5,
+    ) -> list[tuple[str, list[str]]]:
+        """Return top outgoing (relation, [neighbors]) pairs for a set of entities."""
+        scan_entities = entity_ids[:scan_limit]
+
+        relation_counts: Counter[int] = Counter()
+        for entity_id in scan_entities:
+            try:
+                entity_idx = self._index.entity_id_to_idx[entity_id]
+            except KeyError:
+                continue
+            for relation_idx in self._index.out_adj[entity_idx]:
+                relation_id = self._index.relation_ids[relation_idx]
+                if relation_id not in excluded_relations:
+                    relation_counts[relation_idx] += 1
+
+        result: list[tuple[str, list[str]]] = []
+        for relation_idx, _ in relation_counts.most_common(max_relations):
+            neighbors: set[str] = set()
+            for entity_id in scan_entities:
+                try:
+                    entity_idx = self._index.entity_id_to_idx[entity_id]
+                except KeyError:
+                    continue
+                for tail_idx in self._index.out_adj[entity_idx].get(relation_idx, ()):
+                    neighbors.add(self._index.entity_ids[tail_idx])
+            capped = sorted(neighbors)[:max_neighbors_per_relation]
+            if capped:
+                result.append((self._index.relation_ids[relation_idx], capped))
+        return result
+
+    def get_entity_label(self, entity_id: str) -> str | None:
+        return self._index.entity_labels.get(entity_id)
+
+    def is_cvt_node(self, entity_id: str) -> bool:
+        if not (entity_id.startswith("m.") or entity_id.startswith("g.")):
+            return False
+        label = self._index.entity_labels.get(entity_id)
+        return label is None or label == entity_id
 
     def stats(self) -> GraphStats:
         """Return immutable backend statistics."""

@@ -13,3 +13,4 @@ __pycache__
 venv
 .venv
 characterization/data
+api_key.sh

@@ -16,6 +16,14 @@ from .schemas import (
     unique_strings,
 )
 
+_METADATA_RELATIONS = frozenset({
+    "type.object.type",
+    "type.object.name",
+    "common.topic.alias",
+    "common.topic.description",
+    "common.topic.image",
+})
+
 
 class KGBackendAdapter:
     """Thin llm_frontend adapter over the uncached KG backend."""
@@ -34,6 +42,13 @@ class KGBackendAdapter:
 
     def stats(self) -> GraphStats:
         return self.backend.stats()
+
+    def get_entity_labels(self, entity_ids: list[str]) -> dict[str, str]:
+        return {
+            eid: label
+            for eid in entity_ids
+            if (label := self.backend.get_entity_label(eid))
+        }
 
     def resolve_initial_frontier(self, seed_text: str | None) -> list[str]:
         if not seed_text:
@@ -66,9 +81,11 @@ class KGBackendAdapter:
         for entity_id in scan_entities:
             try:
                 for relation_id in self.backend.get_out_relations(entity_id):
-                    forward_counts[relation_id] += 1
+                    if relation_id not in _METADATA_RELATIONS:
+                        forward_counts[relation_id] += 1
                 for relation_id in self.backend.get_in_relations(entity_id):
-                    backward_counts[relation_id] += 1
+                    if relation_id not in _METADATA_RELATIONS:
+                        backward_counts[relation_id] += 1
             except EntityNotFoundError:
                 continue
 
@@ -88,6 +105,15 @@ class KGBackendAdapter:
                     self.config.max_relation_candidates
                 )
             ],
+        )
+
+    def get_neighborhood(self, frontier: list[str]) -> list[tuple[str, list[str]]]:
+        return self.backend.get_neighborhood(
+            unique_strings(frontier),
+            excluded_relations=_METADATA_RELATIONS,
+            scan_limit=self.config.relation_scan_limit,
+            max_relations=self.config.max_relation_candidates,
+            max_neighbors_per_relation=self.config.max_neighbors_per_relation,
         )
 
     def execute_query(

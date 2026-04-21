@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-VALID_ACTIONS = frozenset({"INITIAL_ENTITY", "KG_QUERY", "FINAL_ANSWER"})
+VALID_ACTIONS = frozenset({"INITIAL_ENTITY", "KG_QUERY", "FINAL_ANSWER", "EXPLORE"})
 VALID_DIRECTIONS = frozenset({"auto", "forward", "backward"})
 
 
@@ -60,7 +60,6 @@ class KGQueryAction:
     action: str
     relation: str
     direction: str = "auto"
-    frontier: str = "CURRENT_FRONTIER"
     reason: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
@@ -68,7 +67,6 @@ class KGQueryAction:
             "action": self.action,
             "relation": self.relation,
             "direction": self.direction,
-            "frontier": self.frontier,
             "reason": self.reason,
         }
 
@@ -87,7 +85,27 @@ class FinalAnswerAction:
         }
 
 
-PlannerAction = InitialEntityAction | KGQueryAction | FinalAnswerAction
+@dataclass(frozen=True)
+class ExploreAction:
+    action: str
+    entity: str
+    reason: str | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {"action": self.action, "entity": self.entity, "reason": self.reason}
+
+
+@dataclass(frozen=True)
+class ExploreMultiAction:
+    action: str
+    entities: list[str]
+    reason: str | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {"action": self.action, "entities": self.entities, "reason": self.reason}
+
+
+PlannerAction = InitialEntityAction | KGQueryAction | FinalAnswerAction | ExploreAction
 
 
 @dataclass(frozen=True)
@@ -143,6 +161,7 @@ class LLMRunTrace:
     llm_final_answer: list[str]
     num_steps: int
     stop_reason: str
+    gold_answers: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -154,49 +173,104 @@ class LLMRunTrace:
             "llm_final_answer": self.llm_final_answer,
             "num_steps": self.num_steps,
             "stop_reason": self.stop_reason,
+            "gold_answers": self.gold_answers,
         }
+
+
+def parse_initial_entity_action(payload: dict[str, Any]) -> InitialEntityAction:
+    action = str(payload.get("action", "")).strip().upper()
+    if action != "INITIAL_ENTITY":
+        raise ValueError(f"Expected INITIAL_ENTITY, got: {action or '<missing>'}")
+    entity = str(payload.get("entity", "")).strip()
+    if not entity:
+        raise ValueError("INITIAL_ENTITY requires a non-empty entity")
+    return InitialEntityAction(
+        action="INITIAL_ENTITY",
+        entity=entity,
+        reason=str(payload.get("reason", "")).strip() or None,
+    )
+
+
+def parse_relation_selection_action(payload: dict[str, Any]) -> KGQueryAction:
+    action = str(payload.get("action", "")).strip().upper()
+    if action != "KG_QUERY":
+        raise ValueError(f"Expected KG_QUERY, got: {action or '<missing>'}")
+    relation = str(payload.get("relation", "")).strip()
+    if not relation:
+        raise ValueError("KG_QUERY requires a non-empty relation")
+    return KGQueryAction(
+        action="KG_QUERY",
+        relation=relation,
+        direction=normalize_direction(payload.get("direction", "auto")),
+        reason=str(payload.get("reason", "")).strip() or None,
+    )
+
+
+def parse_entity_evaluation_action(
+    payload: dict[str, Any],
+) -> FinalAnswerAction | ExploreAction:
+    action = str(payload.get("action", "")).strip().upper()
+    if action == "FINAL_ANSWER":
+        answers_value = payload.get("answers") or []
+        if isinstance(answers_value, str):
+            answers_value = [answers_value]
+        if not isinstance(answers_value, list):
+            raise ValueError("FINAL_ANSWER requires a list of answers")
+        return FinalAnswerAction(
+            action="FINAL_ANSWER",
+            answers=unique_strings([str(a) for a in answers_value]),
+            reason=str(payload.get("reason", "")).strip() or None,
+        )
+    if action == "EXPLORE":
+        entity = str(payload.get("entity", "")).strip()
+        if not entity:
+            raise ValueError("EXPLORE requires a non-empty entity")
+        return ExploreAction(
+            action="EXPLORE",
+            entity=entity,
+            reason=str(payload.get("reason", "")).strip() or None,
+        )
+    raise ValueError(f"Expected FINAL_ANSWER or EXPLORE, got: {action or '<missing>'}")
+
+
+def parse_direct_action(
+    payload: dict[str, Any],
+) -> FinalAnswerAction | ExploreMultiAction:
+    action = str(payload.get("action", "")).strip().upper()
+    if action == "FINAL_ANSWER":
+        answers_value = payload.get("answers") or []
+        if isinstance(answers_value, str):
+            answers_value = [answers_value]
+        if not isinstance(answers_value, list):
+            raise ValueError("FINAL_ANSWER requires a list of answers")
+        return FinalAnswerAction(
+            action="FINAL_ANSWER",
+            answers=unique_strings([str(a) for a in answers_value]),
+            reason=str(payload.get("reason", "")).strip() or None,
+        )
+    if action == "EXPLORE":
+        entities_value = payload.get("entities") or []
+        if isinstance(entities_value, str):
+            entities_value = [entities_value]
+        if not isinstance(entities_value, list):
+            raise ValueError("EXPLORE requires a list of entities")
+        entities = unique_strings([str(e) for e in entities_value])
+        if not entities:
+            raise ValueError("EXPLORE requires at least one entity")
+        return ExploreMultiAction(
+            action="EXPLORE",
+            entities=entities,
+            reason=str(payload.get("reason", "")).strip() or None,
+        )
+    raise ValueError(f"Expected FINAL_ANSWER or EXPLORE, got: {action or '<missing>'}")
 
 
 def parse_planner_action(payload: dict[str, Any]) -> PlannerAction:
     action = str(payload.get("action", "")).strip().upper()
     if action not in VALID_ACTIONS:
         raise ValueError(f"Unsupported action: {action or '<missing>'}")
-
     if action == "INITIAL_ENTITY":
-        entity = str(payload.get("entity", "")).strip()
-        if not entity:
-            raise ValueError("INITIAL_ENTITY requires a non-empty entity")
-        return InitialEntityAction(
-            action="INITIAL_ENTITY",
-            entity=entity,
-            reason=str(payload.get("reason", "")).strip() or None,
-        )
-
+        return parse_initial_entity_action(payload)
     if action == "KG_QUERY":
-        relation = str(payload.get("relation", "")).strip()
-        if not relation:
-            raise ValueError("KG_QUERY requires a non-empty relation")
-        frontier = (
-            str(payload.get("frontier", "CURRENT_FRONTIER")).strip()
-            or "CURRENT_FRONTIER"
-        )
-        if frontier != "CURRENT_FRONTIER":
-            raise ValueError("Only frontier='CURRENT_FRONTIER' is supported")
-        return KGQueryAction(
-            action="KG_QUERY",
-            relation=relation,
-            direction=normalize_direction(payload.get("direction", "auto")),
-            frontier="CURRENT_FRONTIER",
-            reason=str(payload.get("reason", "")).strip() or None,
-        )
-
-    answers_value = payload.get("answers") or []
-    if isinstance(answers_value, str):
-        answers_value = [answers_value]
-    if not isinstance(answers_value, list):
-        raise ValueError("FINAL_ANSWER requires a list of answers")
-    return FinalAnswerAction(
-        action="FINAL_ANSWER",
-        answers=unique_strings([str(answer) for answer in answers_value]),
-        reason=str(payload.get("reason", "")).strip() or None,
-    )
+        return parse_relation_selection_action(payload)
+    return parse_entity_evaluation_action(payload)

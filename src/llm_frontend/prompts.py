@@ -9,78 +9,142 @@ def _format_list(values: list[str]) -> str:
     return ", ".join(values) if values else "(none)"
 
 
-def build_system_prompt(config: LLMFrontendConfig) -> str:
+def _format_entities_with_labels(
+    entity_ids: list[str], labels: dict[str, str]
+) -> str:
+    parts = []
+    for eid in entity_ids:
+        label = labels.get(eid)
+        parts.append(f"{eid} ({label})" if label else eid)
+    return ", ".join(parts) if parts else "(none)"
+
+
+# ---------------------------------------------------------------------------
+# Initial entity phase
+# ---------------------------------------------------------------------------
+
+def build_initial_entity_system_prompt(config: LLMFrontendConfig) -> str:
     return (
         "Return exactly one JSON object and nothing else. "
-        'Allowed outputs: {"action":"INITIAL_ENTITY","entity":"...","reason":"short"} '
-        'or {"action":"KG_QUERY","relation":"...","direction":"auto|forward|backward",'
-        '"frontier":"CURRENT_FRONTIER","reason":"short"} '
-        'or {"action":"FINAL_ANSWER","answers":["..."],"reason":"short"}. '
-        "Use INITIAL_ENTITY when there is no current frontier yet. "
-        "INITIAL_ENTITY should propose a human-readable entity name or an exact KG id. "
-        "Use KG_QUERY for one more KG hop. Use FINAL_ANSWER when the current frontier is enough. "
-        "Only frontier CURRENT_FRONTIER is allowed. Keep reason short. "
-        f"At most {config.initial_entity_search_limit} initial-entity attempts are allowed. "
-        f"At most {config.max_steps} KG queries are allowed."
+        'Return: {"action":"INITIAL_ENTITY","entity":"...","reason":"..."} '
+        "Propose a human-readable entity name or an exact KG id to start the search. "
+        "reason: one short phrase explaining why this entity is the main topic of the question."
     )
 
 
-def build_user_prompt(
+def build_initial_entity_prompt(
     example: QuestionExample,
     memory: PlannerMemory,
+) -> str:
+    prompt = f"Question: {example.question}\n"
+    if memory.failed_initial_entities:
+        failed = ", ".join(memory.failed_initial_entities)
+        prompt += (
+            f"Previously tried entities not found in the KG: {failed}\n"
+            "Try a different spelling, a more common name, or a related entity.\n"
+        )
+    prompt += "Identify the main topic entity in the question."
+    return prompt
+
+
+# ---------------------------------------------------------------------------
+# Phase 1: Relation selection
+# ---------------------------------------------------------------------------
+
+def build_relation_selection_system_prompt() -> str:
+    return (
+        "Return exactly one JSON object and nothing else. "
+        'Return: {"action":"KG_QUERY","relation":"...","direction":"auto|forward|backward","reason":"..."} '
+        "Pick the single most relevant relation to follow to answer the question. "
+        "You MUST use a relation name exactly as it appears in the forward or backward relations list. Do not invent or modify relation names. "
+        'direction "auto" tries forward first then backward. '
+        "reason: one short phrase explaining why this relation leads toward the answer."
+    )
+
+
+def build_relation_selection_prompt(
+    example: QuestionExample,
+    memory: PlannerMemory,
+    frontier: list[str],
+    frontier_labels: dict[str, str],
     observation: FrontierObservation,
 ) -> str:
-    if observation.frontier_size == 0:
-        return (
-            f"Question: {example.question}\n"
-            "Current frontier: (empty)\n"
-            f"Failed initial entity attempts: {memory.format_failed_initial_entities()}\n"
-            f"History: {memory.format_history()}\n"
-            "Choose INITIAL_ENTITY now using a human-readable entity name or an exact KG id. "
-            "If a prior attempt failed, choose a different or more precise name."
-        )
-
     return (
         f"Question: {example.question}\n"
-        f"Frontier size: {observation.frontier_size}\n"
-        f"Frontier sample: {_format_list(observation.sample_entities)}\n"
+        f"Current frontier ({observation.frontier_size} entities): "
+        f"{_format_entities_with_labels(observation.sample_entities, frontier_labels)}\n"
         f"Forward relations: {_format_list(observation.forward_relations)}\n"
         f"Backward relations: {_format_list(observation.backward_relations)}\n"
         f"History: {memory.format_history()}\n"
-        "Choose the next action now."
+        "Pick the best relation to follow next."
     )
 
 
-def build_compact_user_prompt(
+# ---------------------------------------------------------------------------
+# Phase 2: Entity evaluation
+# ---------------------------------------------------------------------------
+
+def build_entity_evaluation_system_prompt(config: LLMFrontendConfig) -> str:
+    return (
+        "Return exactly one JSON object and nothing else. "
+        'If the listed entities answer the question, return: {"action":"FINAL_ANSWER","answers":["entity_id"],"reason":"..."} '
+        "Use entity IDs from the list as answers. "
+        "reason: one short phrase explaining why these entities answer the question. "
+        'If these entities do not yet answer the question, return: {"action":"EXPLORE","entity":"entity_id","reason":"..."} '
+        "Pick the single most promising entity ID from the list to continue exploring. "
+        "reason: one short phrase explaining why this entity is worth exploring further. "
+        "You MUST use entity IDs exactly as they appear in the destination entities list. Do not invent or modify entity IDs."
+    )
+
+
+def build_entity_evaluation_prompt(
     example: QuestionExample,
     memory: PlannerMemory,
-    observation: FrontierObservation,
+    destination_entities: list[str],
+    destination_labels: dict[str, str],
 ) -> str:
-    """Build a minimal fallback planner prompt for brittle chat endpoints."""
-
-    forward_relations = observation.forward_relations[:6]
-    backward_relations = observation.backward_relations[:6]
-    history = memory.format_history()
-    if history == "No prior KG queries.":
-        history = "none"
-
-    if observation.frontier_size == 0:
-        return (
-            "JSON only. "
-            'Return {"action":"INITIAL_ENTITY","entity":"name_or_id","reason":"short"}. '
-            f"Failed={memory.format_failed_initial_entities()} "
-            f"Q={example.question} "
-            f"Hist={history}"
-        )
-
+    last_relation = memory.turns[-1].relation if memory.turns else "unknown"
     return (
-        "JSON only. "
-        'Either return {"action":"KG_QUERY","relation":"REL","direction":"auto|forward|backward",'
-        '"frontier":"CURRENT_FRONTIER","reason":"short"} '
-        'or {"action":"FINAL_ANSWER","answers":["ID"],"reason":"short"}. '
-        f"Q={example.question} "
-        f"Frontier={_format_list(observation.sample_entities[:4])} "
-        f"Fwd={_format_list(forward_relations)} "
-        f"Back={_format_list(backward_relations)} "
-        f"Hist={history}"
+        f"Question: {example.question}\n"
+        f'After following relation "{last_relation}", the destination entities are:\n'
+        f"{_format_entities_with_labels(destination_entities, destination_labels)}\n"
+        f"History: {memory.format_history()}\n"
+        "Do these entities answer the question? "
+        "Return FINAL_ANSWER with the answer entity IDs, or EXPLORE with the top most promising entity ID to keep searching."
     )
+
+
+# ---------------------------------------------------------------------------
+# Direct controller: single-phase (relation + entity combined)
+# ---------------------------------------------------------------------------
+
+def build_direct_system_prompt(max_explore: int = 3) -> str:
+    return (
+        "Return exactly one JSON object and nothing else. "
+        'If any of the listed entities answer the question, return: {"action":"FINAL_ANSWER","answers":["entity_id1",...],"reason":"..."} '
+        f'Otherwise return: {{"action":"EXPLORE","entities":["entity_id1",...],"reason":"..."}} '
+        f"Include up to {max_explore} most promising entity IDs — pick more than one if genuinely useful, but no more than {max_explore}. "
+        "You MUST use entity IDs exactly as they appear in the neighborhood list. Do not invent or modify entity IDs. "
+        "reason: one short phrase."
+    )
+
+
+def build_direct_prompt(
+    example: QuestionExample,
+    memory: PlannerMemory,
+    frontier: list[str],
+    frontier_labels: dict[str, str],
+    neighborhood: list[tuple[str, list[str]]],
+    neighbor_labels: dict[str, str],
+) -> str:
+    lines = [
+        f"Question: {example.question}",
+        f"Current entities: {_format_entities_with_labels(frontier, frontier_labels)}",
+        "Neighborhood (relation → destination entities):",
+    ]
+    for relation, neighbors in neighborhood:
+        neighbor_str = _format_entities_with_labels(neighbors, neighbor_labels)
+        lines.append(f"  {relation} → {neighbor_str}")
+    lines.append(f"History: {memory.format_history()}")
+    lines.append("Pick the best next entity to explore, or give the final answer.")
+    return "\n".join(lines)

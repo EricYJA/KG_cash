@@ -6,13 +6,32 @@ import json
 from .config import LLMFrontendConfig
 from .llm_client import ChatMessage, LLMClient
 from .memory import PlannerMemory
-from .prompts import build_compact_user_prompt, build_system_prompt, build_user_prompt
-from .schemas import (
-    FrontierObservation,
-    PlannerAction,
-    QuestionExample,
-    parse_planner_action,
+from .prompts import (
+    build_direct_prompt,
+    build_direct_system_prompt,
+    build_entity_evaluation_prompt,
+    build_entity_evaluation_system_prompt,
+    build_initial_entity_prompt,
+    build_initial_entity_system_prompt,
+    build_relation_selection_prompt,
+    build_relation_selection_system_prompt,
 )
+
+from .schemas import (
+    ExploreAction,
+    ExploreMultiAction,
+    FinalAnswerAction,
+    FrontierObservation,
+    InitialEntityAction,
+    KGQueryAction,
+    QuestionExample,
+    parse_direct_action,
+    parse_entity_evaluation_action,
+    parse_initial_entity_action,
+    parse_relation_selection_action,
+)
+
+PhasedAction = InitialEntityAction | KGQueryAction | FinalAnswerAction | ExploreAction
 
 
 def _strip_markdown_fences(text: str) -> str:
@@ -29,7 +48,7 @@ def _strip_markdown_fences(text: str) -> str:
 
 @dataclass(frozen=True)
 class PlannerDecision:
-    action: PlannerAction | None
+    action: PhasedAction | None
     raw_output: str
     error: str | None = None
 
@@ -39,50 +58,105 @@ class LLMPlanner:
         self.client = client
         self.config = config
 
-    def plan_next(
+    def select_initial_entity(
         self,
         example: QuestionExample,
         memory: PlannerMemory,
+    ) -> PlannerDecision:
+        messages = [
+            ChatMessage(
+                role="system",
+                content=build_initial_entity_system_prompt(self.config),
+            ),
+            ChatMessage(
+                role="user",
+                content=build_initial_entity_prompt(example, memory),
+            ),
+        ]
+        raw_output = self._call(messages)
+        if isinstance(raw_output, RuntimeError):
+            return PlannerDecision(action=None, raw_output=str(raw_output), error=str(raw_output))
+        return self._parse(raw_output, parse_initial_entity_action)
+
+    def select_relation(
+        self,
+        example: QuestionExample,
+        memory: PlannerMemory,
+        frontier: list[str],
+        frontier_labels: dict[str, str],
         observation: FrontierObservation,
     ) -> PlannerDecision:
         messages = [
-            ChatMessage(role="system", content=build_system_prompt(self.config)),
+            ChatMessage(
+                role="system",
+                content=build_relation_selection_system_prompt(),
+            ),
             ChatMessage(
                 role="user",
-                content=build_user_prompt(
-                    example=example, memory=memory, observation=observation
+                content=build_relation_selection_prompt(
+                    example, memory, frontier, frontier_labels, observation
                 ),
             ),
         ]
-        try:
-            raw_output = self.client.complete_json(
-                messages, temperature=self.config.temperature
-            )
-        except RuntimeError as exc:
-            if not _is_retryable_server_error(exc):
-                return PlannerDecision(action=None, raw_output=str(exc), error=str(exc))
+        raw_output = self._call(messages)
+        if isinstance(raw_output, RuntimeError):
+            return PlannerDecision(action=None, raw_output=str(raw_output), error=str(raw_output))
+        return self._parse(raw_output, parse_relation_selection_action)
 
-            fallback_messages = [
-                ChatMessage(
-                    role="user",
-                    content=build_compact_user_prompt(
-                        example=example,
-                        memory=memory,
-                        observation=observation,
-                    ),
-                )
-            ]
-            try:
-                raw_output = self.client.complete_json(
-                    fallback_messages,
-                    temperature=self.config.temperature,
-                )
-            except RuntimeError as fallback_exc:
-                return PlannerDecision(
-                    action=None,
-                    raw_output=str(fallback_exc),
-                    error=str(fallback_exc),
-                )
+    def evaluate_entities(
+        self,
+        example: QuestionExample,
+        memory: PlannerMemory,
+        destination_entities: list[str],
+        destination_labels: dict[str, str],
+    ) -> PlannerDecision:
+        messages = [
+            ChatMessage(
+                role="system",
+                content=build_entity_evaluation_system_prompt(self.config),
+            ),
+            ChatMessage(
+                role="user",
+                content=build_entity_evaluation_prompt(
+                    example, memory, destination_entities, destination_labels
+                ),
+            ),
+        ]
+        raw_output = self._call(messages)
+        if isinstance(raw_output, RuntimeError):
+            return PlannerDecision(action=None, raw_output=str(raw_output), error=str(raw_output))
+        return self._parse(raw_output, parse_entity_evaluation_action)
+
+    def select_next_entity(
+        self,
+        example: QuestionExample,
+        memory: PlannerMemory,
+        frontier: list[str],
+        frontier_labels: dict[str, str],
+        neighborhood: list[tuple[str, list[str]]],
+        neighbor_labels: dict[str, str],
+    ) -> PlannerDecision:
+        messages = [
+            ChatMessage(role="system", content=build_direct_system_prompt(self.config.max_explore_entities)),
+            ChatMessage(
+                role="user",
+                content=build_direct_prompt(
+                    example, memory, frontier, frontier_labels, neighborhood, neighbor_labels
+                ),
+            ),
+        ]
+        raw_output = self._call(messages)
+        if isinstance(raw_output, RuntimeError):
+            return PlannerDecision(action=None, raw_output=str(raw_output), error=str(raw_output))
+        return self._parse(raw_output, parse_direct_action)
+
+    def _call(self, messages: list[ChatMessage]) -> str | RuntimeError:
+        try:
+            return self.client.complete_json(messages, temperature=self.config.temperature)
+        except RuntimeError as exc:
+            return exc
+
+    def _parse(self, raw_output: str, parser) -> PlannerDecision:
         cleaned = _strip_markdown_fences(raw_output)
         try:
             payload = json.loads(cleaned)
@@ -93,12 +167,8 @@ class LLMPlanner:
                 error=f"Invalid JSON output: {exc.msg}",
             )
         try:
-            action = parse_planner_action(payload)
+            action = parser(payload)
         except ValueError as exc:
             return PlannerDecision(action=None, raw_output=raw_output, error=str(exc))
         return PlannerDecision(action=action, raw_output=raw_output)
 
-
-def _is_retryable_server_error(exc: RuntimeError) -> bool:
-    text = str(exc)
-    return any(f"HTTP {status_code}" in text for status_code in (500, 502, 503, 504))

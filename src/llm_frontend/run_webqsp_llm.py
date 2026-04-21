@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from pathlib import Path
 
 from .backend_adapter import KGBackendAdapter
 from .config import LLMFrontendConfig
 from .controller import IterativeKGController
+from .controller_direct import DirectKGController
 from .llm_config import (
     DEFAULT_LLM_VENDOR,
     LLM_API_KEY_ENV,
@@ -29,7 +31,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--triples",
         dest="kg_path",
         type=Path,
-        required=True,
+        default=Path("datasets/WebQSP_KG"),
         help="KG directory or triples file for kg_backend.",
     )
     parser.add_argument(
@@ -37,10 +39,18 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--question-id", type=str, default="manual-0")
     parser.add_argument(
-        "--webqsp", type=Path, default=None, help="WebQSP file or dataset directory."
+        "--webqsp", type=Path, default="datasets/WebQSP", help="WebQSP file or dataset directory."
     )
     parser.add_argument("--split", choices=["train", "test"], default="train")
-    parser.add_argument("--limit", type=int, default=None)
+    parser.add_argument("--limit", type=int, default=10)
+    parser.add_argument(
+        "--question-ids",
+        nargs="+",
+        # default=["WebQTrn-0"],
+        default=None,
+        dest="question_ids",
+        help="Run only these specific question IDs (e.g. WebQTrn-0 WebQTrn-5).",
+    )
     parser.add_argument(
         "--output", type=Path, default=None, help="Output JSONL for LLM traces."
     )
@@ -84,6 +94,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--max-steps", type=int, default=6)
     parser.add_argument("--temperature", type=float, default=0.0)
+    parser.add_argument(
+        "--controller",
+        choices=["iterative", "direct"],
+        default="direct",
+        help="iterative=two-phase (relation then entity); direct=single-phase (entity from neighborhood).",
+    )
     return parser
 
 
@@ -98,7 +114,11 @@ def _load_examples(args: argparse.Namespace) -> list[QuestionExample]:
         ]
     if args.webqsp is None:
         raise SystemExit("Provide either --question or --webqsp.")
-    return load_webqsp_examples(args.webqsp, split=args.split, limit=args.limit)
+    examples = load_webqsp_examples(args.webqsp, split=args.split, limit=args.limit)
+    if args.question_ids:
+        ids = set(args.question_ids)
+        examples = [e for e in examples if e.question_id in ids]
+    return examples
 
 
 def main() -> None:
@@ -126,10 +146,25 @@ def main() -> None:
         data_path=args.kg_path,
         config=config,
     )
-    controller = IterativeKGController(planner=planner, backend=backend, config=config)
+    if args.controller == "direct":
+        controller = DirectKGController(planner=planner, backend=backend, config=config)
+    else:
+        controller = IterativeKGController(planner=planner, backend=backend, config=config)
 
     examples = _load_examples(args)
-    traces = [controller.run(example) for example in examples]
+    traces = []
+    for i, example in enumerate(examples, 1):
+        print(f"[{i}/{len(examples)}] Running {example.question_id}: {example.question}")
+        trace = controller.run(example)
+        traces.append(trace)
+        has_answer = bool(trace.llm_final_answer)
+        hit = (
+            bool(set(trace.llm_final_answer) & set(trace.gold_answers))
+            if trace.gold_answers else None
+        )
+        hit_str = f"  hit1={'YES' if hit else 'NO'}" if hit is not None else ""
+        answer_str = f"  answer={trace.llm_final_answer}" if has_answer else "  no answer"
+        print(f"         stop={trace.stop_reason}{answer_str}{hit_str}")
 
     if args.output is not None:
         write_trace_jsonl(args.output, traces)
