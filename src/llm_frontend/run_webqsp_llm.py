@@ -20,7 +20,7 @@ from .llm_config import (
 from .llm_client import LLMChatClient
 from .planner import LLMPlanner
 from .schemas import QuestionExample
-from .trace import summarize_traces, write_trace_jsonl
+from .trace import summarize_traces
 from .webqsp_loader import load_webqsp_examples
 
 
@@ -156,20 +156,23 @@ def main() -> None:
 
     examples = _load_examples(args)
     traces = []
-    for i, example in enumerate(examples):
-        print(f"[{i+1}/{len(examples)}] Running {example.question_id}: {example.question}")
-        trace = controller.run(example)
-        traces.append(trace)
-        has_answer = bool(trace.llm_final_answer)
-        hit = (
-            bool(set(trace.llm_final_answer) & set(trace.gold_answers))
-            if trace.gold_answers else None
-        )
-        hit_str = f"  hit1={'YES' if hit else 'NO'}" if hit is not None else ""
-        answer_str = f"  answer={trace.llm_final_answer}" if has_answer else "  no answer"
-        print(f"         stop={trace.stop_reason}{answer_str}{hit_str}")
-
-    write_trace_jsonl(args.output, traces)
+    output_path = Path(args.output)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with output_path.open("w", encoding="utf-8") as trace_file:
+        for i, example in enumerate(examples):
+            print(f"[{i+1}/{len(examples)}] Running {example.question_id}: {example.question}")
+            trace = controller.run(example)
+            traces.append(trace)
+            trace_file.write(json.dumps(trace.to_dict(), ensure_ascii=False) + "\n")
+            trace_file.flush()
+            has_answer = bool(trace.llm_final_answer)
+            hit = (
+                bool(set(trace.llm_final_answer) & set(trace.gold_answers))
+                if trace.gold_answers else None
+            )
+            hit_str = f"  hit1={'YES' if hit else 'NO'}" if hit is not None else ""
+            answer_str = f"  answer={trace.llm_final_answer}" if has_answer else "  no answer"
+            print(f"         stop={trace.stop_reason}{answer_str}{hit_str}")
 
     summary = summarize_traces(traces)
     stats = backend.stats()

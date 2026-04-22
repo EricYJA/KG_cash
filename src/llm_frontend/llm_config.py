@@ -44,7 +44,7 @@ LLM_PRESET_CONFIGS: dict[str, LLMPresetConfig] = {
     ),
     "tamu": LLMPresetConfig(
         vendor="tamu",
-        default_model="protected.gemini-2.0-flash-lite",
+        default_model="protected.gpt-5.2",
         default_base_url="https://chat-api.tamu.ai/openai",
     ),
 }

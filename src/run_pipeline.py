@@ -9,8 +9,8 @@ def main():
     kg_path = "../datasets/WebQSP_KG"
     eval_script = "../datasets/WebQSP/eval/eval.py"
 
-    output_traces = "../results_webqsp_test_traces.jsonl"
-    output_predictions = "../results_webqsp_test_predictions.json"
+    output_traces = "../results_direct_webqsp_test_traces.jsonl"
+    output_predictions = "../results_direct_webqsp_test_predictions.json"
 
     print("Running full LLM + KG pipeline on WebQSP partial test set...")
     print(f"Dataset:    {webqsp_file}")
@@ -18,12 +18,13 @@ def main():
 
     # Step 1: run predictions
     cmd = [
-        sys.executable, "-m", "src.llm_frontend.run_webqsp_llm",
+        sys.executable, "-m", "llm_frontend.run_webqsp_llm",
         "--webqsp", webqsp_file,
         "--split", "test",
-        "--limit", "-1",
+        "--limit", "400",
         "--kg-path", kg_path,
         "--output", output_traces,
+        "--controller", "direct",
     ]
     print(f"\nExecuting: {' '.join(cmd)}")
     try:
