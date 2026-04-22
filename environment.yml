@@ -10,3 +10,4 @@ dependencies:
   - pyarrow
   - pytest
   - ruff
+  - matplotlib=3.10.8

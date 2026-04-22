@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import random
 from collections import Counter, OrderedDict
 from dataclasses import dataclass
 
@@ -88,7 +89,15 @@ def _run_policy(
     )
 
 
-def extract_access_sequence(traces: list[dict]) -> list[str]:
+def extract_access_sequence(
+    traces: list[dict],
+    shuffle: bool = False,
+    seed: int | None = None,
+) -> list[str]:
+    if shuffle:
+        rng = random.Random(seed)
+        traces = list(traces)
+        rng.shuffle(traces)
     sequence: list[str] = []
     for trace in traces:
         for step in trace.get("llm_kg_queries", []):
@@ -100,8 +109,10 @@ def run_simulation(
     traces: list[dict],
     cache_sizes: list[int],
     policies: list[str],
+    shuffle: bool = False,
+    seed: int | None = None,
 ) -> list[CacheSimResult]:
-    sequence = extract_access_sequence(traces)
+    sequence = extract_access_sequence(traces, shuffle=shuffle, seed=seed)
     results: list[CacheSimResult] = []
     for size in cache_sizes:
         for policy in policies:

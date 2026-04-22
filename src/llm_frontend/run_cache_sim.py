@@ -30,6 +30,24 @@ def build_parser() -> argparse.ArgumentParser:
         default=[10, 50, 100, 500, 1000],
         dest="cache_sizes",
     )
+    parser.add_argument(
+        "--shuffle",
+        action="store_true",
+        default=False,
+        help="Shuffle questions before simulation.",
+    )
+    parser.add_argument(
+        "--seed",
+        type=int,
+        default=None,
+        help="Random seed for reproducible shuffling.",
+    )
+    parser.add_argument(
+        "--output",
+        type=Path,
+        default=None,
+        help="Path to save simulation results as JSON.",
+    )
     return parser
 
 
@@ -48,7 +66,7 @@ def main() -> None:
 
     print(f"Loaded {len(traces)} traces from {path}")
 
-    results = run_simulation(traces, args.cache_sizes, args.policies)
+    results = run_simulation(traces, args.cache_sizes, args.policies, shuffle=args.shuffle, seed=args.seed)
 
     print(f"\n{'Policy':<8} {'Size':>6} {'Requests':>10} {'Hits':>8} {'Misses':>8} {'HitRate':>8}")
     print("-" * 54)
@@ -58,7 +76,12 @@ def main() -> None:
             f"{r.hits:>8} {r.misses:>8} {r.hit_rate:>8.2%}"
         )
 
-    # print(json.dumps([r.to_dict() for r in results], indent=2))
+    if args.output:
+        output_path = Path(args.output)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        with output_path.open("w", encoding="utf-8") as f:
+            json.dump([r.to_dict() for r in results], f, indent=2)
+        print(f"\nResults saved to {output_path}")
 
 
 if __name__ == "__main__":
