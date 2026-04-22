@@ -12,5 +12,6 @@ __pycache__
 .codex
 venv
 .venv
+.env
 characterization/data
 api_key.sh

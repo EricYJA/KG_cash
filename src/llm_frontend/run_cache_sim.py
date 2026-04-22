@@ -14,7 +14,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--traces",
         type=Path,
-        default=Path("outputs/traces_direct.jsonl"),
+        default=Path("results_iterative_webqsp_test_traces.jsonl"),
         help="JSONL file produced by run_webqsp_llm.py.",
     )
     parser.add_argument(
@@ -45,7 +45,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--output",
         type=Path,
-        default=None,
+        default="iterative_cache_summary_no_shuffle.json",
         help="Path to save simulation results as JSON.",
     )
     return parser

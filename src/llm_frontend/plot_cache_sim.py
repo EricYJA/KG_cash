@@ -8,9 +8,14 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 POLICY_COLORS = {
-    "lru":    "#4C72B0",
-    "lfu":    "#2A7F8C",
-    "oracle": "#E07B54",
+    "lru":    "#6A9FD8",
+    "lfu":    "#57B38A",
+    "oracle": "#E8865A",
+}
+POLICY_HATCHES = {
+    "lru":    "//",
+    "lfu":    "..",
+    "oracle": "xx",
 }
 POLICY_LABELS = {
     "lru":    "LRU",
@@ -43,11 +48,13 @@ def plot_grouped_bars(ax: plt.Axes, results: dict[str, dict[int, float]], title:
     for i, policy in enumerate(policies):
         offsets   = x + i * bar_width - (n_policies - 1) * bar_width / 2
         hit_rates = [results[policy][s] * 100 for s in cache_sizes]
+        color  = POLICY_COLORS.get(policy, "#999999")
+        hatch  = POLICY_HATCHES.get(policy, "")
         bars = ax.bar(
             offsets, hit_rates, bar_width,
-            color=POLICY_COLORS.get(policy, "#999999"),
-            edgecolor="white", linewidth=0.8,
-            label=POLICY_LABELS.get(policy, policy.upper()),
+            color=color, alpha=0.85,
+            edgecolor="#333333", linewidth=1.2,
+            hatch=hatch, label=POLICY_LABELS.get(policy, policy.upper()),
             zorder=3,
         )
         for bar, rate in zip(bars, hit_rates):
@@ -55,7 +62,8 @@ def plot_grouped_bars(ax: plt.Axes, results: dict[str, dict[int, float]], title:
                 bar.get_x() + bar.get_width() / 2,
                 bar.get_height() + 0.5,
                 f"{rate:.1f}%",
-                ha="center", va="bottom", fontsize=7.5, color="#333333",
+                ha="center", va="bottom", fontsize=6.5,
+                fontweight="bold", color="#333333",
             )
 
     ax.set_xticks(x)
@@ -74,11 +82,11 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="Plot cache simulation results from two JSON files."
     )
-    parser.add_argument("--sequential", type=Path, required=True,
+    parser.add_argument("--sequential", type=Path, default="direct_cache_summary_no_shuffle.json",
                         help="JSON results from sequential (non-shuffled) simulation.")
-    parser.add_argument("--shuffled",   type=Path, required=True,
+    parser.add_argument("--shuffled",   type=Path, default="direct_cache_summary_shuffle.json",
                         help="JSON results from shuffled simulation.")
-    parser.add_argument("--output",     type=Path, default=Path("cache_sim_comparison.png"),
+    parser.add_argument("--output",     type=Path, default="cache_sim_comparison_direct.png",
                         help="Output PNG path.")
     args = parser.parse_args()
 
@@ -92,9 +100,6 @@ def main() -> None:
 
     plot_grouped_bars(ax1, seq_results,  "Sequential Access")
     plot_grouped_bars(ax2, shuf_results, "Shuffled Access")
-
-    fig.suptitle("Cache Hit Rate by Policy and Cache Size (WebQSP)",
-                 fontsize=14, fontweight="bold", y=1.02)
 
     fig.tight_layout(pad=2.5)
     fig.savefig(args.output, dpi=150, bbox_inches="tight", facecolor="white")
