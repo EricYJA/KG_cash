@@ -90,26 +90,41 @@ class IterativeKGController:
                 stop_reason = "repeated_query_limit"
                 break
 
+            input_frontier_snapshot = list(frontier)
+            input_relations = (
+                observation.forward_relations + observation.backward_relations
+            )
             result = self.backend.execute_query(frontier, action)
             frontier = result.output_frontier
             memory.record_query(step_id=step_id, action=action, result=result)
-            query_trace.append(
-                LLMQueryTraceStep(
+
+            if not frontier:
+                query_trace.append(LLMQueryTraceStep(
                     step_id=step_id,
                     relation=action.relation,
                     direction=action.direction,
                     resolved_direction=result.resolved_direction,
+                    input_frontier=input_frontier_snapshot,
                     output_frontier=result.output_frontier,
-                )
-            )
-
-            if not frontier:
+                    input_relations=input_relations,
+                    selected_relation=action.relation,
+                ))
                 stop_reason = "empty_frontier"
                 break
 
             frontier_signature = memory.frontier_signature(frontier)
             frontier_counts[frontier_signature] += 1
             if frontier_counts[frontier_signature] > self.config.repeat_frontier_limit:
+                query_trace.append(LLMQueryTraceStep(
+                    step_id=step_id,
+                    relation=action.relation,
+                    direction=action.direction,
+                    resolved_direction=result.resolved_direction,
+                    input_frontier=input_frontier_snapshot,
+                    output_frontier=result.output_frontier,
+                    input_relations=input_relations,
+                    selected_relation=action.relation,
+                ))
                 stop_reason = "repeated_frontier_limit"
                 break
 
@@ -120,6 +135,17 @@ class IterativeKGController:
             )
             if eval_decision.error is not None or eval_decision.action is None:
                 print(eval_decision)
+                query_trace.append(LLMQueryTraceStep(
+                    step_id=step_id,
+                    relation=action.relation,
+                    direction=action.direction,
+                    resolved_direction=result.resolved_direction,
+                    input_frontier=input_frontier_snapshot,
+                    output_frontier=result.output_frontier,
+                    input_relations=input_relations,
+                    selected_relation=action.relation,
+                    input_entities=list(frontier),
+                ))
                 stop_reason = "invalid_model_output_entity"
                 break
 
@@ -134,10 +160,36 @@ class IterativeKGController:
                     stop_reason = "final_answer_frontier_fallback"
                 else:
                     stop_reason = "final_answer"
+                query_trace.append(LLMQueryTraceStep(
+                    step_id=step_id,
+                    relation=action.relation,
+                    direction=action.direction,
+                    resolved_direction=result.resolved_direction,
+                    input_frontier=input_frontier_snapshot,
+                    output_frontier=result.output_frontier,
+                    input_relations=input_relations,
+                    selected_relation=action.relation,
+                    input_entities=list(frontier),
+                    eval_action="FINAL_ANSWER",
+                    eval_entities=final_answers,
+                ))
                 break
 
             # ExploreAction — narrow frontier to the single most promising entity
             assert isinstance(eval_decision.action, ExploreAction)
+            query_trace.append(LLMQueryTraceStep(
+                step_id=step_id,
+                relation=action.relation,
+                direction=action.direction,
+                resolved_direction=result.resolved_direction,
+                input_frontier=input_frontier_snapshot,
+                output_frontier=result.output_frontier,
+                input_relations=input_relations,
+                selected_relation=action.relation,
+                input_entities=list(frontier),
+                eval_action="EXPLORE",
+                eval_entities=[eval_decision.action.entity],
+            ))
             frontier = [eval_decision.action.entity]
             memory.set_frontier(frontier)
 

@@ -50,3 +50,12 @@
 8. **Code Status**  
    - Changes have not been merged into the main branch yet.  
    - Please review and let me know if any modifications are needed.
+
+
+- input_frontier — the entities the LLM was shown at the start of Phase 1 (relation selection). This is the current working set before any hop.
+- input_relations — forward + backward relations available from input_frontier, shown to LLM in Phase 1.
+- selected_relation — the relation the LLM picked in Phase 1.
+- output_frontier — the entities reached after following selected_relation from input_frontier. This is the result of the KG hop.
+- input_entities — same as output_frontier. These are the destination entities shown to the LLM in Phase 2 (entity evaluation).
+- eval_action — what the LLM decided in Phase 2: EXPLORE (keep searching) or FINAL_ANSWER (done). 
+- eval_entities — the entity/entities the LLM picked in Phase 2. If EXPLORE, it's the single entity to narrow the frontier to. If FINAL_ANSWER, it's the answer entities.

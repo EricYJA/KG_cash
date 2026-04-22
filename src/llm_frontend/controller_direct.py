@@ -104,7 +104,11 @@ class DirectKGController:
                     relation="(direct)",
                     direction="forward",
                     resolved_direction="forward",
+                    input_frontier=list(frontier),
                     output_frontier=final_answers,
+                    input_entities=all_neighbors,
+                    eval_action="FINAL_ANSWER",
+                    eval_entities=final_answers,
                 ))
                 break
 
@@ -115,7 +119,11 @@ class DirectKGController:
                 relation="(direct)",
                 direction="forward",
                 resolved_direction="forward",
+                input_frontier=list(frontier),
                 output_frontier=next_frontier,
+                input_entities=all_neighbors,
+                eval_action="EXPLORE",
+                eval_entities=next_frontier,
             ))
 
             frontier = next_frontier

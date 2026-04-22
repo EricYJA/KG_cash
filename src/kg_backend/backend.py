@@ -550,26 +550,29 @@ class OraclePolicy(CachePolicy):
 
 
 class CachedKGBackend(UncachedKGBackend):
-    """KG backend with a pluggable per-entity cache over outgoing adjacency."""
+    """KG backend with pluggable per-entity caches over outgoing and incoming adjacency."""
 
     def __init__(
         self,
         index: AdjacencyIndex,
         data_path: str | Path,
-        policy: CachePolicy,
+        out_policy: CachePolicy,
+        in_policy: CachePolicy,
     ) -> None:
         super().__init__(index, data_path)
-        self._policy = policy
+        self._out_policy = out_policy
+        self._in_policy = in_policy
 
     @classmethod
     def from_data_path(  # type: ignore[override]
         cls,
         data_path: str | Path,
-        policy: CachePolicy,
+        out_policy: CachePolicy,
+        in_policy: CachePolicy,
     ) -> CachedKGBackend:
         graph_data = load_graph_data(data_path)
         index = build_adjacency_index(graph_data)
-        return cls(index=index, data_path=data_path, policy=policy)
+        return cls(index=index, data_path=data_path, out_policy=out_policy, in_policy=in_policy)
 
     @classmethod
     def with_oracle_policy(
@@ -578,23 +581,22 @@ class CachedKGBackend(UncachedKGBackend):
         top_entity_ids: list[str],
         cache_size: int,
     ) -> CachedKGBackend:
-        """Load the KG once and pre-populate an Oracle policy with top-frequency entities."""
+        """Pre-populate Oracle policies for both directions with top-frequency entities."""
         graph_data = load_graph_data(data_path)
         index = build_adjacency_index(graph_data)
-        policy = OraclePolicy.from_index(index, top_entity_ids, cache_size)
-        return cls(index=index, data_path=data_path, policy=policy)
+        out_policy = OraclePolicy.from_index(index, top_entity_ids, cache_size)
+        in_policy = OraclePolicy.from_index(index, top_entity_ids, cache_size)
+        return cls(index=index, data_path=data_path, out_policy=out_policy, in_policy=in_policy)
 
-    def _get_entity_adjacency(self, entity_id: str) -> _EntityAdj:
-        """Return outgoing adjacency for one entity, consulting the cache first."""
-        cached = self._policy.get(entity_id)
+    def _get_out_adjacency(self, entity_id: str) -> _EntityAdj:
+        """Return outgoing adjacency for one entity, consulting the out cache first."""
+        cached = self._out_policy.get(entity_id)
         if cached is not None:
             return cached
-
         try:
             entity_idx = self._index.entity_id_to_idx[entity_id]
         except KeyError:
             return {}
-
         adjacency: _EntityAdj = {
             self._index.relation_ids[relation_idx]: tuple(
                 self._index.entity_ids[tail_idx]
@@ -602,8 +604,55 @@ class CachedKGBackend(UncachedKGBackend):
             )
             for relation_idx, tail_indices in self._index.out_adj[entity_idx].items()
         }
-        self._policy.put(entity_id, adjacency)
+        self._out_policy.put(entity_id, adjacency)
         return adjacency
+
+    def _get_in_adjacency(self, entity_id: str) -> _EntityAdj:
+        """Return incoming adjacency for one entity, consulting the in cache first."""
+        cached = self._in_policy.get(entity_id)
+        if cached is not None:
+            return cached
+        try:
+            entity_idx = self._index.entity_id_to_idx[entity_id]
+        except KeyError:
+            return {}
+        adjacency: _EntityAdj = {
+            self._index.relation_ids[relation_idx]: tuple(
+                self._index.entity_ids[head_idx]
+                for head_idx in head_indices
+            )
+            for relation_idx, head_indices in self._index.in_adj[entity_idx].items()
+        }
+        self._in_policy.put(entity_id, adjacency)
+        return adjacency
+
+    def get_out_relations(self, entity_id: str) -> list[str]:
+        adjacency = self._get_out_adjacency(entity_id)
+        if not adjacency and entity_id not in self._index.entity_id_to_idx:
+            raise EntityNotFoundError(f"Unknown entity id: {entity_id}")
+        return sorted(adjacency.keys())
+
+    def get_in_relations(self, entity_id: str) -> list[str]:
+        adjacency = self._get_in_adjacency(entity_id)
+        if not adjacency and entity_id not in self._index.entity_id_to_idx:
+            raise EntityNotFoundError(f"Unknown entity id: {entity_id}")
+        return sorted(adjacency.keys())
+
+    def get_neighbors(
+        self, entity_id: str, relation_id: str, direction: Direction = "out"
+    ) -> list[str]:
+        if direction not in {"out", "in"}:
+            raise ValueError(f"Unsupported direction: {direction}")
+        if entity_id not in self._index.entity_id_to_idx:
+            raise EntityNotFoundError(f"Unknown entity id: {entity_id}")
+        adjacency = (
+            self._get_out_adjacency(entity_id)
+            if direction == "out"
+            else self._get_in_adjacency(entity_id)
+        )
+        if relation_id not in adjacency and relation_id not in self._index.relation_id_to_idx:
+            raise RelationNotFoundError(f"Unknown relation id: {relation_id}")
+        return sorted(adjacency.get(relation_id, ()))
 
     def get_neighborhood(
         self,
@@ -617,7 +666,7 @@ class CachedKGBackend(UncachedKGBackend):
         scan_entities = entity_ids[:scan_limit]
 
         entity_adjacencies = {
-            entity_id: self._get_entity_adjacency(entity_id)
+            entity_id: self._get_out_adjacency(entity_id)
             for entity_id in scan_entities
         }
 
@@ -638,7 +687,12 @@ class CachedKGBackend(UncachedKGBackend):
         return result
 
     def cache_info(self) -> dict[str, object]:
-        return self._policy.info()
+        info: dict[str, object] = {"out": self._out_policy.info()}
+        if self._in_policy is not None:
+            info["in"] = self._in_policy.info()
+        return info
 
     def cache_clear(self) -> None:
-        self._policy.clear()
+        self._out_policy.clear()
+        if self._in_policy is not None:
+            self._in_policy.clear()

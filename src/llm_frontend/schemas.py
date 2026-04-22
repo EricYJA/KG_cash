@@ -139,7 +139,15 @@ class LLMQueryTraceStep:
     relation: str
     direction: str
     resolved_direction: str
+    input_frontier: list[str]
     output_frontier: list[str]
+    # Phase 1: relation selection
+    input_relations: list[str] | None = None
+    selected_relation: str | None = None
+    # Phase 2: entity evaluation
+    input_entities: list[str] | None = None
+    eval_action: str | None = None
+    eval_entities: list[str] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -147,7 +155,13 @@ class LLMQueryTraceStep:
             "relation": self.relation,
             "direction": self.direction,
             "resolved_direction": self.resolved_direction,
+            "input_frontier": self.input_frontier,
             "output_frontier": self.output_frontier,
+            "input_relations": self.input_relations,
+            "selected_relation": self.selected_relation,
+            "input_entities": self.input_entities,
+            "eval_action": self.eval_action,
+            "eval_entities": self.eval_entities,
         }
 
 

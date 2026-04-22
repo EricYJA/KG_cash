@@ -5,7 +5,7 @@ import json
 import os
 from pathlib import Path
 
-from kg_backend.backend import CachedKGBackend, LFUPolicy, LRUPolicy, OraclePolicy, UncachedKGBackend
+from kg_backend.backend import UncachedKGBackend
 
 from .backend_adapter import KGBackendAdapter
 from .config import LLMFrontendConfig
@@ -23,21 +23,6 @@ from .schemas import QuestionExample
 from .trace import summarize_traces, write_trace_jsonl
 from .webqsp_loader import load_webqsp_examples
 
-
-_ORACLE_HF_DATASETS = {
-    "webqsp": "rmanluo/RoG-webqsp",
-    "cwq": "rmanluo/RoG-cwq",
-}
-
-
-def _compute_top_entities(dataset_name: str, split: str, top_k: int) -> list[str]:
-    """Return top-k entity IDs by q_entity frequency from a HuggingFace dataset."""
-    from collections import Counter
-    from datasets import load_dataset  # lazy: only needed for oracle
-
-    dataset = load_dataset(_ORACLE_HF_DATASETS[dataset_name], split=split)
-    flat = [e for sample in dataset for e in ([sample["q_entity"]] if isinstance(sample["q_entity"], str) else sample["q_entity"])]
-    return [eid for eid, _ in Counter(flat).most_common(top_k)]
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -60,17 +45,14 @@ def build_parser() -> argparse.ArgumentParser:
         "--webqsp", type=Path, default="datasets/WebQSP", help="WebQSP file or dataset directory."
     )
     parser.add_argument("--split", choices=["train", "test"], default="train")
-    parser.add_argument("--limit", type=int, default=10)
+    parser.add_argument("--limit", type=int, default=None)
     parser.add_argument(
         "--question-ids",
         nargs="+",
-        # default=["WebQTrn-0"],
+        # default=["WebQTrn-1"],
         default=None,
         dest="question_ids",
         help="Run only these specific question IDs (e.g. WebQTrn-0 WebQTrn-5).",
-    )
-    parser.add_argument(
-        "--output", type=Path, default=None, help="Output JSONL for LLM traces."
     )
     parser.add_argument(
         "--vendor",
@@ -115,22 +97,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--controller",
         choices=["iterative", "direct"],
-        default="direct",
+        default="iterative",
         help="iterative=two-phase (relation then entity); direct=single-phase (entity from neighborhood).",
     )
     parser.add_argument(
-        "--kg-cache-size",
-        dest="kg_cache_size",
-        type=int,
-        default=0,
-        help="Per-entity cache size for get_neighborhood (0 = uncached).",
-    )
-    parser.add_argument(
-        "--kg-cache-policy",
-        dest="kg_cache_policy",
-        choices=["lru", "lfu", "oracle"],
-        default="lru",
-        help="Cache replacement policy (only used when --kg-cache-size > 0).",
+        "--output", type=Path, default=Path("outputs/traces_iterative.jsonl"), help="Output JSONL for LLM traces."
     )
     return parser
 
@@ -174,17 +145,10 @@ def main() -> None:
         timeout_s=config.request_timeout_s,
     )
     planner = LLMPlanner(client=client, config=config)
-    if args.kg_cache_size > 0:
-        if args.kg_cache_policy == "oracle":
-            top_entities = _compute_top_entities("webqsp", args.split, args.kg_cache_size)
-            backend_impl = CachedKGBackend.with_oracle_policy(args.kg_path, top_entities, args.kg_cache_size)
-        elif args.kg_cache_policy == "lfu":
-            backend_impl = CachedKGBackend.from_data_path(args.kg_path, policy=LFUPolicy(args.kg_cache_size))
-        else:
-            backend_impl = CachedKGBackend.from_data_path(args.kg_path, policy=LRUPolicy(args.kg_cache_size))
-    else:
-        backend_impl = UncachedKGBackend.from_data_path(args.kg_path)
-    backend = KGBackendAdapter(backend=backend_impl, config=config)
+    backend = KGBackendAdapter(
+        backend=UncachedKGBackend.from_data_path(args.kg_path),
+        config=config,
+    )
     if args.controller == "direct":
         controller = DirectKGController(planner=planner, backend=backend, config=config)
     else:
@@ -192,8 +156,8 @@ def main() -> None:
 
     examples = _load_examples(args)
     traces = []
-    for i, example in enumerate(examples, 1):
-        print(f"[{i}/{len(examples)}] Running {example.question_id}: {example.question}")
+    for i, example in enumerate(examples):
+        print(f"[{i+1}/{len(examples)}] Running {example.question_id}: {example.question}")
         trace = controller.run(example)
         traces.append(trace)
         has_answer = bool(trace.llm_final_answer)
@@ -205,8 +169,7 @@ def main() -> None:
         answer_str = f"  answer={trace.llm_final_answer}" if has_answer else "  no answer"
         print(f"         stop={trace.stop_reason}{answer_str}{hit_str}")
 
-    if args.output is not None:
-        write_trace_jsonl(args.output, traces)
+    write_trace_jsonl(args.output, traces)
 
     summary = summarize_traces(traces)
     stats = backend.stats()
@@ -215,7 +178,7 @@ def main() -> None:
             "api": client.api_name,
             "vendor": client.vendor,
             "kg_path": str(args.kg_path),
-            "output_path": str(args.output) if args.output is not None else None,
+            "output_path": str(args.output),
             "model": client.model,
             "base_url": client.base_url,
             "api_base_url": client.api_base_url,
@@ -224,12 +187,9 @@ def main() -> None:
             "num_triples": stats.num_triples,
         }
     )
-    if isinstance(backend_impl, CachedKGBackend):
-        summary["cache"] = {
-            "policy": args.kg_cache_policy,
-            **backend_impl.cache_info(),
-        }
-    print(json.dumps(summary, indent=2))
+    # print(json.dumps(summary, indent=2))
+    if "hit1" in summary:
+        print(f"Hit@1: {summary['hit1']:.2%}")
 
 
 if __name__ == "__main__":
