@@ -5,7 +5,7 @@ import json
 import os
 from pathlib import Path
 
-from kg_backend.backend import UncachedKGBackend
+from src.kg_backend.backend import UncachedKGBackend
 
 from .backend_adapter import KGBackendAdapter
 from .config import LLMFrontendConfig
@@ -45,7 +45,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--webqsp", type=Path, default="datasets/WebQSP", help="WebQSP file or dataset directory."
     )
     parser.add_argument("--split", choices=["train", "test"], default="train")
-    parser.add_argument("--limit", type=int, default=None)
+    parser.add_argument("--limit", type=int, default=None, help="Max examples to run. -1 or omit to run all.")
     parser.add_argument(
         "--question-ids",
         nargs="+",

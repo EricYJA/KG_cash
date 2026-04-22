@@ -56,8 +56,8 @@ class LLMChatClient:
     ) -> str:
         payload = {
             "model": self.model,
-            "stream": False,
             "messages": _prepare_messages(messages),
+            "stream": False,
         }
         if temperature != 0.0:
             payload["temperature"] = temperature

@@ -28,7 +28,7 @@ def load_webqsp_examples(
     examples: list[QuestionExample] = []
     for record in records:
         examples.append(_parse_question(record, split))
-        if limit is not None and len(examples) >= limit:
+        if limit is not None and limit != -1 and len(examples) >= limit:
             break
     return examples
 
