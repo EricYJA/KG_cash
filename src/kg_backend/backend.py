@@ -311,22 +311,25 @@ class UncachedKGBackend:
         max_relations: int = 12,
         max_neighbors_per_relation: int = 5,
     ) -> list[tuple[str, list[str]]]:
-        """Return top outgoing (relation, [neighbors]) pairs for a set of entities."""
+        """Return top (relation_key, [neighbors]) pairs where relation_key encodes direction."""
         scan_entities = entity_ids[:scan_limit]
 
-        relation_counts: Counter[int] = Counter()
+        out_counts: Counter[int] = Counter()
+        in_counts: Counter[int] = Counter()
         for entity_id in scan_entities:
             try:
                 entity_idx = self._index.entity_id_to_idx[entity_id]
             except KeyError:
                 continue
             for relation_idx in self._index.out_adj[entity_idx]:
-                relation_id = self._index.relation_ids[relation_idx]
-                if relation_id not in excluded_relations:
-                    relation_counts[relation_idx] += 1
+                if self._index.relation_ids[relation_idx] not in excluded_relations:
+                    out_counts[relation_idx] += 1
+            for relation_idx in self._index.in_adj[entity_idx]:
+                if self._index.relation_ids[relation_idx] not in excluded_relations:
+                    in_counts[relation_idx] += 1
 
         result: list[tuple[str, list[str]]] = []
-        for relation_idx, _ in relation_counts.most_common(max_relations):
+        for relation_idx, _ in out_counts.most_common(max_relations):
             neighbors: set[str] = set()
             for entity_id in scan_entities:
                 try:
@@ -337,7 +340,19 @@ class UncachedKGBackend:
                     neighbors.add(self._index.entity_ids[tail_idx])
             capped = sorted(neighbors)[:max_neighbors_per_relation]
             if capped:
-                result.append((self._index.relation_ids[relation_idx], capped))
+                result.append((f"[forward] {self._index.relation_ids[relation_idx]}", capped))
+        for relation_idx, _ in in_counts.most_common(max_relations):
+            neighbors = set()
+            for entity_id in scan_entities:
+                try:
+                    entity_idx = self._index.entity_id_to_idx[entity_id]
+                except KeyError:
+                    continue
+                for head_idx in self._index.in_adj[entity_idx].get(relation_idx, ()):
+                    neighbors.add(self._index.entity_ids[head_idx])
+            capped = sorted(neighbors)[:max_neighbors_per_relation]
+            if capped:
+                result.append((f"[backward] {self._index.relation_ids[relation_idx]}", capped))
         return result
 
     def get_entity_label(self, entity_id: str) -> str | None:
@@ -662,28 +677,38 @@ class CachedKGBackend(UncachedKGBackend):
         scan_limit: int = 12,
         max_relations: int = 12,
         max_neighbors_per_relation: int = 5,
-    ) -> list[tuple[str, list[str]]]:
+    ) -> list[tuple[str, str, list[str]]]:
         scan_entities = entity_ids[:scan_limit]
 
-        entity_adjacencies = {
-            entity_id: self._get_out_adjacency(entity_id)
-            for entity_id in scan_entities
-        }
+        out_adjs = {eid: self._get_out_adjacency(eid) for eid in scan_entities}
+        in_adjs = {eid: self._get_in_adjacency(eid) for eid in scan_entities}
 
-        relation_counts: Counter[str] = Counter()
-        for adjacency in entity_adjacencies.values():
+        out_counts: Counter[str] = Counter()
+        in_counts: Counter[str] = Counter()
+        for adjacency in out_adjs.values():
             for relation_id in adjacency:
                 if relation_id not in excluded_relations:
-                    relation_counts[relation_id] += 1
+                    out_counts[relation_id] += 1
+        for adjacency in in_adjs.values():
+            for relation_id in adjacency:
+                if relation_id not in excluded_relations:
+                    in_counts[relation_id] += 1
 
-        result: list[tuple[str, list[str]]] = []
-        for relation_id, _ in relation_counts.most_common(max_relations):
+        result: list[tuple[str, str, list[str]]] = []
+        for relation_id, _ in out_counts.most_common(max_relations):
             neighbors: set[str] = set()
-            for adjacency in entity_adjacencies.values():
+            for adjacency in out_adjs.values():
                 neighbors.update(adjacency.get(relation_id, ()))
             capped = sorted(neighbors)[:max_neighbors_per_relation]
             if capped:
-                result.append((relation_id, capped))
+                result.append(("forward", relation_id, capped))
+        for relation_id, _ in in_counts.most_common(max_relations):
+            neighbors = set()
+            for adjacency in in_adjs.values():
+                neighbors.update(adjacency.get(relation_id, ()))
+            capped = sorted(neighbors)[:max_neighbors_per_relation]
+            if capped:
+                result.append(("backward", relation_id, capped))
         return result
 
     def cache_info(self) -> dict[str, object]:

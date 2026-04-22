@@ -97,11 +97,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--controller",
         choices=["iterative", "direct"],
-        default="iterative",
+        default="direct",
         help="iterative=two-phase (relation then entity); direct=single-phase (entity from neighborhood).",
     )
     parser.add_argument(
-        "--output", type=Path, default=Path("outputs/traces_iterative.jsonl"), help="Output JSONL for LLM traces."
+        "--output", type=Path, default=Path("outputs/traces_direct.jsonl"), help="Output JSONL for LLM traces."
     )
     return parser
 

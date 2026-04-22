@@ -107,7 +107,7 @@ class KGBackendAdapter:
             ],
         )
 
-    def get_neighborhood(self, frontier: list[str]) -> list[tuple[str, list[str]]]:
+    def get_neighborhood(self, frontier: list[str]) -> list[tuple[str, str, list[str]]]:
         return self.backend.get_neighborhood(
             unique_strings(frontier),
             excluded_relations=_METADATA_RELATIONS,

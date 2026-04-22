@@ -140,7 +140,7 @@ def build_direct_prompt(
     lines = [
         f"Question: {example.question}",
         f"Current entities: {_format_entities_with_labels(frontier, frontier_labels)}",
-        "Neighborhood (relation → destination entities):",
+        "Neighborhood (direction relation → destination entities):",
     ]
     for relation, neighbors in neighborhood:
         neighbor_str = _format_entities_with_labels(neighbors, neighbor_labels)
