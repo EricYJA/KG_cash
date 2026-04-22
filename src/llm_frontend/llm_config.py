@@ -6,7 +6,7 @@ from typing import Literal
 
 LLMVendor = Literal["openai", "google", "tamu"]
 
-DEFAULT_LLM_VENDOR: LLMVendor = "google"
+DEFAULT_LLM_VENDOR: LLMVendor = "tamu"
 LLM_VENDOR_CHOICES: tuple[LLMVendor, ...] = ("openai", "google", "tamu")
 LLM_API_KEY_ENV = "LLM_API_KEY"
 
@@ -44,8 +44,8 @@ LLM_PRESET_CONFIGS: dict[str, LLMPresetConfig] = {
     ),
     "tamu": LLMPresetConfig(
         vendor="tamu",
-        default_model="protected.gemini-2.0-flash-lite",
-        default_base_url="https://chat-api.tamu.ai/api",
+        default_model="protected.gpt-5.2",
+        default_base_url="https://chat-api.tamu.ai/openai",
     ),
 }
 
