@@ -1,0 +1,122 @@
+[
+  {
+    "policy": "lru",
+    "cache_size": 10,
+    "requests": 1020,
+    "hits": 226,
+    "misses": 794,
+    "hit_rate": 0.2216
+  },
+  {
+    "policy": "lfu",
+    "cache_size": 10,
+    "requests": 1020,
+    "hits": 34,
+    "misses": 986,
+    "hit_rate": 0.0333
+  },
+  {
+    "policy": "oracle",
+    "cache_size": 10,
+    "requests": 1020,
+    "hits": 62,
+    "misses": 958,
+    "hit_rate": 0.0608
+  },
+  {
+    "policy": "lru",
+    "cache_size": 50,
+    "requests": 1020,
+    "hits": 251,
+    "misses": 769,
+    "hit_rate": 0.2461
+  },
+  {
+    "policy": "lfu",
+    "cache_size": 50,
+    "requests": 1020,
+    "hits": 92,
+    "misses": 928,
+    "hit_rate": 0.0902
+  },
+  {
+    "policy": "oracle",
+    "cache_size": 50,
+    "requests": 1020,
+    "hits": 203,
+    "misses": 817,
+    "hit_rate": 0.199
+  },
+  {
+    "policy": "lru",
+    "cache_size": 100,
+    "requests": 1020,
+    "hits": 273,
+    "misses": 747,
+    "hit_rate": 0.2676
+  },
+  {
+    "policy": "lfu",
+    "cache_size": 100,
+    "requests": 1020,
+    "hits": 171,
+    "misses": 849,
+    "hit_rate": 0.1676
+  },
+  {
+    "policy": "oracle",
+    "cache_size": 100,
+    "requests": 1020,
+    "hits": 328,
+    "misses": 692,
+    "hit_rate": 0.3216
+  },
+  {
+    "policy": "lru",
+    "cache_size": 500,
+    "requests": 1020,
+    "hits": 352,
+    "misses": 668,
+    "hit_rate": 0.3451
+  },
+  {
+    "policy": "lfu",
+    "cache_size": 500,
+    "requests": 1020,
+    "hits": 353,
+    "misses": 667,
+    "hit_rate": 0.3461
+  },
+  {
+    "policy": "oracle",
+    "cache_size": 500,
+    "requests": 1020,
+    "hits": 857,
+    "misses": 163,
+    "hit_rate": 0.8402
+  },
+  {
+    "policy": "lru",
+    "cache_size": 1000,
+    "requests": 1020,
+    "hits": 357,
+    "misses": 663,
+    "hit_rate": 0.35
+  },
+  {
+    "policy": "lfu",
+    "cache_size": 1000,
+    "requests": 1020,
+    "hits": 357,
+    "misses": 663,
+    "hit_rate": 0.35
+  },
+  {
+    "policy": "oracle",
+    "cache_size": 1000,
+    "requests": 1020,
+    "hits": 1020,
+    "misses": 0,
+    "hit_rate": 1.0
+  }
+]

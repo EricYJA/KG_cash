@@ -1,0 +1,122 @@
+[
+  {
+    "policy": "lru",
+    "cache_size": 10,
+    "requests": 1907,
+    "hits": 1061,
+    "misses": 846,
+    "hit_rate": 0.5564
+  },
+  {
+    "policy": "lfu",
+    "cache_size": 10,
+    "requests": 1907,
+    "hits": 169,
+    "misses": 1738,
+    "hit_rate": 0.0886
+  },
+  {
+    "policy": "oracle",
+    "cache_size": 10,
+    "requests": 1907,
+    "hits": 109,
+    "misses": 1798,
+    "hit_rate": 0.0572
+  },
+  {
+    "policy": "lru",
+    "cache_size": 50,
+    "requests": 1907,
+    "hits": 1072,
+    "misses": 835,
+    "hit_rate": 0.5621
+  },
+  {
+    "policy": "lfu",
+    "cache_size": 50,
+    "requests": 1907,
+    "hits": 291,
+    "misses": 1616,
+    "hit_rate": 0.1526
+  },
+  {
+    "policy": "oracle",
+    "cache_size": 50,
+    "requests": 1907,
+    "hits": 377,
+    "misses": 1530,
+    "hit_rate": 0.1977
+  },
+  {
+    "policy": "lru",
+    "cache_size": 100,
+    "requests": 1907,
+    "hits": 1089,
+    "misses": 818,
+    "hit_rate": 0.5711
+  },
+  {
+    "policy": "lfu",
+    "cache_size": 100,
+    "requests": 1907,
+    "hits": 409,
+    "misses": 1498,
+    "hit_rate": 0.2145
+  },
+  {
+    "policy": "oracle",
+    "cache_size": 100,
+    "requests": 1907,
+    "hits": 606,
+    "misses": 1301,
+    "hit_rate": 0.3178
+  },
+  {
+    "policy": "lru",
+    "cache_size": 500,
+    "requests": 1907,
+    "hits": 1190,
+    "misses": 717,
+    "hit_rate": 0.624
+  },
+  {
+    "policy": "lfu",
+    "cache_size": 500,
+    "requests": 1907,
+    "hits": 1184,
+    "misses": 723,
+    "hit_rate": 0.6209
+  },
+  {
+    "policy": "oracle",
+    "cache_size": 500,
+    "requests": 1907,
+    "hits": 1691,
+    "misses": 216,
+    "hit_rate": 0.8867
+  },
+  {
+    "policy": "lru",
+    "cache_size": 1000,
+    "requests": 1907,
+    "hits": 1191,
+    "misses": 716,
+    "hit_rate": 0.6245
+  },
+  {
+    "policy": "lfu",
+    "cache_size": 1000,
+    "requests": 1907,
+    "hits": 1191,
+    "misses": 716,
+    "hit_rate": 0.6245
+  },
+  {
+    "policy": "oracle",
+    "cache_size": 1000,
+    "requests": 1907,
+    "hits": 1907,
+    "misses": 0,
+    "hit_rate": 1.0
+  }
+]

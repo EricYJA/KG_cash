@@ -1,0 +1,6 @@
+Number of questions: 400
+Average precision over questions: 0.256
+Average recall over questions: 0.156
+Average f1 over questions (accuracy): 0.150
+F1 of average recall and average precision: 0.194
+True accuracy (ratio of questions answered exactly correctly): 0.110
