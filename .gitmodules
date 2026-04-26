@@ -1,15 +1,6 @@
 [submodule "datasets/complex-web-questions-dataset"]
 	path = datasets/complex-web-questions-dataset
 	url = git@github.com:yuancu/complex-web-questions-dataset.git
-[submodule "ref_KG_projects/EPR-KGQA"]
-	path = ref_KG_projects/EPR-KGQA
-	url = git@github.com:nju-websoft/EPR-KGQA.git
-[submodule "ref_KG_projects/KG-R1"]
-	path = ref_KG_projects/KG-R1
-	url = git@github.com:Jinyeop3110/KG-R1.git
-[submodule "ref_KG_projects/SubgraphRetrievalKBQA"]
-	path = ref_KG_projects/SubgraphRetrievalKBQA
-	url = git@github.com:RUCKBReasoning/SubgraphRetrievalKBQA.git
 [submodule "ref_KG_projects/ToG"]
 	path = ref_KG_projects/ToG
 	url = git@github.com:GasolSun36/ToG.git

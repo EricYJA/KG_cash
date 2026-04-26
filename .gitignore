@@ -15,3 +15,5 @@ venv
 .env
 characterization/data
 api_key.sh
+
+datasets/FreeBase-dump
