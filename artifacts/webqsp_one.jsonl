@@ -1,1 +1,0 @@
-{"question_id": "WebQTest-0", "question": "what does jamaican people speak?", "llm_initial_entity": "Jamaica", "llm_initial_frontier": ["jamaica", "m.03_r3", "m.0nn1zzq"], "llm_kg_queries": [], "llm_final_answer": ["jamaica", "m.03_r3", "m.0nn1zzq"], "num_steps": 0, "stop_reason": "unexpected_initial_entity"}

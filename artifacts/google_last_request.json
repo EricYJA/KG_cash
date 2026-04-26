@@ -1,0 +1,14 @@
+{
+  "model": "gemini-2.0-flash",
+  "stream": false,
+  "messages": [
+    {
+      "role": "system",
+      "content": "Return exactly one JSON object and nothing else. Allowed outputs: {\"action\":\"INITIAL_ENTITY\",\"entity\":\"...\",\"reason\":\"short\"} or {\"action\":\"KG_QUERY\",\"relation\":\"...\",\"direction\":\"auto|forward|backward\",\"frontier\":\"CURRENT_FRONTIER\",\"reason\":\"short\"} or {\"action\":\"FINAL_ANSWER\",\"answers\":[\"...\"],\"reason\":\"short\"}. Use INITIAL_ENTITY when there is no current frontier yet. INITIAL_ENTITY should propose a human-readable entity name or an exact KG id. Use KG_QUERY for one more KG hop. Use FINAL_ANSWER when the current frontier is enough. Only frontier CURRENT_FRONTIER is allowed. Keep reason short. At most 3 initial-entity attempts are allowed. At most 6 KG queries are allowed."
+    },
+    {
+      "role": "user",
+      "content": "Question: where is the fukushima daiichi nuclear plant located? Current frontier: (empty) Failed initial entity attempts: None. History: No prior KG queries. Choose INITIAL_ENTITY now using a human-readable entity name or an exact KG id. If a prior attempt failed, choose a different or more precise name."
+    }
+  ]
+}
