@@ -29,7 +29,7 @@ def clean_relations(string, entity_id, head_relations):
 
 
 def run_llm(prompt, temperature, max_tokens, opeani_api_keys, engine="gpt-3.5-turbo"):
-    if "llama" not in engine.lower():
+    if "llama" in engine.lower():
         openai.api_key = "EMPTY"
         openai.api_base = "http://localhost:8000/v1"  # your local llama server port
         engine = openai.Model.list()["data"][0]["id"]
@@ -40,6 +40,7 @@ def run_llm(prompt, temperature, max_tokens, opeani_api_keys, engine="gpt-3.5-tu
     message_prompt = {"role":"user","content":prompt}
     messages.append(message_prompt)
     print("start openai")
+    f = 0
     while(f == 0):
         try:
             response = openai.ChatCompletion.create(
@@ -163,7 +164,7 @@ def entity_score(question, entity_candidates_id, entity_candidates, score, relat
     entity_candidates = list(entity_candidates)
     entity_candidates_id = list(entity_candidates_id)
 
-    prompt = construct_entity_score_prompt(question, relation, entity_candidates, score)
+    prompt = construct_entity_score_prompt(question, relation, entity_candidates)
 
     result = run_llm(prompt, args.temperature_exploration, args.max_length, args.opeani_api_keys, args.LLM_type)
     entity_scores = clean_scores(result, entity_candidates)

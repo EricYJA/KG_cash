@@ -1,6 +1,3 @@
 [submodule "datasets/complex-web-questions-dataset"]
 	path = datasets/complex-web-questions-dataset
 	url = git@github.com:yuancu/complex-web-questions-dataset.git
-[submodule "ref_KG_projects/ToG"]
-	path = ref_KG_projects/ToG
-	url = git@github.com:GasolSun36/ToG.git

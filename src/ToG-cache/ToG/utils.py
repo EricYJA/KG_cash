@@ -1,6 +1,7 @@
 from freebase_func import *
 from prompt_list import *
 import json
+import os
 import re
 import time
 import openai
@@ -102,7 +103,7 @@ def clean_relations_bm25_sent(topn_relations, topn_scores, entity_id, head_relat
 
 
 def run_llm(prompt, temperature, max_tokens, opeani_api_keys, engine="gpt-3.5-turbo"):
-    if "llama" not in engine.lower():
+    if "llama" in engine.lower():
         openai.api_key = "EMPTY"
         openai.api_base = "http://localhost:8000/v1"  # your local llama server port
         engine = openai.Model.list()["data"][0]["id"]
@@ -113,6 +114,7 @@ def run_llm(prompt, temperature, max_tokens, opeani_api_keys, engine="gpt-3.5-tu
     message_prompt = {"role":"user","content":prompt}
     messages.append(message_prompt)
     print("start openai")
+    f = 0
     while(f == 0):
         try:
             response = openai.ChatCompletion.create(
@@ -152,7 +154,7 @@ def relation_search_prune(entity_id, entity_name, pre_relations, pre_head, quest
     
 
     if len(pre_relations) != 0 and pre_head !=-1:
-        tail_relations = [rel for rel in tail_relations if not pre head or rel not in pre_relations]
+        tail_relations = [rel for rel in tail_relations if not pre_head or rel not in pre_relations]
         head_relations = [rel for rel in head_relations if pre_head or rel not in pre_relations]
 
     head_relations = list(set(head_relations))
@@ -210,7 +212,7 @@ def entity_score(question, entity_candidates_id, score, relation, args):
     entity_candidates = list(entity_candidates)
     entity_candidates_id = list(entity_candidates_id)
     if args.prune_tools == "llm":
-        prompt = construct_entity_score_prompt(question, relation, entity_candidates, score)
+        prompt = construct_entity_score_prompt(question, relation, entity_candidates)
 
         result = run_llm(prompt, args.temperature_exploration, args.max_length, args.opeani_api_keys, args.LLM_type)
         return [float(x) * score for x in clean_scores(result, entity_candidates)], entity_candidates, entity_candidates_id
@@ -267,9 +269,13 @@ def generate_answer(question, cluster_chain_of_entities, args):
     return result
 
 
-def save_2_jsonl(question, answer, cluster_chain_of_entities, file_name):
+def save_2_jsonl(question, answer, cluster_chain_of_entities, file_name, output_file=None):
     dict = {"question":question, "results": answer, "reasoning_chains": cluster_chain_of_entities}
-    with open("ToG_{}.jsonl".format(file_name), "a") as outfile:
+    output_path = output_file or os.path.join(os.path.dirname(os.path.dirname(__file__)), "output", "ToG_{}.jsonl".format(file_name))
+    output_dir = os.path.dirname(output_path)
+    if output_dir:
+        os.makedirs(output_dir, exist_ok=True)
+    with open(output_path, "a") as outfile:
         json_str = json.dumps(dict)
         outfile.write(json_str + "\n")
 
@@ -320,7 +326,7 @@ def if_true(prompt):
 def half_stop(question, cluster_chain_of_entities, args):
     print("No new knowledge added during search depth %d, stop searching." % args.depth)
     answer = generate_answer(question, cluster_chain_of_entities, args)
-    save_2_jsonl(question, answer, cluster_chain_of_entities, file_name=args.dataset)
+    save_2_jsonl(question, answer, cluster_chain_of_entities, file_name=args.dataset, output_file=getattr(args, "output_file", None))
 
 
 def generate_without_explored_paths(question, args):

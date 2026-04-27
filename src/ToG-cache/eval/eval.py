@@ -39,5 +39,5 @@ if __name__ == '__main__':
     print("Exact Match: {}".format(float(num_right/len(output_datas))))
     print("right: {}, error: {}".format(num_right, num_error))
 
-    save_result2json(args.dataset, num_right, num_error, len(output_datas))
+    save_result2json(args.dataset, num_right, num_error, len(output_datas), "ToG")
     

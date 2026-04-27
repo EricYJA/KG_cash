@@ -43,13 +43,17 @@ def prepare_dataset_for_eval(dataset_name, output_file):
         print("dataset not found, you should pick from {cwq, webqsp, grailqa, simpleqa, qald, webquestions, trex, zeroshotre, creak}.")
         exit(-1)
     with open(output_file, encoding='utf-8') as f:
-        output_datas = json.load(f)
+        if output_file.endswith(".jsonl"):
+            output_datas = [json.loads(line) for line in f if line.strip()]
+        else:
+            output_datas = json.load(f)
     return datas, question_string, output_datas
 
 
 def align(dataset_name, question_string, data, ground_truth_datas):
     answer_list= []
-    origin_data = [j for j in ground_truth_datas if j[question_string] == data[question_string]][0]
+    output_question = data.get(question_string, data.get("question"))
+    origin_data = [j for j in ground_truth_datas if j[question_string] == output_question][0]
     if dataset_name == 'cwq':
         if 'answers' in origin_data:
             answers = origin_data["answers"]

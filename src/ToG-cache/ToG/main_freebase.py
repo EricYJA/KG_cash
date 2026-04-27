@@ -29,9 +29,15 @@ if __name__ == '__main__':
                         default=5, help="Number of entities retained during entities search.")
     parser.add_argument("--prune_tools", type=str,
                         default="llm", help="prune tools for ToG, can be llm (same as LLM_type), bm25 or sentencebert.")
+    parser.add_argument("--test-limit", type=int,
+                        default=None, help="only run the first k dataset samples.")
+    parser.add_argument("--output-file", type=str,
+                        default=None, help="path to save jsonl results. Defaults to ../output/ToG_<dataset>.jsonl.")
     args = parser.parse_args()
 
     datas, question_string = prepare_dataset(args.dataset)
+    if args.test_limit is not None:
+        datas = datas[:min(args.test_limit, len(datas))]
 
     for data in tqdm(datas):
         question = data[question_string]
@@ -73,6 +79,7 @@ if __name__ == '__main__':
             
             if len(total_candidates) ==0:
                 half_stop(question, cluster_chain_of_entities, args)
+                flag_printed = True
                 break
                 
             flag, chain_of_entities, entities_id, pre_relations, pre_heads = entity_prune(total_entities_id, total_relations, total_candidates, total_topic_entities, total_head, total_scores, args)
@@ -81,15 +88,18 @@ if __name__ == '__main__':
                 stop, results = reasoning(question, cluster_chain_of_entities, args)
                 if stop:
                     print("ToG stoped at depth %d." % depth)
-                    save_2_jsonl(question, results, cluster_chain_of_entities, file_name=args.dataset)
+                    save_2_jsonl(question, results, cluster_chain_of_entities, file_name=args.dataset, output_file=args.output_file)
                     flag_printed = True
+                    break
                 else:
                     print("depth %d still not find the answer." % depth)
-                    topic_entity = {entity: id2entity_name_or_type[entity] for entity in entities_id}
+                    topic_entity = {entity: id2entity_name_or_type(entity) for entity in entities_id}
                     continue
             else:
                 half_stop(question, cluster_chain_of_entities, args)
+                flag_printed = True
+                break
         
         if not flag_printed:
             results = generate_without_explored_paths(question, args)
-            save_2_jsonl(question, results, [], file_name=args.dataset)
+            save_2_jsonl(question, results, [], file_name=args.dataset, output_file=args.output_file)

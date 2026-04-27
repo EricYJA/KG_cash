@@ -16,5 +16,6 @@ venv
 characterization/data
 api_key.sh
 
-datasets/FreeBase-dump/*
-!datasets/FreeBase-dump/README.md
+src/ToG-cache/Freebase/FilterFreebase*
+src/ToG-cache/Freebase/freebase*
+src/ToG-cache/Freebase/WebQSP_FilterFreebase*
