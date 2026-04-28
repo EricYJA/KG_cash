@@ -7,7 +7,7 @@ from collections import Counter
 from sklearn.metrics.pairwise import cosine_similarity
 
 from src.load_data import load_webqsp, load_cwq, extract_entities
-from src.sentiment_analysis import get_sentiment_vector, extract_questions_from_dataset
+from src.semantic_analysis import get_sentiment_vector, extract_questions_from_dataset
 
 # Configure logging
 logging.basicConfig(

@@ -1,4 +1,4 @@
-# characterization/src/sentiment_analysis.py
+# characterization/src/semantic_analysis.py
 import numpy as np
 import logging
 from sentence_transformers import SentenceTransformer
