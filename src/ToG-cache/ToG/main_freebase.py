@@ -33,6 +33,8 @@ if __name__ == '__main__':
                         default=None, help="only run the first k dataset samples.")
     parser.add_argument("--output-file", type=str,
                         default=None, help="path to save jsonl results. Defaults to ../output/ToG_<dataset>.jsonl.")
+    parser.add_argument("--vendor", type=str,
+                        default="tamu", help="LLM vendor: tamu, openai, google. When set to 'tamu', uses the httpx-based client with LLM_API_KEY env var.")
     args = parser.parse_args()
 
     datas, question_string = prepare_dataset(args.dataset)
