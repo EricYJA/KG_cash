@@ -102,6 +102,36 @@ def clean_relations_bm25_sent(topn_relations, topn_scores, entity_id, head_relat
     return True, relations
 
 
+def is_reasoning_model(engine):
+    model_name = engine.lower()
+    return (
+        model_name.startswith("gpt-5")
+        or model_name.startswith("o1")
+        or model_name.startswith("o3")
+        or model_name.startswith("o4")
+    )
+
+
+def completion_token_limit(max_tokens, engine):
+    if is_reasoning_model(engine):
+        return max(max_tokens, 1024)
+    return max_tokens
+
+
+def should_retry_openai_error(error):
+    error_text = str(error).lower()
+    non_retryable_markers = [
+        "unsupported parameter",
+        "unknown parameter",
+        "not compatible",
+        "invalid_request",
+        "invalid request",
+        "does not support",
+        "model_not_found",
+    ]
+    return not any(marker in error_text for marker in non_retryable_markers)
+
+
 def run_llm(prompt, temperature, max_tokens, opeani_api_keys, engine="gpt-3.5-turbo"):
     if "llama" in engine.lower():
         openai.api_key = "EMPTY"
@@ -117,27 +147,41 @@ def run_llm(prompt, temperature, max_tokens, opeani_api_keys, engine="gpt-3.5-tu
     f = 0
     while(f == 0):
         try:
-            response = openai.ChatCompletion.create(
-                    model=engine,
-                    messages = messages,
-                    temperature=temperature,
-                    max_tokens=max_tokens,
-                    frequency_penalty=0,
-                    presence_penalty=0)
+            request_kwargs = {
+                    "model": engine,
+                    "messages": messages,
+            }
+            if is_reasoning_model(engine):
+                request_kwargs["max_completion_tokens"] = completion_token_limit(max_tokens, engine)
+            else:
+                request_kwargs.update({
+                    "temperature": temperature,
+                    "max_tokens": completion_token_limit(max_tokens, engine),
+                    "frequency_penalty": 0,
+                    "presence_penalty": 0,
+                })
+            response = openai.ChatCompletion.create(**request_kwargs)
             result = response["choices"][0]['message']['content']
             f = 1
-        except:
-            print("openai error, retry")
+        except Exception as e:
+            print("openai error:", repr(e))
+            if not should_retry_openai_error(e):
+                raise
+            print("retry")
             time.sleep(2)
     print("end openai")
     return result
 
 def construct_relation_prune_prompt(question, entity_name, total_relations, args):
-    return extract_relation_prompt % (args.width, args.width) + question + '\nTopic Entity: ' + entity_name + '\nRelations: '+ '; '.join(total_relations) + "\nA: "
+    format_instruction = (
+        "\nReturn exactly {N} lines and no extra text. Each line must be in this format:\n"
+        "1. {{relation.name (Score: 0.5)}}\n"
+    ).format(N=args.width)
+    return extract_relation_prompt % (args.width, args.width) + question + '\nTopic Entity: ' + entity_name + '\nRelations: '+ '; '.join(total_relations) + format_instruction + "\nA: "
         
 
 def construct_entity_score_prompt(question, relation, entity_candidates):
-    return score_entity_candidates_prompt.format(question, relation) + "; ".join(entity_candidates) + '\nScore: '
+    return score_entity_candidates_prompt.format(question, relation) + "; ".join(entity_candidates) + '\nReturn only comma-separated numeric scores, with no explanation.\nScore: '
 
 def relation_search_prune(entity_id, entity_name, pre_relations, pre_head, question, args):
     sparql_relations_extract_head = sparql_head_relations % (entity_id)

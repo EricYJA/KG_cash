@@ -28,6 +28,30 @@ def clean_relations(string, entity_id, head_relations):
 
 
 
+def is_reasoning_model(engine):
+    model_name = engine.lower()
+    return (
+        model_name.startswith("gpt-5")
+        or model_name.startswith("o1")
+        or model_name.startswith("o3")
+        or model_name.startswith("o4")
+    )
+
+
+def should_retry_openai_error(error):
+    error_text = str(error).lower()
+    non_retryable_markers = [
+        "unsupported parameter",
+        "unknown parameter",
+        "not compatible",
+        "invalid_request",
+        "invalid request",
+        "does not support",
+        "model_not_found",
+    ]
+    return not any(marker in error_text for marker in non_retryable_markers)
+
+
 def run_llm(prompt, temperature, max_tokens, opeani_api_keys, engine="gpt-3.5-turbo"):
     if "llama" in engine.lower():
         openai.api_key = "EMPTY"
@@ -43,17 +67,27 @@ def run_llm(prompt, temperature, max_tokens, opeani_api_keys, engine="gpt-3.5-tu
     f = 0
     while(f == 0):
         try:
-            response = openai.ChatCompletion.create(
-                    model=engine,
-                    messages = messages,
-                    temperature=temperature,
-                    max_tokens=max_tokens,
-                    frequency_penalty=0,
-                    presence_penalty=0)
+            request_kwargs = {
+                    "model": engine,
+                    "messages": messages,
+            }
+            if is_reasoning_model(engine):
+                request_kwargs["max_completion_tokens"] = max_tokens
+            else:
+                request_kwargs.update({
+                    "temperature": temperature,
+                    "max_tokens": max_tokens,
+                    "frequency_penalty": 0,
+                    "presence_penalty": 0,
+                })
+            response = openai.ChatCompletion.create(**request_kwargs)
             result = response["choices"][0]['message']['content']
             f = 1
-        except:
-            print("openai error, retry")
+        except Exception as e:
+            print("openai error:", repr(e))
+            if not should_retry_openai_error(e):
+                raise
+            print("retry")
             time.sleep(2)
     print("end openai")
     return result
