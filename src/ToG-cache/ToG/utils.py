@@ -4,7 +4,7 @@ import json
 import os
 import re
 import time
-import openai
+from openai import OpenAI
 from rank_bm25 import BM25Okapi
 from sentence_transformers import util
 from sentence_transformers import SentenceTransformer
@@ -104,29 +104,29 @@ def clean_relations_bm25_sent(topn_relations, topn_scores, entity_id, head_relat
 
 def run_llm(prompt, temperature, max_tokens, opeani_api_keys, engine="gpt-3.5-turbo"):
     if "llama" in engine.lower():
-        openai.api_key = "EMPTY"
-        openai.api_base = "http://localhost:8000/v1"  # your local llama server port
-        engine = openai.Model.list()["data"][0]["id"]
+        client = OpenAI(api_key="EMPTY", base_url="http://localhost:8000/v1")
+        engine = client.models.list().data[0].id
     else:
-        openai.api_key = opeani_api_keys
+        client = OpenAI(api_key=opeani_api_keys)
 
-    messages = [{"role":"system","content":"You are an AI assistant that helps people find information."}]
-    message_prompt = {"role":"user","content":prompt}
-    messages.append(message_prompt)
+    messages = [
+        {"role": "system", "content": "You are an AI assistant that helps people find information."},
+        {"role": "user", "content": prompt},
+    ]
     print("start openai")
-    f = 0
-    while(f == 0):
+    while True:
         try:
-            response = openai.ChatCompletion.create(
-                    model=engine,
-                    messages = messages,
-                    temperature=temperature,
-                    max_tokens=max_tokens,
-                    frequency_penalty=0,
-                    presence_penalty=0)
-            result = response["choices"][0]['message']['content']
-            f = 1
-        except:
+            response = client.chat.completions.create(
+                model=engine,
+                messages=messages,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                frequency_penalty=0,
+                presence_penalty=0,
+            )
+            result = response.choices[0].message.content
+            break
+        except Exception:
             print("openai error, retry")
             time.sleep(2)
     print("end openai")
