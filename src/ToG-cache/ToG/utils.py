@@ -132,7 +132,7 @@ def should_retry_openai_error(error):
     return not any(marker in error_text for marker in non_retryable_markers)
 
 
-def run_llm(prompt, temperature, max_tokens, opeani_api_keys, engine="gpt-3.5-turbo"):
+def run_llm(prompt, max_tokens, opeani_api_keys, engine="gpt-3.5-turbo"):
     if "llama" in engine.lower():
         openai.api_key = "EMPTY"
         openai.api_base = "http://localhost:8000/v1"  # your local llama server port
@@ -155,7 +155,6 @@ def run_llm(prompt, temperature, max_tokens, opeani_api_keys, engine="gpt-3.5-tu
                 request_kwargs["max_completion_tokens"] = completion_token_limit(max_tokens, engine)
             else:
                 request_kwargs.update({
-                    "temperature": temperature,
                     "max_tokens": completion_token_limit(max_tokens, engine),
                     "frequency_penalty": 0,
                     "presence_penalty": 0,
@@ -209,7 +208,7 @@ def relation_search_prune(entity_id, entity_name, pre_relations, pre_head, quest
     if args.prune_tools == "llm":
         prompt = construct_relation_prune_prompt(question, entity_name, total_relations, args)
 
-        result = run_llm(prompt, args.temperature_exploration, args.max_length, args.opeani_api_keys, args.LLM_type)
+        result = run_llm(prompt, args.max_length, args.opeani_api_keys, args.LLM_type)
         flag, retrieve_relations_with_scores = clean_relations(result, entity_id, head_relations) 
 
     elif args.prune_tools == "bm25":
@@ -258,7 +257,7 @@ def entity_score(question, entity_candidates_id, score, relation, args):
     if args.prune_tools == "llm":
         prompt = construct_entity_score_prompt(question, relation, entity_candidates)
 
-        result = run_llm(prompt, args.temperature_exploration, args.max_length, args.opeani_api_keys, args.LLM_type)
+        result = run_llm(prompt, args.max_length, args.opeani_api_keys, args.LLM_type)
         return [float(x) * score for x in clean_scores(result, entity_candidates)], entity_candidates, entity_candidates_id
 
     elif args.prune_tools == "bm25":
@@ -309,7 +308,7 @@ def generate_answer(question, cluster_chain_of_entities, args):
     prompt = answer_prompt + question + '\n'
     chain_prompt = '\n'.join([', '.join([str(x) for x in chain]) for sublist in cluster_chain_of_entities for chain in sublist])
     prompt += "\nKnowledge Triplets: " + chain_prompt + 'A: '
-    result = run_llm(prompt, args.temperature_reasoning, args.max_length, args.opeani_api_keys, args.LLM_type)
+    result = run_llm(prompt, args.max_length, args.opeani_api_keys, args.LLM_type)
     return result
 
 
@@ -346,7 +345,7 @@ def reasoning(question, cluster_chain_of_entities, args):
     chain_prompt = '\n'.join([', '.join([str(x) for x in chain]) for sublist in cluster_chain_of_entities for chain in sublist])
     prompt += "\nKnowledge Triplets: " + chain_prompt + 'A: '
 
-    response = run_llm(prompt, args.temperature_reasoning, args.max_length, args.opeani_api_keys, args.LLM_type)
+    response = run_llm(prompt, args.max_length, args.opeani_api_keys, args.LLM_type)
     
     result = extract_answer(response)
     if if_true(result):
@@ -375,7 +374,7 @@ def half_stop(question, cluster_chain_of_entities, args):
 
 def generate_without_explored_paths(question, args):
     prompt = generate_directly + "\n\nQ: " + question + "\nA:"
-    response = run_llm(prompt, args.temperature_reasoning, args.max_length, args.opeani_api_keys, args.LLM_type)
+    response = run_llm(prompt, args.max_length, args.opeani_api_keys, args.LLM_type)
     return response
 
 def prepare_dataset(dataset_name):
