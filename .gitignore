@@ -19,3 +19,5 @@ api_key.sh
 src/ToG-cache/Freebase/FilterFreebase*
 src/ToG-cache/Freebase/freebase*
 src/ToG-cache/Freebase/WebQSP_FilterFreebase*
+
+src/ToG-cache/output/ToG_webqsp.jsonl
