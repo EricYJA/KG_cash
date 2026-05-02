@@ -1,8 +1,11 @@
 from tqdm import tqdm
 import argparse
+import json
+import time
 from utils import *
 import random
 from client import *
+from question_cache import PersistentQuestionCache
 
 
 if __name__ == '__main__':
@@ -35,17 +38,49 @@ if __name__ == '__main__':
                         default=None, help="path to save jsonl results. Defaults to ../output/ToG_<dataset>.jsonl.")
     parser.add_argument("--vendor", type=str,
                         default="tamu", help="LLM vendor: tamu, openai, google. When set to 'tamu', uses the httpx-based client with LLM_API_KEY env var.")
+    parser.add_argument("--question-cache-path", type=str,
+                        default="../output/question_chain_cache.json",
+                        help="Path to persistent per-question chain cache (JSON). On hit, Virtuoso and per-loop LLM calls are skipped; final answer is still generated.")
+    parser.add_argument("--question-cache-capacity", type=int,
+                        default=4096, help="Max number of cached questions (LRU eviction).")
+    parser.add_argument("--no-question-cache", action="store_true",
+                        help="Disable the persistent per-question cache.")
     args = parser.parse_args()
 
     datas, question_string = prepare_dataset(args.dataset)
     if args.test_limit is not None:
         datas = datas[:min(args.test_limit, len(datas))]
 
+    question_cache = None
+    if not args.no_question_cache:
+        question_cache = PersistentQuestionCache(
+            path=args.question_cache_path,
+            capacity=args.question_cache_capacity,
+        )
+        print(f"[question_cache] loaded {len(question_cache._store)} entries from {args.question_cache_path}")
+
+    cache_hit_times: list = []
+    cache_miss_times: list = []
+
     for data in tqdm(datas):
         question = data[question_string]
+        t_question_start = time.perf_counter()
+
+        if question_cache is not None:
+            cached_chain = question_cache.get(question)
+            if cached_chain is not None:
+                if cached_chain:
+                    cached_results = generate_answer(question, cached_chain, args)
+                else:
+                    cached_results = generate_without_explored_paths(question, args)
+                save_2_jsonl(question, cached_results, cached_chain,
+                             file_name=args.dataset, output_file=args.output_file)
+                cache_hit_times.append(time.perf_counter() - t_question_start)
+                continue
+
         topic_entity = data['topic_entity']
         cluster_chain_of_entities = []
-        pre_relations = [], 
+        pre_relations = [],
         pre_heads= [-1] * len(topic_entity)
         flag_printed = False
         for depth in range(1, args.depth+1):
@@ -105,3 +140,35 @@ if __name__ == '__main__':
         if not flag_printed:
             results = generate_without_explored_paths(question, args)
             save_2_jsonl(question, results, [], file_name=args.dataset, output_file=args.output_file)
+            chain_to_cache = []
+        else:
+            chain_to_cache = cluster_chain_of_entities
+
+        if question_cache is not None:
+            question_cache.put(question, chain_to_cache)
+
+        cache_miss_times.append(time.perf_counter() - t_question_start)
+
+    if question_cache is not None:
+        print("[question_cache] stats: " + json.dumps(question_cache.stats()))
+
+    n_hits = len(cache_hit_times)
+    n_misses = len(cache_miss_times)
+    hit_sum = sum(cache_hit_times)
+    miss_sum = sum(cache_miss_times)
+    avg_hit = (hit_sum / n_hits) if n_hits else 0.0
+    avg_miss = (miss_sum / n_misses) if n_misses else 0.0
+    estimated_saved = (n_hits * avg_miss - hit_sum) if (n_hits and n_misses) else 0.0
+    speedup = (avg_miss / avg_hit) if (n_hits and avg_hit > 0 and n_misses) else None
+
+    timing = {
+        "hits": n_hits,
+        "misses": n_misses,
+        "hit_total_s": round(hit_sum, 3),
+        "miss_total_s": round(miss_sum, 3),
+        "avg_hit_s": round(avg_hit, 3),
+        "avg_miss_s": round(avg_miss, 3),
+        "estimated_time_saved_s": round(estimated_saved, 3),
+        "speedup_x": round(speedup, 2) if speedup is not None else None,
+    }
+    print("[question_cache] timing: " + json.dumps(timing))

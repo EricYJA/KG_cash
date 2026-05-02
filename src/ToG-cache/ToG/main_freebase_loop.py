@@ -1,0 +1,217 @@
+from tqdm import tqdm
+import argparse
+import json
+import time
+from utils import *
+import random
+from client import *
+from question_cache import PersistentQuestionCache
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--dataset", type=str,
+                        default="cwq", help="choose the dataset.")
+    parser.add_argument("--max_length", type=int,
+                        default=256, help="the max length of LLMs output.")
+    parser.add_argument("--temperature_exploration", type=float,
+                        default=0.4, help="the temperature in exploration stage.")
+    parser.add_argument("--temperature_reasoning", type=float,
+                        default=0, help="the temperature in reasoning stage.")
+    parser.add_argument("--width", type=int,
+                        default=3, help="choose the search width of ToG.")
+    parser.add_argument("--depth", type=int,
+                        default=3, help="choose the search depth of ToG.")
+    parser.add_argument("--remove_unnecessary_rel", type=bool,
+                        default=True, help="whether removing unnecessary relations.")
+    parser.add_argument("--LLM_type", type=str,
+                        default="gpt-3.5-turbo", help="base LLM model.")
+    parser.add_argument("--opeani_api_keys", type=str,
+                        default="",
+                        help="if the LLM_type is gpt-3.5-turbo or gpt-4, you need add your own openai api keys.")
+    parser.add_argument("--num_retain_entity", type=int,
+                        default=5, help="Number of entities retained during entities search.")
+    parser.add_argument("--prune_tools", type=str,
+                        default="llm", help="prune tools for ToG, can be llm (same as LLM_type), bm25 or sentencebert.")
+    parser.add_argument("--test-limit", type=int,
+                        default=None, help="only run the first k dataset samples.")
+    parser.add_argument("--output-file", type=str,
+                        default=None, help="path to save jsonl results. Defaults to ../output/ToG_<dataset>.jsonl.")
+    parser.add_argument("--vendor", type=str,
+                        default="tamu",
+                        help="LLM vendor: tamu, openai, google. When set to 'tamu', uses the httpx-based client with LLM_API_KEY env var.")
+    parser.add_argument("--question-cache-path", type=str,
+                        default="../output/question_chain_cache.json",
+                        help="Path to persistent per-question chain cache (JSON). On hit, Virtuoso and per-loop LLM calls are skipped; final answer is still generated.")
+    parser.add_argument("--question-cache-capacity", type=int,
+                        default=4096, help="Max number of cached questions (LRU eviction).")
+    parser.add_argument("--no-question-cache", action="store_true",
+                        help="Disable the persistent per-question cache.")
+    parser.add_argument("--loop", type=int,
+                        default=1, help="number of times to loop over the dataset samples.")
+    args = parser.parse_args()
+
+    datas, question_string = prepare_dataset(args.dataset)
+    if args.test_limit is not None:
+        datas = datas[:min(args.test_limit, len(datas))]
+
+    question_cache = None
+    if not args.no_question_cache:
+        question_cache = PersistentQuestionCache(
+            path=args.question_cache_path,
+            capacity=args.question_cache_capacity,
+        )
+        print(f"[question_cache] loaded {len(question_cache._store)} entries from {args.question_cache_path}")
+
+    cache_hit_times: list = []
+    cache_miss_times: list = []
+    per_loop_stats: list = []
+
+    for loop_idx in range(args.loop):
+        if args.loop > 1:
+            print(f"\n--- Starting loop {loop_idx + 1}/{args.loop} ---")
+
+        loop_hit_times: list = []
+        loop_miss_times: list = []
+        loop_t_start = time.perf_counter()
+
+        for data in tqdm(datas, desc=f"Loop {loop_idx + 1}" if args.loop > 1 else None):
+            question = data[question_string]
+            t_question_start = time.perf_counter()
+
+            if question_cache is not None:
+                cached_chain = question_cache.get(question)
+                if cached_chain is not None:
+                    if cached_chain:
+                        cached_results = generate_answer(question, cached_chain, args)
+                    else:
+                        cached_results = generate_without_explored_paths(question, args)
+                    save_2_jsonl(question, cached_results, cached_chain,
+                                 file_name=args.dataset, output_file=args.output_file)
+                    elapsed = time.perf_counter() - t_question_start
+                    loop_hit_times.append(elapsed)
+                    cache_hit_times.append(elapsed)
+                    continue
+
+            topic_entity = data['topic_entity']
+            cluster_chain_of_entities = []
+            pre_relations = [],
+            pre_heads = [-1] * len(topic_entity)
+            flag_printed = False
+            for depth in range(1, args.depth + 1):
+                current_entity_relations_list = []
+                i = 0
+                for entity in topic_entity:
+                    if entity != "[FINISH_ID]":
+                        retrieve_relations_with_scores = relation_search_prune(entity, topic_entity[entity],
+                                                                               pre_relations, pre_heads[i], question,
+                                                                               args)  # best entity triplet, entitiy_id
+                        current_entity_relations_list.extend(retrieve_relations_with_scores)
+                    i += 1
+                total_candidates = []
+                total_scores = []
+                total_relations = []
+                total_entities_id = []
+                total_topic_entities = []
+                total_head = []
+
+                for entity in current_entity_relations_list:
+                    if entity['head']:
+                        entity_candidates_id = entity_search(entity['entity'], entity['relation'], True)
+                    else:
+                        entity_candidates_id = entity_search(entity['entity'], entity['relation'], False)
+
+                    if len(entity_candidates_id) >= 20:
+                        entity_candidates_id = random.sample(entity_candidates_id, args.num_retain_entity)
+
+                    if len(entity_candidates_id) == 0:
+                        continue
+
+                    scores, entity_candidates, entity_candidates_id = entity_score(question, entity_candidates_id,
+                                                                                   entity['score'], entity['relation'],
+                                                                                   args)
+
+                    total_candidates, total_scores, total_relations, total_entities_id, total_topic_entities, total_head = update_history(
+                        entity_candidates, entity, scores, entity_candidates_id, total_candidates, total_scores,
+                        total_relations, total_entities_id, total_topic_entities, total_head)
+
+                if len(total_candidates) == 0:
+                    half_stop(question, cluster_chain_of_entities, args)
+                    flag_printed = True
+                    break
+
+                flag, chain_of_entities, entities_id, pre_relations, pre_heads = entity_prune(total_entities_id,
+                                                                                              total_relations,
+                                                                                              total_candidates,
+                                                                                              total_topic_entities,
+                                                                                              total_head, total_scores,
+                                                                                              args)
+                cluster_chain_of_entities.append(chain_of_entities)
+                if flag:
+                    stop, results = reasoning(question, cluster_chain_of_entities, args)
+                    if stop:
+                        print("ToG stoped at depth %d." % depth)
+                        save_2_jsonl(question, results, cluster_chain_of_entities, file_name=args.dataset,
+                                     output_file=args.output_file)
+                        flag_printed = True
+                        break
+                    else:
+                        print("depth %d still not find the answer." % depth)
+                        topic_entity = {entity: id2entity_name_or_type(entity) for entity in entities_id}
+                        continue
+                else:
+                    half_stop(question, cluster_chain_of_entities, args)
+                    flag_printed = True
+                    break
+
+            if not flag_printed:
+                results = generate_without_explored_paths(question, args)
+                save_2_jsonl(question, results, [], file_name=args.dataset, output_file=args.output_file)
+                chain_to_cache = []
+            else:
+                chain_to_cache = cluster_chain_of_entities
+
+            if question_cache is not None:
+                question_cache.put(question, chain_to_cache)
+
+            elapsed = time.perf_counter() - t_question_start
+            loop_miss_times.append(elapsed)
+            cache_miss_times.append(elapsed)
+
+        loop_wall = time.perf_counter() - loop_t_start
+        n_lh, n_lm = len(loop_hit_times), len(loop_miss_times)
+        avg_lh = (sum(loop_hit_times) / n_lh) if n_lh else 0.0
+        avg_lm = (sum(loop_miss_times) / n_lm) if n_lm else 0.0
+        per_loop_stats.append({
+            "loop": loop_idx + 1,
+            "wall_s": round(loop_wall, 3),
+            "hits": n_lh,
+            "misses": n_lm,
+            "avg_hit_s": round(avg_lh, 3),
+            "avg_miss_s": round(avg_lm, 3),
+        })
+        print(f"[question_cache] loop {loop_idx + 1} timing: " + json.dumps(per_loop_stats[-1]))
+
+    if question_cache is not None:
+        print("[question_cache] stats: " + json.dumps(question_cache.stats()))
+
+    n_hits = len(cache_hit_times)
+    n_misses = len(cache_miss_times)
+    hit_sum = sum(cache_hit_times)
+    miss_sum = sum(cache_miss_times)
+    avg_hit = (hit_sum / n_hits) if n_hits else 0.0
+    avg_miss = (miss_sum / n_misses) if n_misses else 0.0
+    estimated_saved = (n_hits * avg_miss - hit_sum) if (n_hits and n_misses) else 0.0
+    speedup = (avg_miss / avg_hit) if (n_hits and avg_hit > 0 and n_misses) else None
+
+    timing = {
+        "hits": n_hits,
+        "misses": n_misses,
+        "hit_total_s": round(hit_sum, 3),
+        "miss_total_s": round(miss_sum, 3),
+        "avg_hit_s": round(avg_hit, 3),
+        "avg_miss_s": round(avg_miss, 3),
+        "estimated_time_saved_s": round(estimated_saved, 3),
+        "speedup_x": round(speedup, 2) if speedup is not None else None,
+        "per_loop": per_loop_stats,
+    }
+    print("[question_cache] timing: " + json.dumps(timing))
