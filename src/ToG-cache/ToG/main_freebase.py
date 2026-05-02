@@ -45,6 +45,10 @@ if __name__ == '__main__':
                         default=4096, help="Max number of cached questions (LRU eviction).")
     parser.add_argument("--no-question-cache", action="store_true",
                         help="Disable the persistent per-question cache.")
+    parser.add_argument("--similarity-threshold", type=float, default=0.90,
+                        help="Cosine similarity >= threshold (i.e. cosine distance <= 1-threshold) forces a semantic hit. Forced hits count as hits and LRU-touch the matched entry.")
+    parser.add_argument("--embedder-model", type=str, default="all-MiniLM-L6-v2",
+                        help="Sentence-transformers model used to embed questions for the cache key.")
     args = parser.parse_args()
 
     datas, question_string = prepare_dataset(args.dataset)
@@ -56,6 +60,8 @@ if __name__ == '__main__':
         question_cache = PersistentQuestionCache(
             path=args.question_cache_path,
             capacity=args.question_cache_capacity,
+            similarity_threshold=args.similarity_threshold,
+            embedder_model=args.embedder_model,
         )
         print(f"[question_cache] loaded {len(question_cache._store)} entries from {args.question_cache_path}")
 
