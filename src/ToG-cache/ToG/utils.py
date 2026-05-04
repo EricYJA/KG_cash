@@ -10,6 +10,7 @@ from llm_config import resolve_llm_config
 from llm_client import LLMChatClient, ChatMessage
 from sentence_transformers import util
 from sentence_transformers import SentenceTransformer
+from trace_utils import get_active_trace_recorder
 
 def retrieve_top_docs(query, docs, model, width=3):
     """
@@ -96,7 +97,7 @@ def clean_relations_bm25_sent(topn_relations, topn_scores, entity_id, head_relat
     relations = []
     if if_all_zero(topn_scores):
         topn_scores = [float(1/len(topn_scores))] * len(topn_scores)
-    for relation in topn_relations:
+    for i, relation in enumerate(topn_relations):
         if relation in head_relations:
             relations.append({"entity": entity_id, "relation": relation, "score": topn_scores[i], "head": True})
         else:
@@ -104,7 +105,8 @@ def clean_relations_bm25_sent(topn_relations, topn_scores, entity_id, head_relat
     return True, relations
 
 
-def run_llm(prompt, temperature, max_tokens, opeani_api_keys, engine="gpt-3.5-turbo", vendor=None):
+def run_llm(prompt, temperature, max_tokens, opeani_api_keys, engine="gpt-3.5-turbo", vendor=None, trace_operation="llm_call", trace_input=None):
+    recorder = get_active_trace_recorder()
     if vendor == "tamu":
         config = resolve_llm_config(vendor="tamu")
         http_client = LLMChatClient(config, timeout_s=180.0)
@@ -113,7 +115,8 @@ def run_llm(prompt, temperature, max_tokens, opeani_api_keys, engine="gpt-3.5-tu
             ChatMessage(role="user", content=prompt),
         ]
         print("start tamu")
-        result = http_client.complete_json(messages, temperature=temperature)
+        with recorder.timed_event(trace_operation) if recorder else _nullcontext() as event:
+            result = http_client.complete_json(messages, temperature=temperature)
         print("end tamu")
         return result
 
@@ -121,7 +124,7 @@ def run_llm(prompt, temperature, max_tokens, opeani_api_keys, engine="gpt-3.5-tu
         client = OpenAI(api_key="EMPTY", base_url="http://localhost:8000/v1")
         engine = client.models.list().data[0].id
     else:
-        client = OpenAI(api_key=opeani_api_keys)
+        client = OpenAI(api_key=(opeani_api_keys.strip() if opeani_api_keys and opeani_api_keys.strip() else os.environ.get("OPENAI_API_KEY")))
 
     messages = [
         {"role": "system", "content": "You are an AI assistant that helps people find information."},
@@ -130,18 +133,25 @@ def run_llm(prompt, temperature, max_tokens, opeani_api_keys, engine="gpt-3.5-tu
     print("start openai")
     while True:
         try:
-            response = client.chat.completions.create(
-                model=engine,
-                messages=messages,
-                temperature=temperature,
-                max_tokens=max_tokens,
-                frequency_penalty=0,
-                presence_penalty=0,
-            )
-            result = response.choices[0].message.content
-            break
-        except Exception:
-            print("openai error, retry")
+            request_kwargs = {
+                "model": engine,
+                "messages": messages,
+                "frequency_penalty": 0,
+                "presence_penalty": 0,
+            }
+            if not engine.startswith("gpt-5") or temperature != 1:
+                request_kwargs["temperature"] = temperature
+            if engine.startswith("gpt-5"):
+                request_kwargs["max_completion_tokens"] = max_tokens
+            else:
+                request_kwargs["max_tokens"] = max_tokens
+
+            with recorder.timed_event(trace_operation) if recorder else _nullcontext() as event:
+                response = client.chat.completions.create(**request_kwargs)
+                result = response.choices[0].message.content
+                break
+        except Exception as e:
+            print(f"openai error, retry: {e}")
             time.sleep(2)
     print("end openai")
     return result
@@ -155,21 +165,26 @@ def construct_entity_score_prompt(question, relation, entity_candidates):
 
 def relation_search_prune(entity_id, entity_name, pre_relations, pre_head, question, args):
     sparql_relations_extract_head = sparql_head_relations % (entity_id)
-    head_relations = execurte_sparql(sparql_relations_extract_head)
-    head_relations = replace_relation_prefix(head_relations)
+    recorder = get_active_trace_recorder()
+    with recorder.timed_event("relation_lookup_head", input_payload={"entity_id": entity_id}) if recorder else _nullcontext() as event:
+        head_relations = execurte_sparql(sparql_relations_extract_head)
+        head_relations = replace_relation_prefix(head_relations)
     
     sparql_relations_extract_tail= sparql_tail_relations % (entity_id)
-    tail_relations = execurte_sparql(sparql_relations_extract_tail)
-    tail_relations = replace_relation_prefix(tail_relations)
+    with recorder.timed_event("relation_lookup_tail", input_payload={"entity_id": entity_id}) if recorder else _nullcontext() as event:
+        tail_relations = execurte_sparql(sparql_relations_extract_tail)
+        tail_relations = replace_relation_prefix(tail_relations)
 
     if args.remove_unnecessary_rel:
-        head_relations = [relation for relation in head_relations if not abandon_rels(relation)]
-        tail_relations = [relation for relation in tail_relations if not abandon_rels(relation)]
+        with recorder.timed_event("relation_filter_remove_unnecessary") if recorder else _nullcontext():
+            head_relations = [relation for relation in head_relations if not abandon_rels(relation)]
+            tail_relations = [relation for relation in tail_relations if not abandon_rels(relation)]
     
 
     if len(pre_relations) != 0 and pre_head !=-1:
-        tail_relations = [rel for rel in tail_relations if not pre_head or rel not in pre_relations]
-        head_relations = [rel for rel in head_relations if pre_head or rel not in pre_relations]
+        with recorder.timed_event("relation_filter_prev_path") if recorder else _nullcontext():
+            tail_relations = [rel for rel in tail_relations if not pre_head or rel not in pre_relations]
+            head_relations = [rel for rel in head_relations if pre_head or rel not in pre_relations]
 
     head_relations = list(set(head_relations))
     tail_relations = list(set(tail_relations))
@@ -179,16 +194,20 @@ def relation_search_prune(entity_id, entity_name, pre_relations, pre_head, quest
     if args.prune_tools == "llm":
         prompt = construct_relation_prune_prompt(question, entity_name, total_relations, args)
 
-        result = run_llm(prompt, args.temperature_exploration, args.max_length, args.opeani_api_keys, args.LLM_type, vendor=getattr(args, "vendor", None))
+        result = run_llm(prompt, args.temperature_exploration, args.max_length, args.opeani_api_keys, args.LLM_type, vendor=getattr(args, "vendor", None), trace_operation="relation_prune_llm")
         flag, retrieve_relations_with_scores = clean_relations(result, entity_id, head_relations) 
+        if recorder:
+            recorder.record_event("relation_prune_parse")
 
     elif args.prune_tools == "bm25":
-        topn_relations, topn_scores = compute_bm25_similarity(question, total_relations, args.width)
-        flag, retrieve_relations_with_scores = clean_relations_bm25_sent(topn_relations, topn_scores, entity_id, head_relations) 
+        with recorder.timed_event("relation_prune_bm25") if recorder else _nullcontext() as event:
+            topn_relations, topn_scores = compute_bm25_similarity(question, total_relations, args.width)
+            flag, retrieve_relations_with_scores = clean_relations_bm25_sent(topn_relations, topn_scores, entity_id, head_relations)
     else:
-        model = SentenceTransformer('sentence-transformers/msmarco-distilbert-base-tas-b')
-        topn_relations, topn_scores = retrieve_top_docs(question, total_relations, model, args.width)
-        flag, retrieve_relations_with_scores = clean_relations_bm25_sent(topn_relations, topn_scores, entity_id, head_relations) 
+        with recorder.timed_event("relation_prune_sentencebert") if recorder else _nullcontext() as event:
+            model = SentenceTransformer('sentence-transformers/msmarco-distilbert-base-tas-b')
+            topn_relations, topn_scores = retrieve_top_docs(question, total_relations, model, args.width)
+            flag, retrieve_relations_with_scores = clean_relations_bm25_sent(topn_relations, topn_scores, entity_id, head_relations)
 
     if flag:
         return retrieve_relations_with_scores
@@ -197,20 +216,20 @@ def relation_search_prune(entity_id, entity_name, pre_relations, pre_head, quest
     
     
 def entity_search(entity, relation, head=True):
+    recorder = get_active_trace_recorder()
     if head:
-        tail_entities_extract = sparql_tail_entities_extract% (entity, relation)
-        entities = execurte_sparql(tail_entities_extract)
+        query = sparql_tail_entities_extract% (entity, relation)
     else:
-        head_entities_extract = sparql_head_entities_extract% (entity, relation)
-        entities = execurte_sparql(head_entities_extract)
-
-
-    entity_ids = replace_entities_prefix(entities)
-    new_entity = [entity for entity in entity_ids if entity.startswith("m.")]
-    return new_entity
+        query = sparql_head_entities_extract% (entity, relation)
+    with recorder.timed_event("entity_search", input_payload={"entity_id": entity, "relation": relation, "head": head}) if recorder else _nullcontext() as event:
+        entities = execurte_sparql(query)
+        entity_ids = replace_entities_prefix(entities)
+        new_entity = [entity for entity in entity_ids if entity.startswith("m.")]
+        return new_entity
 
 
 def entity_score(question, entity_candidates_id, score, relation, args):
+    recorder = get_active_trace_recorder()
     entity_candidates = [id2entity_name_or_type(entity_id) for entity_id in entity_candidates_id]
     if all_unknown_entity(entity_candidates):
         return [1/len(entity_candidates) * score] * len(entity_candidates), entity_candidates, entity_candidates_id
@@ -228,14 +247,19 @@ def entity_score(question, entity_candidates_id, score, relation, args):
     if args.prune_tools == "llm":
         prompt = construct_entity_score_prompt(question, relation, entity_candidates)
 
-        result = run_llm(prompt, args.temperature_exploration, args.max_length, args.opeani_api_keys, args.LLM_type, vendor=getattr(args, "vendor", None))
-        return [float(x) * score for x in clean_scores(result, entity_candidates)], entity_candidates, entity_candidates_id
+        result = run_llm(prompt, args.temperature_exploration, args.max_length, args.opeani_api_keys, args.LLM_type, vendor=getattr(args, "vendor", None), trace_operation="entity_score_llm")
+        weighted_scores = [float(x) * score for x in clean_scores(result, entity_candidates)]
+        if recorder:
+            recorder.record_event("entity_score_parse")
+        return weighted_scores, entity_candidates, entity_candidates_id
 
     elif args.prune_tools == "bm25":
-        topn_entities, topn_scores = compute_bm25_similarity(question, entity_candidates, args.width)
+        with recorder.timed_event("entity_score_bm25") if recorder else _nullcontext() as event:
+            topn_entities, topn_scores = compute_bm25_similarity(question, entity_candidates, args.width)
     else:
-        model = SentenceTransformer('sentence-transformers/msmarco-distilbert-base-tas-b')
-        topn_entities, topn_scores = retrieve_top_docs(question, entity_candidates, model, args.width)
+        with recorder.timed_event("entity_score_sentencebert") if recorder else _nullcontext() as event:
+            model = SentenceTransformer('sentence-transformers/msmarco-distilbert-base-tas-b')
+            topn_entities, topn_scores = retrieve_top_docs(question, entity_candidates, model, args.width)
     if if_all_zero(topn_scores):
         topn_scores = [float(1/len(topn_scores))] * len(topn_scores)
     return [float(x) * score for x in topn_scores], topn_entities, entity_candidates_id
@@ -260,18 +284,20 @@ def clean_scores(string, entity_candidates):
         return [1/len(entity_candidates)] * len(entity_candidates)
 
 def update_history(entity_candidates, entity, scores, entity_candidates_id, total_candidates, total_scores, total_relations, total_entities_id, total_topic_entities, total_head):
-    if len(entity_candidates) == 0:
-        entity_candidates.append("[FINISH]")
-        entity_candidates_id = ["[FINISH_ID]"]
-    candidates_relation = [entity['relation']] * len(entity_candidates)
-    topic_entities = [entity['entity']] * len(entity_candidates)
-    head_num = [entity['head']] * len(entity_candidates)
-    total_candidates.extend(entity_candidates)
-    total_scores.extend(scores)
-    total_relations.extend(candidates_relation)
-    total_entities_id.extend(entity_candidates_id)
-    total_topic_entities.extend(topic_entities)
-    total_head.extend(head_num)
+    recorder = get_active_trace_recorder()
+    with recorder.timed_event("history_update") if recorder else _nullcontext():
+        if len(entity_candidates) == 0:
+            entity_candidates.append("[FINISH]")
+            entity_candidates_id = ["[FINISH_ID]"]
+        candidates_relation = [entity['relation']] * len(entity_candidates)
+        topic_entities = [entity['entity']] * len(entity_candidates)
+        head_num = [entity['head']] * len(entity_candidates)
+        total_candidates.extend(entity_candidates)
+        total_scores.extend(scores)
+        total_relations.extend(candidates_relation)
+        total_entities_id.extend(entity_candidates_id)
+        total_topic_entities.extend(topic_entities)
+        total_head.extend(head_num)
     return total_candidates, total_scores, total_relations, total_entities_id, total_topic_entities, total_head
 
 
@@ -279,11 +305,12 @@ def generate_answer(question, cluster_chain_of_entities, args):
     prompt = answer_prompt + question + '\n'
     chain_prompt = '\n'.join([', '.join([str(x) for x in chain]) for sublist in cluster_chain_of_entities for chain in sublist])
     prompt += "\nKnowledge Triplets: " + chain_prompt + 'A: '
-    result = run_llm(prompt, args.temperature_reasoning, args.max_length, args.opeani_api_keys, args.LLM_type, vendor=getattr(args, "vendor", None))
+    result = run_llm(prompt, args.temperature_reasoning, args.max_length, args.opeani_api_keys, args.LLM_type, vendor=getattr(args, "vendor", None), trace_operation="answer_generate_llm")
     return result
 
 
 def save_2_jsonl(question, answer, cluster_chain_of_entities, file_name, output_file=None):
+    recorder = get_active_trace_recorder()
     dict = {"question":question, "results": answer, "reasoning_chains": cluster_chain_of_entities}
     output_path = output_file or os.path.join(os.path.dirname(os.path.dirname(__file__)), "output", "ToG_{}.jsonl".format(file_name))
     output_dir = os.path.dirname(output_path)
@@ -292,9 +319,12 @@ def save_2_jsonl(question, answer, cluster_chain_of_entities, file_name, output_
     with open(output_path, "a") as outfile:
         json_str = json.dumps(dict)
         outfile.write(json_str + "\n")
+    if recorder:
+        recorder.record_event("save_result", input_payload={"question": question, "output_path": output_path}, output_payload={"results": answer, "reasoning_chains": cluster_chain_of_entities})
 
 
 def entity_prune(total_entities_id, total_relations, total_candidates, total_topic_entities, total_head, total_scores, args):
+    recorder = get_active_trace_recorder()
     zipped = list(zip(total_entities_id, total_relations, total_candidates, total_topic_entities, total_head, total_scores))
     sorted_zipped = sorted(zipped, key=lambda x: x[5], reverse=True)
     sorted_entities_id, sorted_relations, sorted_candidates, sorted_topic_entities, sorted_head, sorted_scores = [x[0] for x in sorted_zipped], [x[1] for x in sorted_zipped], [x[2] for x in sorted_zipped], [x[3] for x in sorted_zipped], [x[4] for x in sorted_zipped], [x[5] for x in sorted_zipped]
@@ -303,11 +333,15 @@ def entity_prune(total_entities_id, total_relations, total_candidates, total_top
     merged_list = list(zip(entities_id, relations, candidates, topics, heads, scores))
     filtered_list = [(id, rel, ent, top, hea, score) for id, rel, ent, top, hea, score in merged_list if score != 0]
     if len(filtered_list) ==0:
+        if recorder:
+            recorder.record_event("entity_prune")
         return False, [], [], [], []
     entities_id, relations, candidates, tops, heads, scores = map(list, zip(*filtered_list))
 
     tops = [id2entity_name_or_type(entity_id) for entity_id in tops]
     cluster_chain_of_entities = [[(tops[i], relations[i], candidates[i]) for i in range(len(candidates))]]
+    if recorder:
+        recorder.record_event("entity_prune")
     return True, cluster_chain_of_entities, entities_id, relations, heads
 
 
@@ -316,7 +350,7 @@ def reasoning(question, cluster_chain_of_entities, args):
     chain_prompt = '\n'.join([', '.join([str(x) for x in chain]) for sublist in cluster_chain_of_entities for chain in sublist])
     prompt += "\nKnowledge Triplets: " + chain_prompt + 'A: '
 
-    response = run_llm(prompt, args.temperature_reasoning, args.max_length, args.opeani_api_keys, args.LLM_type, vendor=getattr(args, "vendor", None))
+    response = run_llm(prompt, args.temperature_reasoning, args.max_length, args.opeani_api_keys, args.LLM_type, vendor=getattr(args, "vendor", None), trace_operation="reasoning_llm")
     
     result = extract_answer(response)
     if if_true(result):
@@ -338,15 +372,26 @@ def if_true(prompt):
     return False
 
 def half_stop(question, cluster_chain_of_entities, args):
+    recorder = get_active_trace_recorder()
     print("No new knowledge added during search depth %d, stop searching." % args.depth)
+    if recorder:
+        recorder.record_event("half_stop")
     answer = generate_answer(question, cluster_chain_of_entities, args)
     save_2_jsonl(question, answer, cluster_chain_of_entities, file_name=args.dataset, output_file=getattr(args, "output_file", None))
 
 
 def generate_without_explored_paths(question, args):
     prompt = generate_directly + "\n\nQ: " + question + "\nA:"
-    response = run_llm(prompt, args.temperature_reasoning, args.max_length, args.opeani_api_keys, args.LLM_type, vendor=getattr(args, "vendor", None))
+    response = run_llm(prompt, args.temperature_reasoning, args.max_length, args.opeani_api_keys, args.LLM_type, vendor=getattr(args, "vendor", None), trace_operation="generate_without_explored_paths")
     return response
+
+
+class _nullcontext:
+    def __enter__(self):
+        return None
+
+    def __exit__(self, exc_type, exc, tb):
+        return False
 
 def prepare_dataset(dataset_name):
     if dataset_name == 'cwq':

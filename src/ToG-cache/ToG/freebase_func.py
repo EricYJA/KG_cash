@@ -1,4 +1,5 @@
 from SPARQLWrapper import SPARQLWrapper, JSON
+from trace_utils import get_active_trace_recorder
 # SPARQLPATH = "http://xxx.xxx.xxx.xxx/sparql"  # depend on your own internal address and port, shown in Freebase folder's readme.md
 SPARQLPATH = "http://localhost:8890/sparql"  # local virtuoso server address and port default in most cases
 
@@ -35,11 +36,22 @@ def replace_entities_prefix(entities):
 
 def id2entity_name_or_type(entity_id):
     sparql_txt = sparql_id % (entity_id, entity_id)
-    sparql = SPARQLWrapper(SPARQLPATH)
-    sparql.setQuery(sparql_txt)
-    sparql.setReturnFormat(JSON)
-    results = sparql.query().convert()
-    if len(results["results"]["bindings"])==0:
-        return "UnName_Entity"
-    else:
-        return results["results"]["bindings"][0]['tailEntity']['value']
+    recorder = get_active_trace_recorder()
+    with recorder.timed_event("entity_name_resolve", input_payload={"entity_id": entity_id}) if recorder else _nullcontext() as event:
+        sparql = SPARQLWrapper(SPARQLPATH)
+        sparql.setQuery(sparql_txt)
+        sparql.setReturnFormat(JSON)
+        results = sparql.query().convert()
+        if len(results["results"]["bindings"]) == 0:
+            resolved = "UnName_Entity"
+        else:
+            resolved = results["results"]["bindings"][0]['tailEntity']['value']
+        return resolved
+
+
+class _nullcontext:
+    def __enter__(self):
+        return None
+
+    def __exit__(self, exc_type, exc, tb):
+        return False
