@@ -5,7 +5,7 @@ import time
 from utils import *
 import random
 from client import *
-from question_cache import PersistentQuestionCache
+from question_cache import PersistentQuestionCache, extract_oracle_answer_key
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -46,12 +46,18 @@ if __name__ == '__main__':
                         default=4096, help="Max number of cached questions (LRU eviction).")
     parser.add_argument("--no-question-cache", action="store_true",
                         help="Disable the persistent per-question cache.")
+    parser.add_argument("--cache-policy", type=str, default="semantic_lru",
+                        choices=["exact", "semantic_lru", "semantic_oracle"],
+                        help="Cache hit policy. 'exact' = key only. 'semantic_lru' = exact + cosine-similarity fallback (LRU eviction). 'semantic_oracle' = exact + cosine-similarity AND gold-answer-overlap (upper bound for accuracy-preserving semantic caching; requires gold answers in dataset).")
     parser.add_argument("--similarity-threshold", type=float, default=0.95,
                         help="Cosine similarity >= threshold (i.e. cosine distance <= 1-threshold) forces a semantic hit. Forced hits count as hits and LRU-touch the matched entry.")
     parser.add_argument("--embedder-model", type=str, default="all-MiniLM-L6-v2",
                         help="Sentence-transformers model used to embed questions for the cache key.")
     parser.add_argument("--loop", type=int,
                         default=1, help="number of times to loop over the dataset samples.")
+    parser.add_argument("--timing-log", type=str,
+                        default="../output/cache_timing.jsonl",
+                        help="Append a per-run timing record (JSON line) to this file. Set to '' to disable.")
     args = parser.parse_args()
 
     datas, question_string = prepare_dataset(args.dataset)
@@ -63,14 +69,33 @@ if __name__ == '__main__':
         question_cache = PersistentQuestionCache(
             path=args.question_cache_path,
             capacity=args.question_cache_capacity,
+            policy=args.cache_policy,
             similarity_threshold=args.similarity_threshold,
             embedder_model=args.embedder_model,
         )
-        print(f"[question_cache] loaded {len(question_cache._store)} entries from {args.question_cache_path}")
+        print(f"[question_cache] policy={args.cache_policy}, loaded {len(question_cache._store)} entries from {args.question_cache_path}")
 
     cache_hit_times: list = []
     cache_miss_times: list = []
     per_loop_stats: list = []
+
+    from collections import Counter
+    output_path = args.output_file or os.path.join(
+        os.path.dirname(os.path.dirname(__file__)), "output", f"ToG_{args.dataset}.jsonl"
+    )
+    processed_counts: Counter = Counter()
+    if os.path.exists(output_path):
+        with open(output_path) as f:
+            for line in f:
+                try:
+                    rec = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                q = rec.get("question")
+                if isinstance(q, str):
+                    processed_counts[q.strip()] += 1
+        print(f"[resume] {len(processed_counts)} unique questions seen in {output_path}; "
+              f"each loop will skip questions that already have results for that pass")
 
     for loop_idx in range(args.loop):
         if args.loop > 1:
@@ -82,10 +107,16 @@ if __name__ == '__main__':
 
         for data in tqdm(datas, desc=f"Loop {loop_idx + 1}" if args.loop > 1 else None):
             question = data[question_string]
+            if processed_counts.get(question.strip(), 0) > loop_idx:
+                continue
             t_question_start = time.perf_counter()
 
+            oracle_key = (extract_oracle_answer_key(data, args.dataset)
+                          if (question_cache is not None and args.cache_policy == "semantic_oracle")
+                          else None)
+
             if question_cache is not None:
-                cached_chain = question_cache.get(question)
+                cached_chain = question_cache.get(question, oracle_key=oracle_key)
                 if cached_chain is not None:
                     if cached_chain:
                         cached_results = generate_answer(question, cached_chain, args)
@@ -177,7 +208,7 @@ if __name__ == '__main__':
                 chain_to_cache = cluster_chain_of_entities
 
             if question_cache is not None:
-                question_cache.put(question, chain_to_cache)
+                question_cache.put(question, chain_to_cache, oracle_key=oracle_key)
 
             elapsed = time.perf_counter() - t_question_start
             loop_miss_times.append(elapsed)
@@ -221,3 +252,24 @@ if __name__ == '__main__':
         "per_loop": per_loop_stats,
     }
     print("[question_cache] timing: " + json.dumps(timing))
+
+    if args.timing_log:
+        from datetime import datetime, timezone
+        log_record = {
+            "ts": datetime.now(timezone.utc).isoformat(),
+            "script": "main_freebase_loop.py",
+            "dataset": args.dataset,
+            "test_limit": args.test_limit,
+            "loop": args.loop,
+            "policy": args.cache_policy if not args.no_question_cache else "off",
+            "similarity_threshold": args.similarity_threshold,
+            "capacity": args.question_cache_capacity,
+            "timing": timing,
+            "cache_stats": question_cache.stats() if question_cache is not None else None,
+        }
+        log_dir = os.path.dirname(args.timing_log)
+        if log_dir:
+            os.makedirs(log_dir, exist_ok=True)
+        with open(args.timing_log, "a") as f:
+            f.write(json.dumps(log_record) + "\n")
+        print(f"[question_cache] appended timing record to {args.timing_log}")

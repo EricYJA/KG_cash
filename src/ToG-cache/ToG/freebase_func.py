@@ -1,4 +1,5 @@
 from SPARQLWrapper import SPARQLWrapper, JSON
+from SPARQLWrapper.SPARQLExceptions import QueryBadFormed
 # SPARQLPATH = "http://xxx.xxx.xxx.xxx/sparql"  # depend on your own internal address and port, shown in Freebase folder's readme.md
 SPARQLPATH = "http://localhost:8890/sparql"  # local virtuoso server address and port default in most cases
 
@@ -22,7 +23,11 @@ def execurte_sparql(sparql_txt):
     sparql = SPARQLWrapper(SPARQLPATH)
     sparql.setQuery(sparql_txt)
     sparql.setReturnFormat(JSON)
-    results = sparql.query().convert()
+    try:
+        results = sparql.query().convert()
+    except QueryBadFormed:
+        print(f"[sparql] skipping malformed query: {sparql_txt!r}")
+        return []
     return results["results"]["bindings"]
 
 

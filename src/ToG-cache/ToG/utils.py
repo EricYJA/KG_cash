@@ -65,12 +65,16 @@ def compute_bm25_similarity(query, corpus, width=3):
     return relations, doc_scores
 
 
-def clean_relations(string, entity_id, head_relations):
+def clean_relations(string, entity_id, head_relations, tail_relations=None):
     pattern = r"{\s*(?P<relation>[^()]+)\s+\(Score:\s+(?P<score>[0-9.]+)\)}"
     relations=[]
+    allowed_tail = set(tail_relations) if tail_relations is not None else None
+    allowed_head = set(head_relations)
     for match in re.finditer(pattern, string):
         relation = match.group("relation").strip()
         if ';' in relation:
+            continue
+        if relation not in allowed_head and (allowed_tail is None or relation not in allowed_tail):
             continue
         score = match.group("score")
         if not relation or not score:
@@ -79,7 +83,7 @@ def clean_relations(string, entity_id, head_relations):
             score = float(score)
         except ValueError:
             return False, "Invalid score"
-        if relation in head_relations:
+        if relation in allowed_head:
             relations.append({"entity": entity_id, "relation": relation, "score": score, "head": True})
         else:
             relations.append({"entity": entity_id, "relation": relation, "score": score, "head": False})
@@ -180,7 +184,7 @@ def relation_search_prune(entity_id, entity_name, pre_relations, pre_head, quest
         prompt = construct_relation_prune_prompt(question, entity_name, total_relations, args)
 
         result = run_llm(prompt, args.temperature_exploration, args.max_length, args.opeani_api_keys, args.LLM_type, vendor=getattr(args, "vendor", None))
-        flag, retrieve_relations_with_scores = clean_relations(result, entity_id, head_relations) 
+        flag, retrieve_relations_with_scores = clean_relations(result, entity_id, head_relations, tail_relations)
 
     elif args.prune_tools == "bm25":
         topn_relations, topn_scores = compute_bm25_similarity(question, total_relations, args.width)
