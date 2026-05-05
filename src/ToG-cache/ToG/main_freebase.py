@@ -11,6 +11,10 @@ if __name__ == '__main__':
                         default="cwq", help="choose the dataset.")
     parser.add_argument("--max_length", type=int,
                         default=256, help="the max length of LLMs output.")
+    parser.add_argument("--temperature_exploration", type=float,
+                        default=0.4, help="the temperature in exploration stage.")
+    parser.add_argument("--temperature_reasoning", type=float,
+                        default=0, help="the temperature in reasoning stage.")
     parser.add_argument("--width", type=int,
                         default=3, help="choose the search width of ToG.")
     parser.add_argument("--depth", type=int,
@@ -29,6 +33,8 @@ if __name__ == '__main__':
                         default=None, help="only run the first k dataset samples.")
     parser.add_argument("--output-file", type=str,
                         default=None, help="path to save jsonl results. Defaults to ../output/ToG_<dataset>.jsonl.")
+    parser.add_argument("--vendor", type=str,
+                        default="tamu", help="LLM vendor: tamu, openai, google. When set to 'tamu', uses the httpx-based client with LLM_API_KEY env var.")
     args = parser.parse_args()
 
     datas, question_string = prepare_dataset(args.dataset)

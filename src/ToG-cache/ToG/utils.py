@@ -4,10 +4,36 @@ import json
 import os
 import re
 import time
-import openai
+from openai import OpenAI
 from rank_bm25 import BM25Okapi
+from llm_config import resolve_llm_config
+from llm_client import LLMChatClient, ChatMessage
 from sentence_transformers import util
 from sentence_transformers import SentenceTransformer
+
+def is_reasoning_model(engine):
+    model_name = engine.lower()
+    return (
+        model_name.startswith("gpt-5")
+        or model_name.startswith("o1")
+        or model_name.startswith("o3")
+        or model_name.startswith("o4")
+    )
+
+
+def should_retry_openai_error(error):
+    error_text = str(error).lower()
+    non_retryable_markers = [
+        "unsupported parameter",
+        "unknown parameter",
+        "not compatible",
+        "invalid_request",
+        "invalid request",
+        "does not support",
+        "model_not_found",
+    ]
+    return not any(marker in error_text for marker in non_retryable_markers)
+
 
 def retrieve_top_docs(query, docs, model, width=3):
     """
@@ -102,66 +128,48 @@ def clean_relations_bm25_sent(topn_relations, topn_scores, entity_id, head_relat
     return True, relations
 
 
-def is_reasoning_model(engine):
-    model_name = engine.lower()
-    return (
-        model_name.startswith("gpt-5")
-        or model_name.startswith("o1")
-        or model_name.startswith("o3")
-        or model_name.startswith("o4")
-    )
+def run_llm(prompt, temperature, max_tokens, opeani_api_keys, engine="gpt-3.5-turbo", vendor=None):
+    if vendor == "tamu":
+        config = resolve_llm_config(vendor="tamu")
+        http_client = LLMChatClient(config, timeout_s=180.0)
+        messages = [
+            ChatMessage(role="system", content="You are an AI assistant that helps people find information."),
+            ChatMessage(role="user", content=prompt),
+        ]
+        print("start tamu")
+        result = http_client.complete_json(messages, temperature=temperature)
+        print("end tamu")
+        return result
 
-
-def completion_token_limit(max_tokens, engine):
-    if is_reasoning_model(engine):
-        return max(max_tokens, 1024)
-    return max_tokens
-
-
-def should_retry_openai_error(error):
-    error_text = str(error).lower()
-    non_retryable_markers = [
-        "unsupported parameter",
-        "unknown parameter",
-        "not compatible",
-        "invalid_request",
-        "invalid request",
-        "does not support",
-        "model_not_found",
-    ]
-    return not any(marker in error_text for marker in non_retryable_markers)
-
-
-def run_llm(prompt, max_tokens, opeani_api_keys, engine="gpt-3.5-turbo"):
     if "llama" in engine.lower():
-        openai.api_key = "EMPTY"
-        openai.api_base = "http://localhost:8000/v1"  # your local llama server port
-        engine = openai.Model.list()["data"][0]["id"]
+        client = OpenAI(api_key="EMPTY", base_url="http://localhost:8000/v1")
+        engine = client.models.list().data[0].id
     else:
-        openai.api_key = opeani_api_keys
+        client = OpenAI(api_key=opeani_api_keys)
 
-    messages = [{"role":"system","content":"You are an AI assistant that helps people find information."}]
-    message_prompt = {"role":"user","content":prompt}
-    messages.append(message_prompt)
+    messages = [
+        {"role": "system", "content": "You are an AI assistant that helps people find information."},
+        {"role": "user", "content": prompt},
+    ]
     print("start openai")
-    f = 0
-    while(f == 0):
+    while True:
         try:
             request_kwargs = {
-                    "model": engine,
-                    "messages": messages,
+                "model": engine,
+                "messages": messages,
             }
             if is_reasoning_model(engine):
-                request_kwargs["max_completion_tokens"] = completion_token_limit(max_tokens, engine)
+                request_kwargs["max_completion_tokens"] = max_tokens
             else:
                 request_kwargs.update({
-                    "max_tokens": completion_token_limit(max_tokens, engine),
+                    "temperature": temperature,
+                    "max_tokens": max_tokens,
                     "frequency_penalty": 0,
                     "presence_penalty": 0,
                 })
-            response = openai.ChatCompletion.create(**request_kwargs)
-            result = response["choices"][0]['message']['content']
-            f = 1
+            response = client.chat.completions.create(**request_kwargs)
+            result = response.choices[0].message.content
+            break
         except Exception as e:
             print("openai error:", repr(e))
             if not should_retry_openai_error(e):
@@ -208,7 +216,7 @@ def relation_search_prune(entity_id, entity_name, pre_relations, pre_head, quest
     if args.prune_tools == "llm":
         prompt = construct_relation_prune_prompt(question, entity_name, total_relations, args)
 
-        result = run_llm(prompt, args.max_length, args.opeani_api_keys, args.LLM_type)
+        result = run_llm(prompt, args.temperature_exploration, args.max_length, args.opeani_api_keys, args.LLM_type, vendor=getattr(args, "vendor", None))
         flag, retrieve_relations_with_scores = clean_relations(result, entity_id, head_relations) 
 
     elif args.prune_tools == "bm25":
@@ -257,7 +265,7 @@ def entity_score(question, entity_candidates_id, score, relation, args):
     if args.prune_tools == "llm":
         prompt = construct_entity_score_prompt(question, relation, entity_candidates)
 
-        result = run_llm(prompt, args.max_length, args.opeani_api_keys, args.LLM_type)
+        result = run_llm(prompt, args.temperature_exploration, args.max_length, args.opeani_api_keys, args.LLM_type, vendor=getattr(args, "vendor", None))
         return [float(x) * score for x in clean_scores(result, entity_candidates)], entity_candidates, entity_candidates_id
 
     elif args.prune_tools == "bm25":
@@ -308,7 +316,7 @@ def generate_answer(question, cluster_chain_of_entities, args):
     prompt = answer_prompt + question + '\n'
     chain_prompt = '\n'.join([', '.join([str(x) for x in chain]) for sublist in cluster_chain_of_entities for chain in sublist])
     prompt += "\nKnowledge Triplets: " + chain_prompt + 'A: '
-    result = run_llm(prompt, args.max_length, args.opeani_api_keys, args.LLM_type)
+    result = run_llm(prompt, args.temperature_reasoning, args.max_length, args.opeani_api_keys, args.LLM_type, vendor=getattr(args, "vendor", None))
     return result
 
 
@@ -345,7 +353,7 @@ def reasoning(question, cluster_chain_of_entities, args):
     chain_prompt = '\n'.join([', '.join([str(x) for x in chain]) for sublist in cluster_chain_of_entities for chain in sublist])
     prompt += "\nKnowledge Triplets: " + chain_prompt + 'A: '
 
-    response = run_llm(prompt, args.max_length, args.opeani_api_keys, args.LLM_type)
+    response = run_llm(prompt, args.temperature_reasoning, args.max_length, args.opeani_api_keys, args.LLM_type, vendor=getattr(args, "vendor", None))
     
     result = extract_answer(response)
     if if_true(result):
@@ -374,7 +382,7 @@ def half_stop(question, cluster_chain_of_entities, args):
 
 def generate_without_explored_paths(question, args):
     prompt = generate_directly + "\n\nQ: " + question + "\nA:"
-    response = run_llm(prompt, args.max_length, args.opeani_api_keys, args.LLM_type)
+    response = run_llm(prompt, args.temperature_reasoning, args.max_length, args.opeani_api_keys, args.LLM_type, vendor=getattr(args, "vendor", None))
     return response
 
 def prepare_dataset(dataset_name):
