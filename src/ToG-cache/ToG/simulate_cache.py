@@ -15,23 +15,43 @@ Policies:
   - semantic_lfu     : exact + cosine >= threshold (LFU eviction)
   - semantic_oracle  : exact + cosine >= threshold AND gold-answer overlap
 
+Speed:
+  - Embeddings are precomputed in one batched pass over the dataset and
+    reused across every (policy, capacity) run.
+  - Cosine search is vectorized with numpy.
+  - (policy, capacity) configs are run in parallel threads (numpy releases
+    the GIL on matrix-vector products). Use --workers to control parallelism.
+
 Usage:
-    python simulate_cache.py [-d webqsp] [-n 500]
+    python simulate_cache.py [-d webqsp|lcquad|lcquad_test|...] [-n 500]
                              [-c 32,128,512,2048,inf]
                              [-p exact,semantic_lru,semantic_lfu,semantic_oracle]
                              [-t 0.90]
-                             [--passes 1]
+                             [--passes 1] [--workers 8]
+
+Note: lcquad records have no populated `answer` field, so the
+`semantic_oracle` policy degrades to all-miss on lcquad.
 """
 
 import argparse
+import os
 import sys
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
+
+import numpy as np
 
 TOG_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(TOG_DIR))
 
-from question_cache import PersistentQuestionCache, extract_oracle_answer_key  # noqa: E402
+from question_cache import (  # noqa: E402
+    PersistentQuestionCache,
+    _USES_EMBEDDING,
+    _normalize,
+    _select_torch_device,
+    extract_oracle_answer_key,
+)
 
 POLICIES = ("exact", "semantic_lru", "semantic_lfu", "semantic_oracle")
 
@@ -52,7 +72,6 @@ def parse_capacity_list(s: str):
 def load_dataset(dataset: str, limit):
     cwd = Path.cwd()
     try:
-        import os
         os.chdir(TOG_DIR)
         from utils import prepare_dataset
         datas, qstr = prepare_dataset(dataset)
@@ -63,15 +82,178 @@ def load_dataset(dataset: str, limit):
     return datas, qstr
 
 
+class FastSimCache(PersistentQuestionCache):
+    """Simulation-only subclass: precomputed embeddings + numpy-vectorized cosine.
+
+    Behaviour matches PersistentQuestionCache; only performance differs:
+      - `_embed` reads from a precomputed `embed_map` (no per-call SBERT call).
+      - `_semantic_lookup` does a single numpy matmul over a stacked matrix
+        of all currently-cached embeddings instead of a Python loop.
+      - Per-hit prints are suppressed (would be 10k+ lines on big datasets).
+    """
+
+    def __init__(self, *args, embed_map=None, **kw):
+        super().__init__(*args, **kw)
+        self._embed_map = embed_map  # dict[normalized_question, np.ndarray(float32)]
+        self._matrix_keys: list[str] = []
+        self._matrix: "np.ndarray | None" = None
+        self._matrix_dirty = True
+
+    def _embed(self, q: str):
+        if self._embed_map is not None:
+            v = self._embed_map.get(_normalize(q))
+            if v is not None:
+                return v
+        return super()._embed(q)
+
+    def put(self, *args, **kw):
+        super().put(*args, **kw)
+        self._matrix_dirty = True
+
+    def _evict_one(self):
+        r = super()._evict_one()
+        self._matrix_dirty = True
+        return r
+
+    def _rebuild_matrix(self):
+        keys = list(self._embeddings.keys())
+        if not keys:
+            self._matrix = None
+            self._matrix_keys = []
+        else:
+            self._matrix = np.stack(
+                [np.asarray(self._embeddings[k], dtype=np.float32) for k in keys]
+            )
+            self._matrix_keys = keys
+        self._matrix_dirty = False
+
+    def _semantic_lookup(self, query_key, query_oracle_key=None, require_oracle=False):
+        if not self._embeddings:
+            return None
+        if require_oracle:
+            if not query_oracle_key:
+                return None
+            qset = {str(x) for x in query_oracle_key}
+            if not qset:
+                return None
+        try:
+            qv = self._embed(query_key)
+        except Exception as e:
+            print(f"[question_cache] embed failed, skipping semantic lookup: {e}")
+            return None
+        if self._matrix_dirty:
+            self._rebuild_matrix()
+        if self._matrix is None:
+            return None
+        qv = np.asarray(qv, dtype=np.float32)
+        sims = self._matrix @ qv  # (N,) of cosines (L2-normalized embeddings)
+        if require_oracle:
+            allowed = np.fromiter(
+                (
+                    bool(self._oracle_keys.get(k))
+                    and bool(qset.intersection(self._oracle_keys[k]))
+                    for k in self._matrix_keys
+                ),
+                dtype=bool,
+                count=len(self._matrix_keys),
+            )
+            sims = np.where(allowed, sims, -1.0)
+        sims = np.where(sims >= self.similarity_threshold, sims, -1.0)
+        idx = int(sims.argmax())
+        if sims[idx] < 0:
+            return None
+        return self._matrix_keys[idx], float(sims[idx])
+
+    # Suppress per-hit prints; too noisy at dataset scale.
+    def get(self, question, oracle_key=None):
+        key = _normalize(question)
+        with self._lock:
+            if key in self._store:
+                self._touch(key)
+                self.hits += 1
+                self.exact_hits += 1
+                return self._store[key]
+            if self.policy in ("semantic_lru", "semantic_lfu"):
+                sem = self._semantic_lookup(key)
+                if sem is not None:
+                    matched_key, _sim = sem
+                    self._touch(matched_key)
+                    self.hits += 1
+                    if self.policy == "semantic_lfu":
+                        self.semantic_lfu_hits += 1
+                    else:
+                        self.semantic_lru_hits += 1
+                    return self._store[matched_key]
+            elif self.policy == "semantic_oracle":
+                sem = self._semantic_lookup(key, oracle_key, require_oracle=True)
+                if sem is not None:
+                    matched_key, _sim = sem
+                    self._touch(matched_key)
+                    self.hits += 1
+                    self.semantic_oracle_hits += 1
+                    return self._store[matched_key]
+            self.misses += 1
+            return None
+
+
+def precompute_embeddings(datas, question_string, embedder_model, batch_size=128):
+    """Encode every question once. Returns dict[normalized_question, np.float32 vec]."""
+    questions = [_normalize(d[question_string]) for d in datas]
+    unique = list(dict.fromkeys(questions))
+    print(
+        f"precomputing embeddings for {len(unique)} unique questions "
+        f"({len(questions) - len(unique)} duplicates) ...",
+        flush=True,
+    )
+    device = _select_torch_device()
+    print(f"  embedder={embedder_model!r} device={device}", flush=True)
+    t0 = time.perf_counter()
+    try:
+        from sentence_transformers import SentenceTransformer
+        model = SentenceTransformer(embedder_model, device=device)
+        embs = model.encode(
+            unique,
+            batch_size=batch_size,
+            normalize_embeddings=True,
+            show_progress_bar=True,
+            convert_to_numpy=True,
+        )
+        embs = np.asarray(embs, dtype=np.float32)
+    except Exception:
+        # Fallback: HF transformers + mean-pool. Slower but no extra dep.
+        import torch
+        from transformers import AutoModel, AutoTokenizer
+
+        name = embedder_model if "/" in embedder_model else f"sentence-transformers/{embedder_model}"
+        tok = AutoTokenizer.from_pretrained(name)
+        model = AutoModel.from_pretrained(name).to(device).eval()
+        out_chunks = []
+        with torch.no_grad():
+            for i in range(0, len(unique), batch_size):
+                batch = unique[i : i + batch_size]
+                enc = tok(batch, padding=True, truncation=True, return_tensors="pt").to(device)
+                out = model(**enc)
+                mask = enc["attention_mask"].unsqueeze(-1).float()
+                summed = (out.last_hidden_state * mask).sum(1)
+                counts = mask.sum(1).clamp(min=1e-9)
+                v = torch.nn.functional.normalize(summed / counts, p=2, dim=1)
+                out_chunks.append(v.cpu().numpy().astype(np.float32))
+        embs = np.concatenate(out_chunks, axis=0)
+    elapsed = time.perf_counter() - t0
+    print(f"  encoded {len(unique)} questions in {elapsed:.1f}s", flush=True)
+    return {k: embs[i] for i, k in enumerate(unique)}
+
+
 def simulate(datas, question_string, policy, capacity,
              similarity_threshold, embedder_model, passes,
-             precomputed_oracle_keys=None):
-    cache = PersistentQuestionCache(
-        path="",  # in-memory only
+             precomputed_oracle_keys=None, embed_map=None):
+    cache = FastSimCache(
+        path="",
         capacity=capacity,
         policy=policy,
         similarity_threshold=similarity_threshold,
         embedder_model=embedder_model,
+        embed_map=embed_map,
     )
     total_lookups = 0
     t0 = time.perf_counter()
@@ -136,10 +318,13 @@ def main():
                     help="comma-separated capacities; 'inf' for unbounded")
     ap.add_argument("-p", "--policies", default="exact,semantic_lru,semantic_lfu,semantic_oracle",
                     help=f"comma-separated policies to test; choose from {POLICIES}")
-    ap.add_argument("-t", "--similarity-threshold", type=float, default=0.85)
+    ap.add_argument("-t", "--similarity-threshold", type=float, default=0.9)
     ap.add_argument("--embedder-model", default="all-MiniLM-L6-v2")
     ap.add_argument("--passes", type=int, default=1,
                     help="how many times to iterate the dataset (>=2 reveals exact-hit potential)")
+    ap.add_argument("--workers", type=int, default=max(1, (os.cpu_count() or 4) // 2),
+                    help="parallel (policy, capacity) workers (threads)")
+    ap.add_argument("--embed-batch-size", type=int, default=128)
     args = ap.parse_args()
 
     datas, qstr = load_dataset(args.dataset, args.limit)
@@ -156,17 +341,50 @@ def main():
         precomputed_oracle_keys = [extract_oracle_answer_key(d, args.dataset) for d in datas]
         n_with_keys = sum(1 for k in precomputed_oracle_keys if k)
         print(f"semantic_oracle: {n_with_keys}/{len(datas)} records have an extractable gold-answer key")
+        if n_with_keys == 0:
+            print(f"  warning: dataset={args.dataset!r} has no extractable gold-answer keys; "
+                  f"semantic_oracle will degrade to all-miss")
 
+    embed_map = None
+    if any(p in _USES_EMBEDDING for p in policies):
+        embed_map = precompute_embeddings(
+            datas, qstr, args.embedder_model, batch_size=args.embed_batch_size
+        )
+
+    tasks = [(p, c) for p in policies for c in capacities]
     results = {}
-    for p in policies:
-        for c in capacities:
+
+    def run_one(p, c):
+        return (p, c), simulate(
+            datas, qstr, p, c,
+            args.similarity_threshold, args.embedder_model,
+            args.passes, precomputed_oracle_keys, embed_map,
+        )
+
+    workers = max(1, min(args.workers, len(tasks)))
+    print(f"running {len(tasks)} (policy, capacity) configs across {workers} thread(s) ...", flush=True)
+    t_all = time.perf_counter()
+    if workers == 1:
+        for p, c in tasks:
             tag = f"policy={p:<16} capacity={('inf' if c >= 10**9 else c)}"
-            print(f"  running {tag} ...", flush=True)
-            results[(p, c)] = simulate(
-                datas, qstr, p, c,
-                args.similarity_threshold, args.embedder_model,
-                args.passes, precomputed_oracle_keys,
-            )
+            print(f"  [start] {tag}", flush=True)
+            (key, r) = run_one(p, c)
+            results[key] = r
+            print(f"  [done]  {tag}  hit_rate={fmt_pct(r['hit_rate'])}  wall={r['wall_s']}s", flush=True)
+    else:
+        with ThreadPoolExecutor(max_workers=workers) as ex:
+            fut_to_task = {ex.submit(run_one, p, c): (p, c) for (p, c) in tasks}
+            for fut in as_completed(fut_to_task):
+                (p, c) = fut_to_task[fut]
+                tag = f"policy={p:<16} capacity={('inf' if c >= 10**9 else c)}"
+                try:
+                    key, r = fut.result()
+                except Exception as e:
+                    print(f"  [FAIL]  {tag}  {e!r}", flush=True)
+                    raise
+                results[key] = r
+                print(f"  [done]  {tag}  hit_rate={fmt_pct(r['hit_rate'])}  wall={r['wall_s']}s", flush=True)
+    print(f"all configs finished in {time.perf_counter() - t_all:.1f}s", flush=True)
 
     print_table(policies, capacities, results, len(datas), args.passes)
 

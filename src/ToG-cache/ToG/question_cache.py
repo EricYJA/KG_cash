@@ -54,6 +54,35 @@ def _cosine_normalized(a, b) -> float:
     return s
 
 
+def _select_torch_device() -> str:
+    """Pick a device the installed torch build can actually run kernels on.
+
+    `torch.cuda.is_available()` is not enough: a GPU like the GTX 1080 Ti
+    (sm_61) shows as available but raises "no kernel image is available
+    for execution on the device" when the torch wheel was built only for
+    sm_70+. Fall back to CPU in that case.
+    """
+    try:
+        import torch
+    except ImportError:
+        return "cpu"
+    if not torch.cuda.is_available():
+        return "cpu"
+    arch_list = torch.cuda.get_arch_list() if hasattr(torch.cuda, "get_arch_list") else []
+    supported_majors: set[int] = set()
+    for arch in arch_list:
+        if arch.startswith("sm_"):
+            try:
+                supported_majors.add(int(arch[3:]) // 10)
+            except ValueError:
+                continue
+    for i in range(torch.cuda.device_count()):
+        major, _ = torch.cuda.get_device_capability(i)
+        if not supported_majors or major in supported_majors:
+            return "cuda"
+    return "cpu"
+
+
 class _Embedder:
     """Lazy-loaded sentence embedder.
 
@@ -72,21 +101,18 @@ class _Embedder:
     def _load(self):
         if self._mode is not None:
             return
+        self._device = _select_torch_device()
         try:
             from sentence_transformers import SentenceTransformer
-            import torch
-            self._device = "cuda" if torch.cuda.is_available() else "cpu"
             self._st = SentenceTransformer(self.model_name, device=self._device)
             self._mode = "st"
             return
         except Exception:
             pass
         from transformers import AutoTokenizer, AutoModel
-        import torch
         name = self.model_name if "/" in self.model_name else f"sentence-transformers/{self.model_name}"
         self._tok = AutoTokenizer.from_pretrained(name)
         self._model = AutoModel.from_pretrained(name)
-        self._device = "cuda" if torch.cuda.is_available() else "cpu"
         self._model.to(self._device).eval()
         self._mode = "hf"
 
@@ -382,6 +408,21 @@ def extract_oracle_answer_key(data: dict, dataset: str):
                     keys.add(str(v).strip().lower())
         elif isinstance(ans_field, str):
             keys.add(ans_field.strip().lower())
+        return frozenset(keys) if keys else None
+    if dataset.startswith("rog-"):
+        # RoG-format datasets (RoG-webqsp, RoG-cwq) carry the gold answer entities
+        # in `a_entity` and the answer strings in `answer`. Same canonical form as
+        # the branches above: stripped, lower-cased answer strings.
+        keys = set()
+        for field in ("a_entity", "answer"):
+            values = data.get(field) or []
+            if isinstance(values, str):
+                values = [values]
+            for v in values:
+                if isinstance(v, dict):
+                    v = v.get("answer") or v.get("text") or v.get("name") or v.get("AnswerArgument")
+                if v:
+                    keys.add(str(v).strip().lower())
         return frozenset(keys) if keys else None
     # Other datasets: caller can extend; oracle policy will degrade to "miss"
     # for any record without an extractable oracle key.

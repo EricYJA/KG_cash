@@ -1,7 +1,7 @@
 {
     "dataset": "webqsp",
     "method": "ToG",
-    "Exact Match": 0.62660158633313,
-    "Right Samples": 1027,
-    "Error Sampels": 612
+    "Exact Match": 0.9,
+    "Right Samples": 9,
+    "Error Sampels": 1
 }

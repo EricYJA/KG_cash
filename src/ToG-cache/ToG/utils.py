@@ -389,7 +389,17 @@ def prepare_dataset(dataset_name):
         with open('../data/creak.json',encoding='utf-8') as f:
             datas = json.load(f)
         question_string = 'sentence'
+    elif dataset_name in ('lcquad', 'lcquad_train'):
+        with open('../data/lcquad_train.json',encoding='utf-8') as f:
+            datas = json.load(f)
+        datas = [d for d in datas if d.get('question')]
+        question_string = 'question'
+    elif dataset_name == 'lcquad_test':
+        with open('../data/lcquad_test.json',encoding='utf-8') as f:
+            datas = json.load(f)
+        datas = [d for d in datas if d.get('question')]
+        question_string = 'question'
     else:
-        print("dataset not found, you should pick from {cwq, webqsp, grailqa, simpleqa, qald, webquestions, trex, zeroshotre, creak}.")
+        print("dataset not found, you should pick from {cwq, webqsp, grailqa, simpleqa, qald, webquestions, trex, zeroshotre, creak, lcquad, lcquad_train, lcquad_test}.")
         exit(-1)
     return datas, question_string
