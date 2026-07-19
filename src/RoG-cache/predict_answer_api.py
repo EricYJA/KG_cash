@@ -24,6 +24,7 @@ from __future__ import annotations
 import argparse
 import os
 import random
+import re
 import sys
 
 sys.path.append(os.path.dirname(os.path.realpath(__file__)))
@@ -38,6 +39,66 @@ from llm_config import resolve_llm_config  # noqa: E402
 # is far larger, but keeping the upstream budget is the point: it holds the
 # prompt (and so the shuffle/truncate behaviour) identical to the local engine.
 MAXIMUN_TOKEN = 4096
+
+# This prompt does two jobs.
+#
+# 1. FORMAT. RoG's evaluate_results.eval_f1 scores precision as
+#    matched / len(answer.split("\n")) -- every output LINE counts as one predicted
+#    entity. The fine-tuned RoG was trained to emit one bare entity per line, so that
+#    denominator equals the number of answers. A chat model left to write prose
+#    ("Based on the reasoning paths, ...") spreads one answer over many lines, which
+#    inflates the denominator and craters precision even when the answer is right.
+#    So: terse, one entity per line, no prose.
+#
+# 2. STRICT GROUNDING (no parametric fallback). The reasoner must answer ONLY from
+#    the reasoning paths and output nothing when they don't contain the answer. This
+#    is essential to the cache experiment, not a style choice: the experiment varies
+#    which relation paths the cache serves and measures the accuracy delta. If the
+#    model may answer from its own memory, accuracy stops depending on the paths --
+#    every cache policy scores the same and the comparison becomes meaningless. A
+#    strictly path-grounded reasoner makes accuracy a faithful function of path
+#    quality, which is exactly what the cache is supposed to affect. It costs recall
+#    (a path grounded to a raw Freebase MID yields no answer), but that lost recall
+#    is a real property of the served paths, which is what we want to measure.
+REASONER_SYSTEM_PROMPT = (
+    "You extract answer entities from knowledge-graph reasoning paths. "
+    "Output ONLY the answer(s), one entity name per line, copied verbatim from the "
+    "reasoning paths. No numbering, no bullets, no markdown, no preamble, no "
+    "explanation. If the reasoning paths do not contain the answer, output nothing."
+)
+
+# Lines that are framing rather than an answer entity. Anchored and specific so a
+# real entity ("The Beatles", "Answer Man") is not dropped: only sentence lead-ins.
+_FRAMING_RE = re.compile(
+    r"^(based on|according to|here (are|is)\b|the answer\b|the following\b|"
+    r"answer[:\s]|answers[:\s]|these are\b|from the reasoning|the reasoning|"
+    r"no answer\b|not (contain|available)|there (is|are) no\b|note:)",
+    re.IGNORECASE,
+)
+
+
+def _extract_answers(text):
+    """Reduce a completion to bare answer entities, one per line.
+
+    Conservative on purpose: it strips list/markdown decoration and drops obvious
+    framing lines, but does not try to guess entities out of a paragraph. With the
+    system prompt above the model already returns a clean list; this just repairs
+    the occasional stray bullet or lead-in so precision is not taxed for it.
+    """
+    answers = []
+    for raw in text.splitlines():
+        line = raw.strip()
+        if not line:
+            continue
+        line = re.sub(r"^[\-\*•]\s+", "", line)      # bullet markers
+        line = re.sub(r"^\d+[\.\)]\s+", "", line)          # "1." / "1)" numbering
+        line = line.replace("**", "").replace("__", "").strip()
+        if not line or line.endswith(":"):                 # empty or a lead-in
+            continue
+        if _FRAMING_RE.match(line):
+            continue
+        answers.append(line)
+    return answers
 
 
 class ApiLLM(BaseLanguageModel):
@@ -78,14 +139,24 @@ class ApiLLM(BaseLanguageModel):
         return len(text) // 4
 
     def generate_sentence(self, llm_input):
-        """Return the model's answer text, or None to let RoG skip the record."""
+        """Return newline-separated answer entities, or None to skip the record.
+
+        The value is stored verbatim as `prediction`, and RoG's eval_f1 splits it
+        on "\\n" to count predicted entities -- so returning terse one-per-line
+        answers (not prose) is what keeps precision honest. See REASONER_SYSTEM_PROMPT.
+        """
         try:
-            return self.client.complete_json(
-                [ChatMessage(role="user", content=llm_input)], temperature=0.0
+            text = self.client.complete_json(
+                [
+                    ChatMessage(role="system", content=REASONER_SYSTEM_PROMPT),
+                    ChatMessage(role="user", content=llm_input),
+                ],
+                temperature=0.0,
             )
         except Exception as exc:  # upstream treats None as "no prediction"
             print(f"  [warn] LLM call failed, skipping record: {exc}")
             return None
+        return "\n".join(_extract_answers(text))
 
 
 if __name__ == "__main__":
