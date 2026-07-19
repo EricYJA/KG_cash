@@ -22,13 +22,20 @@ Examples:
     ./scripts/run_tog_cache_experiment.py
     ./scripts/run_tog_cache_experiment.py --dataset cwq --limit 50
     ./scripts/run_tog_cache_experiment.py --vendor openai --threshold 0.85
+
+Two instances can run side by side on different SPARQL backends; --kg-backend
+also tags the default cache/results dirs so neither run clobbers the other:
+    ./scripts/run_tog_cache_experiment.py --kg-backend virtuoso &
+    ./scripts/run_tog_cache_experiment.py --kg-backend oxigraph &
 """
 from __future__ import annotations
 
 import argparse
 import os
 
-from _tog_common import TOG_DIR, ensure_virtuoso, load_dotenv, run_py
+from _tog_common import REPO_ROOT, TOG_DIR, add_run_args, load_dotenv, resolve_run, run_py
+
+OUTPUT_DIR = REPO_ROOT / "src" / "ToG-cache" / "output"
 
 
 def main() -> None:
@@ -46,16 +53,28 @@ def main() -> None:
     p.add_argument("--threshold", default=env("THRESHOLD", "0.90"),
                    help="cosine threshold for the semantic cache")
     p.add_argument("--loop", default=env("LOOP", "2"), help="loop count for main_freebase_loop.py")
+    add_run_args(p)
     args, extra = p.parse_known_args()
 
     load_dotenv(required=("LLM_API_KEY",))
-    ensure_virtuoso()
+    endpoint, tag = resolve_run(args)
+
+    # compare_cache_accuracy.py wipes its --cache-dir on startup and rewrites its
+    # --results-dir, so two instances sharing the defaults would destroy each
+    # other's runs mid-flight. Tag both, unless the caller passed their own.
+    dir_flags: list[str] = []
+    results_dir = "(see --results-dir)"
+    if not any(a.startswith("--cache-dir") for a in extra):
+        dir_flags += ["--cache-dir", str(OUTPUT_DIR / "compare_caches" / tag)]
+    if not any(a.startswith("--results-dir") for a in extra):
+        results_dir = str((OUTPUT_DIR / "compare_results" / tag).relative_to(REPO_ROOT))
+        dir_flags += ["--results-dir", str(OUTPUT_DIR / "compare_results" / tag)]
 
     print("\n" + "=" * 64)
     print(f">>> ToG cache experiment  [dataset={args.dataset}, N={args.limit}, "
           f"vendor={args.vendor},")
     print(f">>>   depth={args.depth}, width={args.width}, threshold={args.threshold}, "
-          f"loop={args.loop}]")
+          f"loop={args.loop}, kg={args.kg_backend} @ {endpoint}]")
     print("=" * 64)
 
     # compare_cache_accuracy.py uses paths relative to TOG_DIR (eval.py, ../output).
@@ -69,12 +88,13 @@ def main() -> None:
             "--width", args.width,
             "--similarity-threshold", args.threshold,
             "--loop", args.loop,
+            *dir_flags,
             *extra,
         ],
         cwd=TOG_DIR,
         conda_env=args.conda_env,
     )
-    print("\n>>> per-config JSONL + summary.json under src/ToG-cache/output/compare_results/")
+    print(f"\n>>> per-config JSONL + summary.json under {results_dir}/")
 
 
 if __name__ == "__main__":

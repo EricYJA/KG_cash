@@ -72,17 +72,25 @@ def main() -> None:
                    help="space- or comma-separated policy list")
     p.add_argument("--keep-cache", action="store_true", default=env("KEEP_CACHE", "0") == "1",
                    help="keep each policy's cache so a re-run replays against a warm cache")
+    p.add_argument("--run-tag", default=env("RUN_TAG", ""),
+                   help="subdirectory under artifacts/rog_cache/, so a second "
+                        "concurrent instance does not overwrite this run")
     args = p.parse_args()
 
     is_api = args.engine == "api"
     split = split_for(args.limit)
     qflag = [] if is_api else quant_flag(args.quant)
     policies = args.policies.replace(",", " ").split()
+    # Everything below writes under /out, which is this dir bind-mounted into the
+    # container -- including the per-policy caches, which are deleted on start.
+    out_host = OUT_HOST / args.run_tag if args.run_tag else OUT_HOST
 
     load_dotenv(required=("HF_TOKEN", "LLM_API_KEY") if is_api else ("HF_TOKEN",))
     docker_build()
-    stop_rog_server()
-    OUT_HOST.mkdir(parents=True, exist_ok=True)
+    # Only the GPU pipeline needs the card; see run_rog_eval.py.
+    if not is_api:
+        stop_rog_server()
+    out_host.mkdir(parents=True, exist_ok=True)
 
     extra_env = {"TOG_CACHE_DIR": "/togcache"}
     if is_api:
@@ -99,7 +107,7 @@ def main() -> None:
             f"{REPO_ROOT}/ref_KG_projects/RoG:/rog",
             f"{REPO_ROOT}/src/RoG-cache:/rogcache",
             f"{REPO_ROOT}/src/ToG-cache/ToG:/togcache:ro",
-            f"{OUT_HOST}:/out",
+            f"{out_host}:/out",
             f"{home}/.cache/huggingface:/hf",
         ],
     )
@@ -116,7 +124,7 @@ def main() -> None:
                            "--question-cache-path", f"/out/cache/{tag}.json"]
             # Cold cache per policy unless --keep-cache: never reuse another run's entries.
             if not args.keep_cache:
-                (OUT_HOST / "cache" / f"{tag}.json").unlink(missing_ok=True)
+                (out_host / "cache" / f"{tag}.json").unlink(missing_ok=True)
 
         rule_dir = f"/out/gen_rule_path/{tag}/{args.dataset}/{MODEL_NAME}/{split}"
         rule_path = f"{rule_dir}/predictions_{args.n_beam}_False.jsonl"
@@ -169,7 +177,7 @@ def main() -> None:
         rog(["python", "src/qa_prediction/evaluate_results.py", "-d", predict_file, "--cal_f1"])
 
         # Point the summarizer at this config's scores. /out is bind-mounted to
-        # OUT_HOST, so we can write the manifest directly on the host; the paths
+        # out_host, so we can write the manifest directly on the host; the paths
         # inside stay container-relative because summarize runs in-container.
         manifest = {
             "tag": tag,
@@ -177,14 +185,14 @@ def main() -> None:
             "eval_file": predict_file.replace("predictions.jsonl", "eval_result.txt"),
             "cache_stats": f"{rule_dir}/cache_stats.json",
         }
-        (OUT_HOST / f"manifest_{tag}.json").write_text(json.dumps(manifest, indent=2))
+        (out_host / f"manifest_{tag}.json").write_text(json.dumps(manifest, indent=2))
 
     print("\n" + "=" * 64)
     print(">>> SUMMARY")
     print("=" * 64)
     rog(["python", "/rogcache/summarize_rog_cache.py", "--results-dir", "/out"])
 
-    print("\n>>> raw outputs under artifacts/rog_cache/")
+    print(f"\n>>> raw outputs under {out_host.relative_to(REPO_ROOT)}/")
     if not is_api:
         print(">>> restart the server with: docker compose up -d rog")
 

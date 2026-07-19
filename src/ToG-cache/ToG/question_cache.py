@@ -221,10 +221,22 @@ class PersistentQuestionCache:
             if fr is not None:
                 entry["freq"] = fr
             entries.append(entry)
-        tmp = self.path + ".tmp"
-        with open(tmp, "w") as f:
-            json.dump({"version": 4, "entries": entries}, f)
-        os.replace(tmp, self.path)
+        # PID-scoped scratch file: a shared ".tmp" makes two processes writing the
+        # same cache path race, and the loser's os.replace dies with ENOENT after
+        # the winner consumed the tmp. Each process now renames only its own file.
+        # (Concurrent writers still clobber each other's *contents* -- give each
+        # run its own --question-cache-path if the entries must stay separate.)
+        tmp = f"{self.path}.{os.getpid()}.tmp"
+        try:
+            with open(tmp, "w") as f:
+                json.dump({"version": 4, "entries": entries}, f)
+            os.replace(tmp, self.path)
+        except BaseException:
+            try:
+                os.unlink(tmp)
+            except OSError:
+                pass
+            raise
 
     def _evict_one(self):
         """Evict one entry per the cache's eviction strategy. Caller holds _lock."""

@@ -10,13 +10,18 @@ Requires the KG_cash conda env, Virtuoso on :8890, and LLM_API_KEY in .env
 Examples:
     ./scripts/run_tog_eval.py
     ./scripts/run_tog_eval.py --dataset cwq --vendor openai --limit 100
+
+Two instances can run side by side on different SPARQL backends; --kg-backend
+also tags the default output file so neither run clobbers the other:
+    ./scripts/run_tog_eval.py --kg-backend virtuoso &
+    ./scripts/run_tog_eval.py --kg-backend oxigraph &
 """
 from __future__ import annotations
 
 import argparse
 import os
 
-from _tog_common import EVAL_DIR, TOG_DIR, ensure_virtuoso, load_dotenv, run_py
+from _tog_common import EVAL_DIR, TOG_DIR, add_run_args, load_dotenv, resolve_run, run_py
 
 
 def main() -> None:
@@ -31,19 +36,22 @@ def main() -> None:
     p.add_argument("--depth", default=env("DEPTH", "3"))
     p.add_argument("--width", default=env("WIDTH", "3"))
     p.add_argument("--out-file", default=env("OUT_FILE", ""),
-                   help="answers JSONL (default: ../output/ToG_<dataset>_baseline.jsonl)")
+                   help="answers JSONL (default: ../output/ToG_<dataset>_baseline_<tag>.jsonl)")
+    add_run_args(p)
     args = p.parse_args()
+
+    load_dotenv(required=("LLM_API_KEY",))
+    endpoint, tag = resolve_run(args)
 
     # main_freebase.py resolves this relative to TOG_DIR; eval.py resolves the same
     # string relative to EVAL_DIR. Both point at src/ToG-cache/output, so `../output`
-    # works from either directory.
-    out_file = args.out_file or f"../output/ToG_{args.dataset}_baseline.jsonl"
-
-    load_dotenv(required=("LLM_API_KEY",))
-    ensure_virtuoso()
+    # works from either directory. The tag keeps a concurrent instance on another
+    # backend from overwriting this run's answers.
+    out_file = args.out_file or f"../output/ToG_{args.dataset}_baseline_{tag}.jsonl"
 
     print(f"\n>>> STAGE 1/2  ToG traversal + reasoning (cache OFF)  "
-          f"[{args.dataset}, N={args.limit}, depth={args.depth}, width={args.width}, {args.vendor}]")
+          f"[{args.dataset}, N={args.limit}, depth={args.depth}, width={args.width}, "
+          f"{args.vendor}, kg={args.kg_backend} @ {endpoint}]")
     run_py(
         [
             "main_freebase.py",

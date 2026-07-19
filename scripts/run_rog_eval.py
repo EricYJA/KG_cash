@@ -80,17 +80,26 @@ def main() -> None:
     p.add_argument("--quant", default=env("QUANT", "8bit"),
                    help="[local] 8bit | 4bit | fp16")
     p.add_argument("--dataset", default=env("DATASET", "RoG-webqsp"))
+    p.add_argument("--run-tag", default=env("RUN_TAG", ""),
+                   help="suffix for the results dir, so a second concurrent "
+                        "instance does not overwrite this run")
     args = p.parse_args()
 
     is_api = args.engine == "api"
     split = split_for(args.limit)
-    # "RoG-api" keeps API outputs from colliding with the fine-tuned "RoG" ones.
+    # "RoG-api" keeps API outputs from colliding with the fine-tuned "RoG" ones;
+    # every results path below is keyed on model_name, so the run tag goes here.
     model_name = "RoG-api" if is_api else MODEL_NAME
+    if args.run_tag:
+        model_name = f"{model_name}-{args.run_tag}"
     home = os.path.expanduser("~")
 
     load_dotenv(required=("HF_TOKEN", "LLM_API_KEY") if is_api else ("HF_TOKEN",))
     docker_build()
-    stop_rog_server()
+    # Only the local engine needs the card. Stopping the server on an API run
+    # would evict a concurrent local run's model for no reason.
+    if not is_api:
+        stop_rog_server()
 
     if is_api:
         rog = make_rog_runner(
@@ -118,12 +127,19 @@ def main() -> None:
     rule_path = f"results/gen_rule_path/{args.dataset}/{model_name}/{split}/predictions_{args.n_beam}_False.jsonl"
     backend = f"api:{args.vendor}" if is_api else f"local:{args.quant}"
 
+    # gen_rule_path_api.py defaults this to a path relative to the workdir, and the
+    # workdir is the same bind mount in every instance -- so two concurrent runs
+    # would share one cache file and race on its rewrite. Key it on model_name,
+    # which already carries --run-tag.
+    cache_path = f"cache/rog_question_cache_{model_name}.json"
+
     print(f"\n>>> STAGE 1/3  planning  (question -> relation paths)   "
           f"[{split}, beam={args.n_beam}, {backend}]")
     if is_api:
         rog(["python", "/kgsrc/RoG-cache/gen_rule_path_api.py",
              "--model_name", model_name, "-d", args.dataset, "--split", split,
-             "--n_beam", args.n_beam, "--vendor", args.vendor, "--max-hop", args.max_hop, *model_opt])
+             "--n_beam", args.n_beam, "--vendor", args.vendor, "--max-hop", args.max_hop,
+             "--question-cache-path", cache_path, *model_opt])
     else:
         rog(["python", "src/qa_prediction/gen_rule_path.py",
              "--model_name", model_name, "--model_path", MODEL_PATH,

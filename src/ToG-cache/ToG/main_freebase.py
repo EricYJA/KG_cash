@@ -213,6 +213,9 @@ if __name__ == '__main__':
         log_record = {
             "ts": datetime.now(timezone.utc).isoformat(),
             "script": "main_freebase.py",
+            # Two instances on different SPARQL backends may share this log;
+            # without the endpoint their timing records are indistinguishable.
+            "kg_endpoint": os.environ.get("SPARQL_ENDPOINT", ""),
             "dataset": args.dataset,
             "test_limit": args.test_limit,
             "policy": args.cache_policy if not args.no_question_cache else "off",

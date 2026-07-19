@@ -17,7 +17,15 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 TOG_DIR = REPO_ROOT / "src" / "ToG-cache" / "ToG"
 EVAL_DIR = REPO_ROOT / "src" / "ToG-cache" / "eval"
-SPARQL_PING = "http://localhost:8890/sparql?query=ASK%20%7B%7D"
+
+# Interchangeable SPARQL backends serving the same Freebase KG. Select with
+# KG_BACKEND=<name>; the chosen endpoint is exported as SPARQL_ENDPOINT so the
+# ToG subprocesses (freebase_func.py) pick it up. SPARQL_ENDPOINT set
+# explicitly in the environment always wins.
+KG_BACKENDS = {
+    "virtuoso": {"service": "virtuoso", "endpoint": "http://localhost:8890/sparql"},
+    "oxigraph": {"service": "oxigraph", "endpoint": "http://localhost:7878/query"},
+}
 
 
 def python_cmd(conda_env: str | None = None) -> list[str]:
@@ -82,18 +90,63 @@ def load_dotenv(required: tuple[str, ...] = ()) -> None:
             sys.exit(f"{key} not set in {env_path}")
 
 
-def ensure_virtuoso() -> None:
-    """Bring up the Virtuoso (Freebase SPARQL) service and wait until it answers."""
-    print(">>> starting Virtuoso (Freebase SPARQL endpoint on :8890)", flush=True)
-    subprocess.run(["docker", "compose", "up", "-d", "virtuoso"], cwd=REPO_ROOT, check=True)
-    print(">>> waiting for Virtuoso to answer SPARQL ...", flush=True)
+def add_run_args(p) -> None:
+    """Flags every ToG runner needs to coexist with a second, concurrent instance.
+
+    --kg-backend picks which SPARQL server to query; --run-tag namespaces the
+    default output paths so two instances never write to the same file. The tag
+    defaults to the backend name, which is the usual reason to run two at once.
+    """
+    p.add_argument("--kg-backend", default=os.environ.get("KG_BACKEND", "virtuoso"),
+                   choices=sorted(KG_BACKENDS),
+                   help="SPARQL backend to query (default: virtuoso)")
+    p.add_argument("--run-tag", default=os.environ.get("RUN_TAG", ""),
+                   help="suffix for default output paths (default: the --kg-backend name)")
+
+
+def resolve_run(args) -> tuple[str, str]:
+    """Bring up the selected backend; return (endpoint, output tag)."""
+    endpoint = ensure_kg_backend(args.kg_backend, explicit=True)
+    return endpoint, (args.run_tag or args.kg_backend)
+
+
+def ensure_kg_backend(name: str | None = None, *, explicit: bool = False) -> str:
+    """Bring up a SPARQL backend service and wait until it answers.
+
+    Picks the backend from `name`, else the KG_BACKEND env var, else virtuoso.
+    Exports the endpoint as SPARQL_ENDPOINT and returns it.
+
+    With `explicit` (the --kg-backend path) the chosen backend overwrites any
+    inherited SPARQL_ENDPOINT: otherwise a stray value in .env would quietly aim
+    both concurrent instances at the same server, and the comparison would be a
+    lie rather than an error.
+    """
+    backend = name or os.environ.get("KG_BACKEND", "virtuoso")
+    if backend not in KG_BACKENDS:
+        sys.exit(f"unknown KG_BACKEND {backend!r}; choose from {sorted(KG_BACKENDS)}")
+    service = KG_BACKENDS[backend]["service"]
+    default_endpoint = KG_BACKENDS[backend]["endpoint"]
+    if explicit:
+        endpoint = os.environ["SPARQL_ENDPOINT"] = default_endpoint
+    else:
+        endpoint = os.environ.setdefault("SPARQL_ENDPOINT", default_endpoint)
+    ping = endpoint + "?query=ASK%20%7B%7D"
+
+    print(f">>> starting {backend} (Freebase SPARQL endpoint at {endpoint})", flush=True)
+    subprocess.run(["docker", "compose", "up", "-d", service], cwd=REPO_ROOT, check=True)
+    print(f">>> waiting for {backend} to answer SPARQL ...", flush=True)
     for _ in range(90):
         try:
-            with urllib.request.urlopen(SPARQL_PING, timeout=3) as resp:
+            with urllib.request.urlopen(ping, timeout=3) as resp:
                 if resp.status == 200:
-                    print(">>> Virtuoso is up", flush=True)
-                    return
+                    print(f">>> {backend} is up", flush=True)
+                    return endpoint
         except Exception:
             pass
         time.sleep(2)
-    sys.exit("Virtuoso did not become ready on :8890")
+    sys.exit(f"{backend} did not become ready at {endpoint}")
+
+
+def ensure_virtuoso() -> None:
+    """Backward-compatible alias: bring up the backend selected by KG_BACKEND."""
+    ensure_kg_backend()
