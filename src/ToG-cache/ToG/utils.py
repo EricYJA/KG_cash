@@ -21,6 +21,34 @@ def is_reasoning_model(engine):
     )
 
 
+def normalize_reasoning_effort(reasoning_effort):
+    if reasoning_effort is None:
+        return "low"
+    reasoning_effort = str(reasoning_effort).strip().lower()
+    return reasoning_effort or "low"
+
+
+def reasoning_completion_budget(max_tokens):
+    return max(int(max_tokens), 1024)
+
+
+def extract_message_content(message):
+    content = message.content
+    if content is None:
+        return ""
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        parts = []
+        for item in content:
+            if isinstance(item, dict):
+                parts.append(str(item.get("text", "")))
+            else:
+                parts.append(str(getattr(item, "text", item)))
+        return "".join(parts)
+    return str(content)
+
+
 def should_retry_openai_error(error):
     error_text = str(error).lower()
     non_retryable_markers = [
@@ -128,7 +156,15 @@ def clean_relations_bm25_sent(topn_relations, topn_scores, entity_id, head_relat
     return True, relations
 
 
-def run_llm(prompt, temperature, max_tokens, opeani_api_keys, engine="gpt-3.5-turbo", vendor=None):
+def run_llm(
+    prompt,
+    temperature,
+    max_tokens,
+    opeani_api_keys,
+    engine="gpt-3.5-turbo",
+    vendor=None,
+    reasoning_effort=None,
+):
     if vendor == "tamu":
         config = resolve_llm_config(vendor="tamu")
         http_client = LLMChatClient(config, timeout_s=180.0)
@@ -159,7 +195,8 @@ def run_llm(prompt, temperature, max_tokens, opeani_api_keys, engine="gpt-3.5-tu
                 "messages": messages,
             }
             if is_reasoning_model(engine):
-                request_kwargs["max_completion_tokens"] = max_tokens
+                request_kwargs["max_completion_tokens"] = reasoning_completion_budget(max_tokens)
+                request_kwargs["reasoning_effort"] = normalize_reasoning_effort(reasoning_effort)
             else:
                 request_kwargs.update({
                     "temperature": temperature,
@@ -168,7 +205,7 @@ def run_llm(prompt, temperature, max_tokens, opeani_api_keys, engine="gpt-3.5-tu
                     "presence_penalty": 0,
                 })
             response = client.chat.completions.create(**request_kwargs)
-            result = response.choices[0].message.content
+            result = extract_message_content(response.choices[0].message)
             break
         except Exception as e:
             print("openai error:", repr(e))
@@ -216,7 +253,7 @@ def relation_search_prune(entity_id, entity_name, pre_relations, pre_head, quest
     if args.prune_tools == "llm":
         prompt = construct_relation_prune_prompt(question, entity_name, total_relations, args)
 
-        result = run_llm(prompt, args.temperature_exploration, args.max_length, args.opeani_api_keys, args.LLM_type, vendor=getattr(args, "vendor", None))
+        result = run_llm(prompt, args.temperature_exploration, args.max_length, args.opeani_api_keys, args.LLM_type, vendor=getattr(args, "vendor", None), reasoning_effort=getattr(args, "reasoning_effort", None))
         flag, retrieve_relations_with_scores = clean_relations(result, entity_id, head_relations) 
 
     elif args.prune_tools == "bm25":
@@ -265,7 +302,7 @@ def entity_score(question, entity_candidates_id, score, relation, args):
     if args.prune_tools == "llm":
         prompt = construct_entity_score_prompt(question, relation, entity_candidates)
 
-        result = run_llm(prompt, args.temperature_exploration, args.max_length, args.opeani_api_keys, args.LLM_type, vendor=getattr(args, "vendor", None))
+        result = run_llm(prompt, args.temperature_exploration, args.max_length, args.opeani_api_keys, args.LLM_type, vendor=getattr(args, "vendor", None), reasoning_effort=getattr(args, "reasoning_effort", None))
         return [float(x) * score for x in clean_scores(result, entity_candidates)], entity_candidates, entity_candidates_id
 
     elif args.prune_tools == "bm25":
@@ -316,7 +353,7 @@ def generate_answer(question, cluster_chain_of_entities, args):
     prompt = answer_prompt + question + '\n'
     chain_prompt = '\n'.join([', '.join([str(x) for x in chain]) for sublist in cluster_chain_of_entities for chain in sublist])
     prompt += "\nKnowledge Triplets: " + chain_prompt + 'A: '
-    result = run_llm(prompt, args.temperature_reasoning, args.max_length, args.opeani_api_keys, args.LLM_type, vendor=getattr(args, "vendor", None))
+    result = run_llm(prompt, args.temperature_reasoning, args.max_length, args.opeani_api_keys, args.LLM_type, vendor=getattr(args, "vendor", None), reasoning_effort=getattr(args, "reasoning_effort", None))
     return result
 
 
@@ -353,7 +390,7 @@ def reasoning(question, cluster_chain_of_entities, args):
     chain_prompt = '\n'.join([', '.join([str(x) for x in chain]) for sublist in cluster_chain_of_entities for chain in sublist])
     prompt += "\nKnowledge Triplets: " + chain_prompt + 'A: '
 
-    response = run_llm(prompt, args.temperature_reasoning, args.max_length, args.opeani_api_keys, args.LLM_type, vendor=getattr(args, "vendor", None))
+    response = run_llm(prompt, args.temperature_reasoning, args.max_length, args.opeani_api_keys, args.LLM_type, vendor=getattr(args, "vendor", None), reasoning_effort=getattr(args, "reasoning_effort", None))
     
     result = extract_answer(response)
     if if_true(result):
@@ -382,7 +419,7 @@ def half_stop(question, cluster_chain_of_entities, args):
 
 def generate_without_explored_paths(question, args):
     prompt = generate_directly + "\n\nQ: " + question + "\nA:"
-    response = run_llm(prompt, args.temperature_reasoning, args.max_length, args.opeani_api_keys, args.LLM_type, vendor=getattr(args, "vendor", None))
+    response = run_llm(prompt, args.temperature_reasoning, args.max_length, args.opeani_api_keys, args.LLM_type, vendor=getattr(args, "vendor", None), reasoning_effort=getattr(args, "reasoning_effort", None))
     return response
 
 def prepare_dataset(dataset_name):
