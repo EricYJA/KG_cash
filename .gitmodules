@@ -4,3 +4,9 @@
 [submodule "datasets/reasoning-on-graphs"]
 	path = datasets/reasoning-on-graphs
 	url = git@github.com:RManLuo/reasoning-on-graphs.git
+[submodule "datasets/ToG-2"]
+	path = datasets/ToG-2
+	url = https://github.com/DataArcTech/ToG-2.git
+[submodule "datasets/ToG"]
+	path = datasets/ToG
+	url = https://github.com/DataArcTech/ToG.git
