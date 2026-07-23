@@ -32,12 +32,14 @@ if __name__ == '__main__':
                         default=5, help="Number of entities retained during entities search.")
     parser.add_argument("--prune_tools", type=str,
                         default="llm", help="prune tools for ToG, can be llm (same as LLM_type), bm25 or sentencebert.")
-    parser.add_argument("--test-limit", type=int,
-                        default=None, help="only run the first k dataset samples.")
+    parser.add_argument("--test-limit", type=parse_test_limit,
+                        default=None, help="only run the first k dataset samples, or 'all'.")
     parser.add_argument("--output-file", type=str,
                         default=None, help="path to save jsonl results. Defaults to ../output/ToG_<dataset>.jsonl.")
     parser.add_argument("--vendor", type=str,
                         default="tamu", help="LLM vendor: tamu, openai, google. When set to 'tamu', uses the httpx-based client with LLM_API_KEY env var.")
+    parser.add_argument("--model", type=str, default="",
+                        help="Override the vendor's default model id (empty = use vendor preset default).")
     parser.add_argument("--question-cache-path", type=str,
                         default="../output/question_chain_cache.json",
                         help="Path to persistent per-question chain cache (JSON). On hit, Virtuoso and per-loop LLM calls are skipped; final answer is still generated.")
@@ -195,6 +197,14 @@ if __name__ == '__main__':
     avg_miss = (miss_sum / n_misses) if n_misses else 0.0
     estimated_saved = (n_hits * avg_miss - hit_sum) if (n_hits and n_misses) else 0.0
     speedup = (avg_miss / avg_hit) if (n_hits and avg_hit > 0 and n_misses) else None
+    # Full-system speedup: without the cache every request would have been a miss,
+    # so the amortised no-cache time is (n_hits+n_misses)*avg_miss against the actual
+    # hit_sum+miss_sum. Unlike speedup_x (the per-hit ceiling), this folds in hit rate.
+    full_speedup = (
+        ((n_hits + n_misses) * avg_miss) / (hit_sum + miss_sum)
+        if (n_hits and n_misses and (hit_sum + miss_sum) > 0)
+        else None
+    )
 
     timing = {
         "hits": n_hits,
@@ -205,6 +215,7 @@ if __name__ == '__main__':
         "avg_miss_s": round(avg_miss, 3),
         "estimated_time_saved_s": round(estimated_saved, 3),
         "speedup_x": round(speedup, 2) if speedup is not None else None,
+        "full_speedup_x": round(full_speedup, 2) if full_speedup is not None else None,
     }
     print("[question_cache] timing: " + json.dumps(timing))
 

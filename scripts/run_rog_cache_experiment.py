@@ -23,6 +23,12 @@ GPU with the same cache.
 Each policy starts from a COLD cache and makes a single pass over the split, so the
 cache fills as it goes -- no pre-warming, no train/test leak. --keep-cache (env
 KEEP_CACHE=1) keeps entries so a re-run replays against a WARM cache.
+
+Restartable: re-using a --run-tag RESUMES by default. Completed policies (marked by
+<tag>.done) are skipped, and an interrupted policy continues where it stopped --
+stage 1 and stage 2 append to their JSONL, skipping questions already answered, and
+the partial cache on disk is kept. Pass --fresh (env FRESH=1) to wipe the tag's
+outputs/caches and redo everything from scratch.
 """
 from __future__ import annotations
 
@@ -72,6 +78,10 @@ def main() -> None:
                    help="space- or comma-separated policy list")
     p.add_argument("--keep-cache", action="store_true", default=env("KEEP_CACHE", "0") == "1",
                    help="keep each policy's cache so a re-run replays against a warm cache")
+    p.add_argument("--fresh", action="store_true", default=env("FRESH", "0") == "1",
+                   help="wipe this run-tag's outputs/caches and start over. Default "
+                        "resumes: re-using a --run-tag skips completed policies and "
+                        "continues partial stages where they stopped.")
     p.add_argument("--run-tag", default=env("RUN_TAG", ""),
                    help="subdirectory under artifacts/rog_cache/, so a second "
                         "concurrent instance does not overwrite this run")
@@ -95,6 +105,9 @@ def main() -> None:
     extra_env = {"TOG_CACHE_DIR": "/togcache"}
     if is_api:
         extra_env["LLM_API_KEY"] = os.environ["LLM_API_KEY"]
+        # cwd is /rog (read-only mount); send failed-request dumps to the writable
+        # /out bind-mount so they survive the --rm container for debugging.
+        extra_env["LLM_DUMP_DIR"] = "/out"
 
     home = os.path.expanduser("~")
     rog = make_rog_runner(
@@ -114,6 +127,19 @@ def main() -> None:
 
     for policy in policies:
         tag = policy if policy in ("none", "exact") else f"{policy}_t{args.threshold}"
+        # Resume by default: a completed policy (marker present) is skipped; --fresh
+        # clears the marker so the policy is redone from scratch.
+        done_marker = out_host / f"{tag}.done"
+        if args.fresh:
+            done_marker.unlink(missing_ok=True)
+        elif done_marker.exists():
+            print(f"\n>>> POLICY={policy} already complete (tag={tag}); skipping. "
+                  f"Pass --fresh to redo.")
+            continue
+
+        # --fresh overwrites stage 1/2 outputs; default (resume) appends, so each
+        # stage skips questions already in its JSONL.
+        force_flag = ["--force"] if args.fresh else []
 
         if policy == "none":
             cache_flags = ["--no-question-cache"]
@@ -122,8 +148,11 @@ def main() -> None:
                            "--similarity-threshold", args.threshold,
                            "--question-cache-capacity", args.capacity,
                            "--question-cache-path", f"/out/cache/{tag}.json"]
-            # Cold cache per policy unless --keep-cache: never reuse another run's entries.
-            if not args.keep_cache:
+            # Each policy makes a single cold-cache pass. --fresh clears any prior
+            # file so the pass starts empty; on a resume (default) the partial cache
+            # on disk is exactly that cold cache filled up to the interruption, so
+            # keep it and continue.
+            if args.fresh and not args.keep_cache:
                 (out_host / "cache" / f"{tag}.json").unlink(missing_ok=True)
 
         rule_dir = f"/out/gen_rule_path/{tag}/{args.dataset}/{MODEL_NAME}/{split}"
@@ -142,7 +171,7 @@ def main() -> None:
                  "--model_name", MODEL_NAME, "-d", args.dataset, "--split", split,
                  "--n_beam", args.n_beam, "--vendor", args.vendor, *model_opt,
                  "--output_path", f"/out/gen_rule_path/{tag}",
-                 "--timing-log", "/out/cache_timing.jsonl", *cache_flags])
+                 "--timing-log", "/out/cache_timing.jsonl", *force_flag, *cache_flags])
         else:
             rog(["python", "/rogcache/gen_rule_path_cached.py",
                  "--model_name", MODEL_NAME, "--model_path", MODEL_PATH,
@@ -159,14 +188,14 @@ def main() -> None:
                  "--model_name", MODEL_NAME, "-d", args.dataset, "--split", split,
                  "--prompt_path", "prompts/llama2_predict.txt",
                  "--add_rule", "--rule_path", rule_path, "--vendor", args.vendor, *model_opt,
-                 "--predict_path", f"/out/KGQA/{tag}", "--seed", args.seed, "--force"])
+                 "--predict_path", f"/out/KGQA/{tag}", "--seed", args.seed, *force_flag])
         else:
             rog(["python", "/rogcache/predict_answer_seeded.py",
                  "--model_name", MODEL_NAME, "--model_path", MODEL_PATH,
                  "-d", args.dataset, "--split", split,
                  "--prompt_path", "prompts/llama2_predict.txt",
                  "--add_rule", "--rule_path", rule_path,
-                 "--predict_path", f"/out/KGQA/{tag}", "--seed", args.seed, *qflag, "--force"])
+                 "--predict_path", f"/out/KGQA/{tag}", "--seed", args.seed, *qflag, *force_flag])
 
         # predict_answer.py derives its output dir from the rule path (maps '/' and
         # '.' to '_'; basename must stay exactly predictions.jsonl).
@@ -186,6 +215,7 @@ def main() -> None:
             "cache_stats": f"{rule_dir}/cache_stats.json",
         }
         (out_host / f"manifest_{tag}.json").write_text(json.dumps(manifest, indent=2))
+        done_marker.write_text("")  # policy fully scored: skip it on a same-tag resume
 
     print("\n" + "=" * 64)
     print(">>> SUMMARY")

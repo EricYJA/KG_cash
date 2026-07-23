@@ -27,6 +27,11 @@ Two instances can run side by side on different SPARQL backends; --kg-backend
 also tags the default cache/results dirs so neither run clobbers the other:
     ./scripts/run_tog_cache_experiment.py --kg-backend virtuoso &
     ./scripts/run_tog_cache_experiment.py --kg-backend oxigraph &
+
+Restartable: re-using a --run-tag RESUMES by default. Completed configs (marked by
+<config>.done) are skipped, and an interrupted config continues where it stopped
+(main_freebase.py / main_freebase_loop.py skip questions already in their JSONL, and
+the semantic cache persists). Pass --fresh (env FRESH=1) to wipe and start over.
 """
 from __future__ import annotations
 
@@ -48,11 +53,16 @@ def main() -> None:
     p.add_argument("-n", "--limit", default=env("N", "20"),
                    help="samples per config (keeps token cost bounded)")
     p.add_argument("--vendor", default=env("VENDOR", "tamu"), help="tamu | openai | google")
+    p.add_argument("--model", default=env("MODEL", ""),
+                   help="override the vendor's default model id")
     p.add_argument("--depth", default=env("DEPTH", "3"))
     p.add_argument("--width", default=env("WIDTH", "3"))
     p.add_argument("--threshold", default=env("THRESHOLD", "0.90"),
                    help="cosine threshold for the semantic cache")
     p.add_argument("--loop", default=env("LOOP", "2"), help="loop count for main_freebase_loop.py")
+    p.add_argument("--fresh", action="store_true", default=env("FRESH", "0") == "1",
+                   help="wipe this run-tag's caches/outputs and start over. Default "
+                        "resumes: re-using a run-tag continues where it stopped.")
     add_run_args(p)
     args, extra = p.parse_known_args()
 
@@ -72,7 +82,7 @@ def main() -> None:
 
     print("\n" + "=" * 64)
     print(f">>> ToG cache experiment  [dataset={args.dataset}, N={args.limit}, "
-          f"vendor={args.vendor},")
+          f"vendor={args.vendor}, model={args.model or '(vendor default)'},")
     print(f">>>   depth={args.depth}, width={args.width}, threshold={args.threshold}, "
           f"loop={args.loop}, kg={args.kg_backend} @ {endpoint}]")
     print("=" * 64)
@@ -84,10 +94,12 @@ def main() -> None:
             "--dataset", args.dataset,
             "--test-limit", args.limit,
             "--vendor", args.vendor,
+            *(["--model", args.model] if args.model else []),
             "--depth", args.depth,
             "--width", args.width,
             "--similarity-threshold", args.threshold,
             "--loop", args.loop,
+            *(["--fresh"] if args.fresh else []),
             *dir_flags,
             *extra,
         ],

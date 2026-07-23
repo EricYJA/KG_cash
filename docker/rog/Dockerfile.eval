@@ -1,0 +1,21 @@
+# Adds the deps RoG's own eval pipeline needs (src/qa_prediction/*) on top of the
+# serving image, so gen_rule_path.py / predict_answer.py / evaluate_results.py
+# can run against the same pinned torch + bitsandbytes the server uses.
+FROM kgcash/rog:latest
+
+# openai is never called on the RoG path, but src/llms/__init__.py registers every
+# model class, so importing it pulls in language_models/chatgpt.py. 0.27.9 is RoG's
+# own pin; 1.x would break their ChatGPT path (openai.ChatCompletion was removed).
+RUN pip install \
+        datasets==3.0.1 \
+        networkx==3.1 \
+        scikit-learn==1.5.2 \
+        openai==0.27.9 \
+        httpx==0.28.1
+
+# httpx: used by the API-based pipeline (src/RoG-cache/*_api.py) so stage 2's
+# reasoner can call the OpenAI-compatible endpoint via ToG's llm_client.py.
+
+WORKDIR /rog
+ENTRYPOINT []
+CMD ["bash"]

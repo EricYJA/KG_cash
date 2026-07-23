@@ -64,9 +64,13 @@ def eval_jsonl(jsonl_path: Path, dataset: str) -> tuple[float, int, int, int]:
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--dataset", default="webqsp")
-    parser.add_argument("--test-limit", type=int, default=20,
-                        help="how many samples per run (keeps token cost bounded).")
+    parser.add_argument("--test-limit", default="20",
+                        help="how many samples per run (keeps token cost bounded), or 'all'. "
+                             "Forwarded verbatim to main_freebase.py, which parses it.")
     parser.add_argument("--vendor", default="tamu")
+    parser.add_argument("--model", default="",
+                        help="override the vendor's default model id; forwarded to "
+                             "main_freebase.py / main_freebase_loop.py.")
     parser.add_argument("--depth", type=int, default=3)
     parser.add_argument("--width", type=int, default=3)
     parser.add_argument("--similarity-threshold", type=float, default=0.90)
@@ -76,12 +80,21 @@ def main():
                         help="dir for per-config cache JSON files (cleared on start).")
     parser.add_argument("--results-dir", default=str(OUTPUT_DIR / "compare_results"),
                         help="dir for per-config JSONL output files.")
+    parser.add_argument("--fresh", action="store_true",
+                        help="wipe this tag's caches and outputs and start over. "
+                             "Default resumes: completed configs are skipped and "
+                             "partial ones continue where they stopped.")
     args = parser.parse_args()
 
     cache_dir = Path(args.cache_dir)
     results_dir = Path(args.results_dir)
-    if cache_dir.exists():
-        shutil.rmtree(cache_dir)
+    # Resume by default: keep prior caches/outputs so an interrupted run continues
+    # where it stopped (each config skips questions already in its JSONL, and the
+    # semantic cache persists on disk). --fresh forces a clean slate.
+    if args.fresh:
+        for d in (cache_dir, results_dir):
+            if d.exists():
+                shutil.rmtree(d)
     cache_dir.mkdir(parents=True, exist_ok=True)
     results_dir.mkdir(parents=True, exist_ok=True)
 
@@ -92,6 +105,8 @@ def main():
         "--depth", str(args.depth),
         "--width", str(args.width),
     ]
+    if args.model:
+        common += ["--model", args.model]
 
     configs: list[tuple[str, list[str], Path]] = []
 
@@ -139,9 +154,15 @@ def main():
 
     rows: list[dict] = []
     for name, cmd, out_path in configs:
-        if out_path.exists():
-            out_path.unlink()
-        run(cmd, cwd=HERE)
+        done_marker = results_dir / f"{name}.done"
+        if done_marker.exists() and not args.fresh:
+            print(f"\n[resume] config {name!r} already complete; skipping its run "
+                  f"(delete {done_marker} or pass --fresh to redo)")
+        else:
+            # No unlink: main_freebase.py / main_freebase_loop.py resume from an
+            # existing JSONL, skipping questions already answered.
+            run(cmd, cwd=HERE)
+            done_marker.write_text("")  # mark complete only after the run succeeds
         em, right, error, total = eval_jsonl(out_path, args.dataset)
         rows.append({"config": name, "exact_match": em, "right": right,
                      "error": error, "records": total, "output": str(out_path)})

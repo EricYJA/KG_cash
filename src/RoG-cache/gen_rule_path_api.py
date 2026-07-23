@@ -309,10 +309,17 @@ def main():
         "avg_miss_s": round(miss_total_s / misses, 3) if misses else 0.0,
         "estimated_time_saved_s": round(hits * (miss_total_s / misses), 3) if (hits and misses) else 0.0,
         "speedup_x": None,
+        "full_speedup_x": None,
     }
     if hits and misses:
         would_have_been = timing["estimated_time_saved_s"] + wall_s
         timing["speedup_x"] = round(would_have_been / wall_s, 3) if wall_s else None
+        # Full-system speedup: without the cache every request would have been a miss,
+        # so the amortised no-cache time is n*avg_miss against the actual hit+miss time.
+        # Unlike speedup_x (whole-run wall clock), this folds in hit rate over the served requests.
+        served_s = hit_total_s + miss_total_s
+        baseline_s = n * (miss_total_s / misses)
+        timing["full_speedup_x"] = round(baseline_s / served_s, 3) if served_s else None
 
     record = {
         "ts": datetime.now(timezone.utc).isoformat(),

@@ -29,7 +29,7 @@ CSV_COLUMNS = [
     "policy", "tag", "hit_rate", "n_questions",
     "planner_llm_calls", "planner_llm_calls_saved",
     "hits", "misses", "hit_total_s", "miss_total_s", "avg_hit_s", "avg_miss_s",
-    "estimated_time_saved_s", "speedup_x", "wall_s_total",
+    "estimated_time_saved_s", "speedup_x", "full_speedup_x", "wall_s_total",
     "accuracy", "hit", "f1", "precision", "recall",
 ]
 

@@ -1,5 +1,6 @@
 from freebase_func import *
 from prompt_list import *
+import argparse
 import json
 import os
 import re
@@ -10,6 +11,30 @@ from llm_config import resolve_llm_config
 from llm_client import LLMChatClient, ChatMessage
 from sentence_transformers import util
 from sentence_transformers import SentenceTransformer
+
+
+def parse_test_limit(value):
+    """argparse type for --test-limit: an int, or 'all' for the whole split.
+
+    Returns None for 'all', which is what the callers already treat as "no
+    limit". The RoG runners spell a full run `--limit all` (see split_for in
+    scripts/_rog_common.py); accepting it here lets every ToG caller forward the
+    string through unchanged instead of each one special-casing it.
+    """
+    if value is None:
+        return None
+    text = str(value).strip().lower()
+    if text in ("", "all", "none"):
+        return None
+    try:
+        limit = int(text)
+    except ValueError:
+        raise argparse.ArgumentTypeError(
+            f"invalid value {value!r}: expected a positive integer or 'all'")
+    if limit <= 0:
+        raise argparse.ArgumentTypeError(
+            f"invalid value {value!r}: expected a positive integer or 'all'")
+    return limit
 
 def retrieve_top_docs(query, docs, model, width=3):
     """
@@ -108,9 +133,11 @@ def clean_relations_bm25_sent(topn_relations, topn_scores, entity_id, head_relat
     return True, relations
 
 
-def run_llm(prompt, temperature, max_tokens, opeani_api_keys, engine="gpt-3.5-turbo", vendor=None):
+def run_llm(prompt, temperature, max_tokens, opeani_api_keys, engine="gpt-3.5-turbo", vendor=None, model=None):
+    # An explicit --model overrides the vendor preset (tamu) or the engine id (openai/google).
+    model = model or None  # normalise "" -> None so the preset default wins
     if vendor == "tamu":
-        config = resolve_llm_config(vendor="tamu")
+        config = resolve_llm_config(vendor="tamu", model=model)
         http_client = LLMChatClient(config, timeout_s=180.0)
         messages = [
             ChatMessage(role="system", content="You are an AI assistant that helps people find information."),
@@ -121,6 +148,7 @@ def run_llm(prompt, temperature, max_tokens, opeani_api_keys, engine="gpt-3.5-tu
         print("end tamu")
         return result
 
+    engine = model or engine  # openai/google: the model id is the engine
     if "llama" in engine.lower():
         client = OpenAI(api_key="EMPTY", base_url="http://localhost:8000/v1")
         engine = client.models.list().data[0].id
@@ -183,7 +211,7 @@ def relation_search_prune(entity_id, entity_name, pre_relations, pre_head, quest
     if args.prune_tools == "llm":
         prompt = construct_relation_prune_prompt(question, entity_name, total_relations, args)
 
-        result = run_llm(prompt, args.temperature_exploration, args.max_length, args.opeani_api_keys, args.LLM_type, vendor=getattr(args, "vendor", None))
+        result = run_llm(prompt, args.temperature_exploration, args.max_length, args.opeani_api_keys, args.LLM_type, vendor=getattr(args, "vendor", None), model=getattr(args, "model", None))
         flag, retrieve_relations_with_scores = clean_relations(result, entity_id, head_relations, tail_relations)
 
     elif args.prune_tools == "bm25":
@@ -232,7 +260,7 @@ def entity_score(question, entity_candidates_id, score, relation, args):
     if args.prune_tools == "llm":
         prompt = construct_entity_score_prompt(question, relation, entity_candidates)
 
-        result = run_llm(prompt, args.temperature_exploration, args.max_length, args.opeani_api_keys, args.LLM_type, vendor=getattr(args, "vendor", None))
+        result = run_llm(prompt, args.temperature_exploration, args.max_length, args.opeani_api_keys, args.LLM_type, vendor=getattr(args, "vendor", None), model=getattr(args, "model", None))
         return [float(x) * score for x in clean_scores(result, entity_candidates)], entity_candidates, entity_candidates_id
 
     elif args.prune_tools == "bm25":
@@ -283,7 +311,7 @@ def generate_answer(question, cluster_chain_of_entities, args):
     prompt = answer_prompt + question + '\n'
     chain_prompt = '\n'.join([', '.join([str(x) for x in chain]) for sublist in cluster_chain_of_entities for chain in sublist])
     prompt += "\nKnowledge Triplets: " + chain_prompt + 'A: '
-    result = run_llm(prompt, args.temperature_reasoning, args.max_length, args.opeani_api_keys, args.LLM_type, vendor=getattr(args, "vendor", None))
+    result = run_llm(prompt, args.temperature_reasoning, args.max_length, args.opeani_api_keys, args.LLM_type, vendor=getattr(args, "vendor", None), model=getattr(args, "model", None))
     return result
 
 
@@ -320,7 +348,7 @@ def reasoning(question, cluster_chain_of_entities, args):
     chain_prompt = '\n'.join([', '.join([str(x) for x in chain]) for sublist in cluster_chain_of_entities for chain in sublist])
     prompt += "\nKnowledge Triplets: " + chain_prompt + 'A: '
 
-    response = run_llm(prompt, args.temperature_reasoning, args.max_length, args.opeani_api_keys, args.LLM_type, vendor=getattr(args, "vendor", None))
+    response = run_llm(prompt, args.temperature_reasoning, args.max_length, args.opeani_api_keys, args.LLM_type, vendor=getattr(args, "vendor", None), model=getattr(args, "model", None))
     
     result = extract_answer(response)
     if if_true(result):
@@ -349,7 +377,7 @@ def half_stop(question, cluster_chain_of_entities, args):
 
 def generate_without_explored_paths(question, args):
     prompt = generate_directly + "\n\nQ: " + question + "\nA:"
-    response = run_llm(prompt, args.temperature_reasoning, args.max_length, args.opeani_api_keys, args.LLM_type, vendor=getattr(args, "vendor", None))
+    response = run_llm(prompt, args.temperature_reasoning, args.max_length, args.opeani_api_keys, args.LLM_type, vendor=getattr(args, "vendor", None), model=getattr(args, "model", None))
     return response
 
 def prepare_dataset(dataset_name):

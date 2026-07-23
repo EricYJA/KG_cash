@@ -33,6 +33,22 @@ from simulate_cache import (  # noqa: E402  (ToG's simulator, reused as-is)
 POLICIES = ("exact", "semantic_lru", "semantic_lfu", "semantic_oracle")
 
 
+def _parse_limit(value):
+    """None/'all'/'' -> no limit; otherwise a positive int. Mirrors --limit all."""
+    if value is None:
+        return None
+    text = str(value).strip().lower()
+    if text in ("", "all", "none"):
+        return None
+    try:
+        limit = int(text)
+    except ValueError:
+        raise SystemExit(f"--limit: expected a positive integer or 'all', got {value!r}")
+    if limit <= 0:
+        raise SystemExit(f"--limit: expected a positive integer or 'all', got {value!r}")
+    return limit
+
+
 def simulate(questions, oracle_keys, policy, capacity, threshold, embedder_model, embed_map):
     cache = FastSimCache(
         path="",
@@ -59,9 +75,17 @@ def main():
     ap.add_argument("-p", "--policies", default="exact,semantic_lru,semantic_lfu,semantic_oracle")
     ap.add_argument("-t", "--thresholds", default="0.80,0.85,0.90,0.95")
     ap.add_argument("--embedder-model", default="all-MiniLM-L6-v2")
+    ap.add_argument("-n", "--limit", default=None,
+                    help="use only the first N questions, or 'all' (default: all)")
+    ap.add_argument("--out", default=None,
+                    help="also write the result table to this file (still printed to stdout)")
     args = ap.parse_args()
 
+    limit = _parse_limit(args.limit)
+
     dataset = load_dataset(os.path.join(args.data_path, args.dataset), split=args.split)
+    if limit is not None:
+        dataset = dataset.select(range(min(limit, len(dataset))))
     questions = [d["question"] for d in dataset]
     oracle_keys = [extract_oracle_answer_key(d, args.dataset) for d in dataset]
     n_oracle = sum(1 for k in oracle_keys if k)
@@ -79,23 +103,37 @@ def main():
 
     embed_map = precompute_embeddings(dataset, "question", args.embedder_model)
 
+    lines: list[str] = []
+
+    def emit(line=""):
+        print(line)
+        lines.append(line)
+
     cap_labels = [("inf" if c >= 10**9 else str(c)) for c in capacities]
     for threshold in thresholds:
-        print()
-        print(f"=== hit rate @ cosine threshold {threshold} "
-              f"[N={len(questions)}, single pass, cold cache] ===")
+        emit()
+        emit(f"=== hit rate @ cosine threshold {threshold} "
+             f"[N={len(questions)}, single pass, cold cache] ===")
         header = f"{'policy':<18}" + "".join(f"{c:>12}" for c in cap_labels)
-        print(header)
-        print("-" * len(header))
+        emit(header)
+        emit("-" * len(header))
         for policy in policies:
             row = f"{policy:<18}"
             for capacity in capacities:
                 stats = simulate(questions, oracle_keys, policy, capacity,
                                  threshold, args.embedder_model, embed_map)
                 row += f"{100 * stats['hit_rate']:>11.1f}%"
-            print(row)
+            emit(row)
         if "exact" in policies:
-            print("(`exact` is threshold-independent: it is the repeated-question rate.)")
+            emit("(`exact` is threshold-independent: it is the repeated-question rate.)")
+
+    if args.out:
+        out_dir = os.path.dirname(args.out)
+        if out_dir:
+            os.makedirs(out_dir, exist_ok=True)
+        with open(args.out, "w") as f:
+            f.write("\n".join(lines) + "\n")
+        print(f"\n>>> table written to {args.out}")
 
 
 if __name__ == "__main__":
