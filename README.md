@@ -166,8 +166,6 @@ python main_freebase.py \
   --dataset webqsp \
   --test-limit 10 \
   --max_length 256 \
-  --temperature_exploration 0.4 \
-  --temperature_reasoning 0 \
   --width 3 \
   --depth 3 \
   --remove_unnecessary_rel True \
@@ -181,6 +179,8 @@ Notes:
 
 - The API key flag is intentionally spelled `--opeani_api_keys` because that is
   the flag name used by the ToG code.
+- `main_freebase.py` does not expose temperature flags; the request uses the
+  model/provider default temperature behavior.
 - `--test-limit 10` runs the first 10 samples, or the full dataset if it has
   fewer than 10 samples.
 - Output is appended, not overwritten.

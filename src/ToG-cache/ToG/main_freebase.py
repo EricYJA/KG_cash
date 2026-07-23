@@ -26,6 +26,8 @@ if __name__ == '__main__':
                         default=True, help="whether removing unnecessary relations.")
     parser.add_argument("--LLM_type", type=str,
                         default="gpt-3.5-turbo", help="base LLM model.")
+    parser.add_argument("--reasoning_effort", type=str,
+                        default="low", help="reasoning effort for GPT-5/o-series models: low, medium, or high.")
     parser.add_argument("--opeani_api_keys", type=str,
                         default="", help="if the LLM_type is gpt-3.5-turbo or gpt-4, you need add your own openai api keys.")
     parser.add_argument("--num_retain_entity", type=int,
