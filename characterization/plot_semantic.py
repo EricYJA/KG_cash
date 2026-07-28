@@ -27,18 +27,19 @@ cwq_overlap = {
 # IEEE Style Configuration
 plt.rcParams.update({
     "font.family": "serif",      # Matches IEEE Times/Computer Modern
-    "font.size": 9,              # Standard font size for IEEE figures
-    "axes.labelsize": 10,
-    "legend.fontsize": 8,
-    "xtick.labelsize": 8,
-    "ytick.labelsize": 8,
-    "lines.linewidth": 1.5,
-    "lines.markersize": 5
+    "font.size": 17,             # Enlarged for readability
+    "axes.labelsize": 19,
+    "axes.titlesize": 19,
+    "legend.fontsize": 15,
+    "xtick.labelsize": 15,
+    "ytick.labelsize": 15,
+    "lines.linewidth": 2.0,
+    "lines.markersize": 7
 })
 
 # IEEE Double-column width is typically ~7.16 inches.
 # Using a 7.16 x 2.8 size gives a nice wide aspect ratio for a two-chart arrangement
-fig, axes = plt.subplots(1, 2, figsize=(7.16, 2.8), sharey=True)
+fig, axes = plt.subplots(1, 2, figsize=(11.0, 5.0), sharey=True)
 
 # Markers and line styles to ensure differentiation in grayscale/b&w printing
 markers = ['o', 's', '^', 'D', 'v']

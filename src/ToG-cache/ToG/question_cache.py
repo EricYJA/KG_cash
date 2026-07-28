@@ -308,10 +308,15 @@ class PersistentQuestionCache:
         """
         key = _normalize(question)
         with self._lock:
+            # Kind of the most recent get() ("exact"/"semantic_lru"/... or None on
+            # miss), so callers can persist per-question hit type for a restart-safe
+            # cache-breakdown reconstruction.
+            self.last_hit_kind = None
             if key in self._store:
                 self._touch(key)
                 self.hits += 1
                 self.exact_hits += 1
+                self.last_hit_kind = "exact"
                 return self._store[key]
             if self.policy in ("semantic_lru", "semantic_lfu"):
                 sem = self._semantic_lookup(key)
@@ -325,6 +330,7 @@ class PersistentQuestionCache:
                     else:
                         self.semantic_lru_hits += 1
                         label = "semantic_lru"
+                    self.last_hit_kind = label
                     print(f"[question_cache] {label} hit (sim={sim:.3f}) "
                           f"{key[:60]!r} -> {matched_key[:60]!r}")
                     return self._store[matched_key]
@@ -335,6 +341,7 @@ class PersistentQuestionCache:
                     self._touch(matched_key)
                     self.hits += 1
                     self.semantic_oracle_hits += 1
+                    self.last_hit_kind = "semantic_oracle"
                     print(f"[question_cache] semantic_oracle hit (sim={sim:.3f}) "
                           f"{key[:60]!r} -> {matched_key[:60]!r}")
                     return self._store[matched_key]

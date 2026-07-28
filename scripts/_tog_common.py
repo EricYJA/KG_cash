@@ -18,6 +18,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 TOG_DIR = REPO_ROOT / "src" / "ToG-cache" / "ToG"
 EVAL_DIR = REPO_ROOT / "src" / "ToG-cache" / "eval"
 
+
 # Interchangeable SPARQL backends serving the same Freebase KG. Select with
 # KG_BACKEND=<name>; the chosen endpoint is exported as SPARQL_ENDPOINT so the
 # ToG subprocesses (freebase_func.py) pick it up. SPARQL_ENDPOINT set
@@ -88,6 +89,18 @@ def load_dotenv(required: tuple[str, ...] = ()) -> None:
     for key in required:
         if not os.environ.get(key):
             sys.exit(f"{key} not set in {env_path}")
+
+
+def samples_flag(limit) -> str:
+    """Translate a --limit value into main_tog2.py's --samples argument.
+
+    'all' (case-insensitive) means the whole dataset; main_tog2.py takes an int
+    and clamps with min(samples, len(datas)), so a value larger than any dataset
+    runs every question. Anything else is passed through unchanged.
+    """
+    if str(limit).strip().lower() == "all":
+        return str(10**9)
+    return str(limit)
 
 
 def add_run_args(p) -> None:

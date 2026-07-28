@@ -53,6 +53,25 @@ parser.add_argument("--vendor", type=str,
                     default="tamu", help="LLM vendor: tamu, openai, google. The default tamu path reads LLM_API_KEY.")
 parser.add_argument("--addr_list", type=str,
                     default="server_urls.txt", help="The address of the Wikidata service.")
+parser.add_argument("--backend", type=str, default="service",
+                    choices=["service", "sparql_capture", "replay"],
+                    help="KG/document backend: 'service' (live XML-RPC), "
+                         "'sparql_capture' (public Wikidata SPARQL + Wikipedia, "
+                         "logged to --capture-log), or 'replay' (offline from "
+                         "--replay-log).")
+parser.add_argument("--capture-log", dest="capture_log", type=str,
+                    default="artifacts/tog2_capture.jsonl",
+                    help="JSONL path the sparql_capture backend writes to.")
+parser.add_argument("--replay-log", dest="replay_log", type=str,
+                    default=None,
+                    help="JSONL path the replay backend reads from (required for --backend replay).")
+parser.add_argument("--replay-miss", dest="replay_miss", type=str,
+                    default="not_found", choices=["not_found", "error"],
+                    help="replay behavior on a missing query: return 'Not Found!' or raise.")
+parser.add_argument("--sparql-sleep", dest="sparql_sleep", type=float,
+                    default=0.4, help="delay between SPARQL calls for the capture backend.")
+parser.add_argument("--max-neighbors", dest="max_neighbors", type=int,
+                    default=500, help="LIMIT on neighbor rows fetched by the capture backend.")
 parser.add_argument("--embedding_model_name", type=str, default="bm25")
 parser.add_argument("--relation_prune", type=bool_arg, default=True, help="whether to prune the relation")
 parser.add_argument("--relation_prune_combination", type=bool_arg, default=True,
@@ -123,18 +142,46 @@ if samples_length == 0:
     print('No samples requested; exiting before backend or LLM calls.')
     raise SystemExit(0)
 
-# wiki_client
+def make_backend(args):
+    """Build a KG/document client exposing query_all(method, *args).
+
+    Mirrors src/ToG-cache/ToG/main_wiki_qald.py::make_backend so ToG-2 runs on
+    the same three interchangeable Wikidata backends as ToG-1: live XML-RPC,
+    SPARQL capture (records to JSONL), or offline replay.
+    """
+    if args.backend == "service":
+        with open(args.addr_list, "r") as f:
+            server_addrs = f.readlines()
+            server_addrs = [addr.split("#", 1)[0].strip() for addr in server_addrs]
+            server_addrs = [addr for addr in server_addrs if addr and "xx.xx" not in addr]
+        if not server_addrs:
+            raise RuntimeError(
+                "No Wikidata XML-RPC server URLs found. Update --addr_list or ToG-2/server_urls.txt."
+            )
+        return MultiServerWikidataQueryClient(server_addrs)
+
+    if args.backend == "sparql_capture":
+        from wiki_capture_client import WikidataSparqlCaptureClient
+        os.makedirs(os.path.dirname(args.capture_log) or ".", exist_ok=True)
+        return WikidataSparqlCaptureClient(
+            log_path=args.capture_log,
+            sleep_s=args.sparql_sleep,
+            max_neighbors=args.max_neighbors,
+        )
+
+    if args.backend == "replay":
+        from wiki_replay_client import WikidataReplayClient
+        if not args.replay_log:
+            raise RuntimeError("--backend replay requires --replay-log.")
+        return WikidataReplayClient(log_path=args.replay_log, on_miss=args.replay_miss)
+
+    raise ValueError(f"unknown backend {args.backend!r}")
+
+
 wiki_client = None
 if not args.gpt_only:
-    with open(args.addr_list, "r") as f:
-        server_addrs = f.readlines()
-        server_addrs = [addr.split("#", 1)[0].strip() for addr in server_addrs]
-        server_addrs = [addr for addr in server_addrs if addr and "xx.xx" not in addr]
-    if not server_addrs:
-        raise RuntimeError(
-            "No Wikidata XML-RPC server URLs found. Update --addr_list or ToG-2/server_urls.txt."
-        )
-    wiki_client = MultiServerWikidataQueryClient(server_addrs)
+    print(f"[main_tog2] backend={args.backend}")
+    wiki_client = make_backend(args)
     wiki_client.test_connections()
 
 
@@ -377,4 +424,12 @@ for i in range(start, length):
 
     save_2_jsonl_simplier(query, ground_truth, answer, search_entity_list, Total_Related_Senteces,
                           cluster_chain_of_entities, args.dataset, end_mode, remark, args)
+
+
+# Report backend cache stats (capture: unique_queries/http_calls; replay: hits/misses)
+# so the cache experiment can quantify what the capture/replay layer saved.
+if wiki_client is not None and hasattr(wiki_client, "stats"):
+    print(f"[main_tog2] backend={args.backend} cache stats: {wiki_client.stats()}")
+if wiki_client is not None and hasattr(wiki_client, "close"):
+    wiki_client.close()
 

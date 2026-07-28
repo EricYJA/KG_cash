@@ -50,7 +50,7 @@ if __name__ == '__main__':
     parser.add_argument("--no-question-cache", action="store_true",
                         help="Disable the persistent per-question cache.")
     parser.add_argument("--cache-policy", type=str, default="semantic_lru",
-                        choices=["exact", "semantic_lru", "semantic_oracle"],
+                        choices=["exact", "semantic_lru", "semantic_lfu", "semantic_oracle"],
                         help="Cache hit policy. 'exact' = key only. 'semantic_lru' = exact + cosine-similarity fallback (LRU eviction). 'semantic_oracle' = exact + cosine-similarity AND gold-answer-overlap (upper bound for accuracy-preserving semantic caching; requires gold answers in dataset).")
     parser.add_argument("--similarity-threshold", type=float, default=0.90,
                         help="Cosine similarity >= threshold (i.e. cosine distance <= 1-threshold) forces a semantic hit. Forced hits count as hits and LRU-touch the matched entry.")
@@ -76,12 +76,12 @@ if __name__ == '__main__':
         )
         print(f"[question_cache] policy={args.cache_policy}, loaded {len(question_cache._store)} entries from {args.question_cache_path}")
 
-    cache_hit_times: list = []
-    cache_miss_times: list = []
-
     output_path = args.output_file or os.path.join(
         os.path.dirname(os.path.dirname(__file__)), "output", f"ToG_{args.dataset}.jsonl"
     )
+    # Per-question metrics land in a sidecar next to the answers, so the timing /
+    # cache summary is rebuilt from the full file at the end -- restart-safe.
+    metrics_path = metrics_sidecar_path(output_path)
     processed_questions: set = set()
     if os.path.exists(output_path):
         with open(output_path) as f:
@@ -100,6 +100,10 @@ if __name__ == '__main__':
         if question.strip() in processed_questions:
             continue
         t_question_start = time.perf_counter()
+        calls_start = llm_call_count()
+
+        record_id = extract_record_id(data, args.dataset)
+        ground_truth = extract_ground_truth(data, args.dataset)
 
         oracle_key = (extract_oracle_answer_key(data, args.dataset)
                       if (question_cache is not None and args.cache_policy == "semantic_oracle")
@@ -113,8 +117,15 @@ if __name__ == '__main__':
                 else:
                     cached_results = generate_without_explored_paths(question, args)
                 save_2_jsonl(question, cached_results, cached_chain,
-                             file_name=args.dataset, output_file=args.output_file)
-                cache_hit_times.append(time.perf_counter() - t_question_start)
+                             file_name=args.dataset, output_file=args.output_file,
+                             qid=record_id, ground_truth=ground_truth)
+                append_question_metrics(metrics_path, {
+                    "id": record_id, "question": question,
+                    "cache_hit": True,
+                    "cache_hit_type": getattr(question_cache, "last_hit_kind", None),
+                    "elapsed_s": time.perf_counter() - t_question_start,
+                    "llm_calls": llm_call_count() - calls_start,
+                })
                 continue
 
         topic_entity = data['topic_entity']
@@ -154,7 +165,7 @@ if __name__ == '__main__':
                 total_candidates, total_scores, total_relations, total_entities_id, total_topic_entities, total_head = update_history(entity_candidates, entity, scores, entity_candidates_id, total_candidates, total_scores, total_relations, total_entities_id, total_topic_entities, total_head)
             
             if len(total_candidates) ==0:
-                half_stop(question, cluster_chain_of_entities, args)
+                half_stop(question, cluster_chain_of_entities, args, qid=record_id, ground_truth=ground_truth)
                 flag_printed = True
                 break
                 
@@ -164,7 +175,7 @@ if __name__ == '__main__':
                 stop, results = reasoning(question, cluster_chain_of_entities, args)
                 if stop:
                     print("ToG stoped at depth %d." % depth)
-                    save_2_jsonl(question, results, cluster_chain_of_entities, file_name=args.dataset, output_file=args.output_file)
+                    save_2_jsonl(question, results, cluster_chain_of_entities, file_name=args.dataset, output_file=args.output_file, qid=record_id, ground_truth=ground_truth)
                     flag_printed = True
                     break
                 else:
@@ -172,13 +183,13 @@ if __name__ == '__main__':
                     topic_entity = {entity: id2entity_name_or_type(entity) for entity in entities_id}
                     continue
             else:
-                half_stop(question, cluster_chain_of_entities, args)
+                half_stop(question, cluster_chain_of_entities, args, qid=record_id, ground_truth=ground_truth)
                 flag_printed = True
                 break
         
         if not flag_printed:
             results = generate_without_explored_paths(question, args)
-            save_2_jsonl(question, results, [], file_name=args.dataset, output_file=args.output_file)
+            save_2_jsonl(question, results, [], file_name=args.dataset, output_file=args.output_file, qid=record_id, ground_truth=ground_truth)
             chain_to_cache = []
         else:
             chain_to_cache = cluster_chain_of_entities
@@ -186,40 +197,33 @@ if __name__ == '__main__':
         if question_cache is not None:
             question_cache.put(question, chain_to_cache, oracle_key=oracle_key)
 
-        cache_miss_times.append(time.perf_counter() - t_question_start)
+        append_question_metrics(metrics_path, {
+            "id": record_id, "question": question,
+            "cache_hit": False,
+            "cache_hit_type": None,
+            "elapsed_s": time.perf_counter() - t_question_start,
+            "llm_calls": llm_call_count() - calls_start,
+        })
 
     if question_cache is not None:
         print("[question_cache] stats: " + json.dumps(question_cache.stats()))
 
-    n_hits = len(cache_hit_times)
-    n_misses = len(cache_miss_times)
-    hit_sum = sum(cache_hit_times)
-    miss_sum = sum(cache_miss_times)
-    avg_hit = (hit_sum / n_hits) if n_hits else 0.0
-    avg_miss = (miss_sum / n_misses) if n_misses else 0.0
-    estimated_saved = (n_hits * avg_miss - hit_sum) if (n_hits and n_misses) else 0.0
-    speedup = (avg_miss / avg_hit) if (n_hits and avg_hit > 0 and n_misses) else None
-    # Full-system speedup: without the cache every request would have been a miss,
-    # so the amortised no-cache time is (n_hits+n_misses)*avg_miss against the actual
-    # hit_sum+miss_sum. Unlike speedup_x (the per-hit ceiling), this folds in hit rate.
-    full_speedup = (
-        ((n_hits + n_misses) * avg_miss) / (hit_sum + miss_sum)
-        if (n_hits and n_misses and (hit_sum + miss_sum) > 0)
-        else None
-    )
-
-    timing = {
-        "hits": n_hits,
-        "misses": n_misses,
-        "hit_total_s": round(hit_sum, 3),
-        "miss_total_s": round(miss_sum, 3),
-        "avg_hit_s": round(avg_hit, 3),
-        "avg_miss_s": round(avg_miss, 3),
-        "estimated_time_saved_s": round(estimated_saved, 3),
-        "speedup_x": round(speedup, 2) if speedup is not None else None,
-        "full_speedup_x": round(full_speedup, 2) if full_speedup is not None else None,
-    }
+    # Restart-safe: rebuild timing + summary + cache breakdown from the full
+    # metrics sidecar, so a resumed run still reports whole-dataset numbers.
+    # llm_calls_saved uses the same estimator as estimated_time_saved_s: a hit is
+    # assumed to have otherwise cost the average miss's LLM calls.
+    timing, summary, cache_breakdown, _per_loop = aggregate_run_metrics(metrics_path)
     print("[question_cache] timing: " + json.dumps(timing))
+    summary = {**summary, "vendor": args.vendor, "model": args.model or ""}
+    print("[question_cache] summary: " + json.dumps(summary))
+
+    cache_stats = None
+    if question_cache is not None:
+        # Config fields from the live cache; hit/miss counts from the sidecar so
+        # they stay correct across restarts.
+        cache_stats = {**question_cache.stats(), **cache_breakdown,
+                       "hits": timing["hits"], "misses": timing["misses"],
+                       "hit_rate": summary["hit_rate"]}
 
     if args.timing_log:
         from datetime import datetime, timezone
@@ -235,7 +239,8 @@ if __name__ == '__main__':
             "similarity_threshold": args.similarity_threshold,
             "capacity": args.question_cache_capacity,
             "timing": timing,
-            "cache_stats": question_cache.stats() if question_cache is not None else None,
+            "cache_stats": cache_stats,
+            **summary,
         }
         log_dir = os.path.dirname(args.timing_log)
         if log_dir:

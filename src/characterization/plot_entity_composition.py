@@ -6,6 +6,8 @@ import matplotlib.patches as mpatches
 import numpy as np
 
 
+plt.rcParams.update({"xtick.labelsize": 16, "ytick.labelsize": 16})
+
 ROOT = Path(__file__).resolve().parents[1]
 TRACE_DIR = ROOT / "ToG-cache" / "output" / "traces"
 TRACE_FILES = {
@@ -78,7 +80,7 @@ def draw_stacked(ax, datasets, unique_pct, reused_pct, unique_counts, reused_cou
                 f"{up:.1f}%\n({u:,})",
                 ha="center",
                 va="center",
-                fontsize=10.5,
+                fontsize=16,
                 fontweight="bold",
                 color="white",
             )
@@ -89,7 +91,7 @@ def draw_stacked(ax, datasets, unique_pct, reused_pct, unique_counts, reused_cou
                 f"{rp:.1f}%\n({r:,})",
                 ha="center",
                 va="center",
-                fontsize=10.5,
+                fontsize=16,
                 fontweight="bold",
                 color="white",
             )
@@ -99,13 +101,13 @@ def draw_stacked(ax, datasets, unique_pct, reused_pct, unique_counts, reused_cou
             f"Total: {t:,}",
             ha="center",
             va="bottom",
-            fontsize=10,
+            fontsize=16,
             color="#333333",
         )
 
     ax.set_xticks(x)
-    ax.set_xticklabels(datasets, fontsize=14, fontweight="bold")
-    ax.set_ylabel(ylabel, fontsize=12)
+    ax.set_xticklabels(datasets, fontsize=19, fontweight="bold")
+    ax.set_ylabel(ylabel, fontsize=17)
     ax.set_ylim(0, 112)
     ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda v, _: f"{v:.0f}%"))
     ax.grid(axis="y", linestyle="--", alpha=0.5, zorder=0)
@@ -117,7 +119,7 @@ def draw_stacked(ax, datasets, unique_pct, reused_pct, unique_counts, reused_cou
         transform=ax.transAxes,
         ha="center",
         va="top",
-        fontsize=14,
+        fontsize=19,
         fontweight="bold",
         color="#222222",
     )
@@ -191,7 +193,7 @@ legend_handles = [
 ]
 fig.legend(
     handles=legend_handles,
-    fontsize=11,
+    fontsize=16,
     loc="upper center",
     bbox_to_anchor=(0.5, 1.02),
     ncol=2,

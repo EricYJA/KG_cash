@@ -1,87 +1,77 @@
 import argparse
 from utils import *
 
-
-DEFAULT_OUTPUT_FILES = {
-    "cwq": "../output/ToG_cwq.jsonl",
-    "webqsp": "../output/ToG_webqsp.jsonl",
-}
-
-
-def evaluate(dataset, output_file, constraints_refuse):
-    ground_truth_datas, question_string, output_datas = prepare_dataset_for_eval(dataset, output_file)
-
-    num_right = 0
-    num_error = 0
-    precision_sum = 0.0
-    recall_sum = 0.0
-    f1_sum = 0.0
-    evaluated = 0
-
-    for data in output_datas:
-        answers = align(dataset, question_string, data, ground_truth_datas)
-        answer_groups = align_answer_groups(dataset, question_string, data, ground_truth_datas)
-        results = data['results']
-        if check_string(results):
-            response = extract_content(results)
-            if response == "NULL":
-                response = results
-        else:
-            response = results
-            if constraints_refuse and check_refuse(response):
-                continue
-
-        predictions = split_prediction_answers(response)
-        precision, recall, f1 = precision_recall_f1(predictions, answer_groups)
-        precision_sum += precision
-        recall_sum += recall
-        f1_sum += f1
-        evaluated += 1
-
-        if exact_match(response, answers):
-            num_right += 1
-        else:
-            num_error += 1
-
-    metrics = {
-        "exact_match": float(num_right / evaluated) if evaluated else 0.0,
-        "precision": float(precision_sum / evaluated) if evaluated else 0.0,
-        "recall": float(recall_sum / evaluated) if evaluated else 0.0,
-        "f1": float(f1_sum / evaluated) if evaluated else 0.0,
-        "right": num_right,
-        "error": num_error,
-        "evaluated": evaluated,
-        "total": len(output_datas),
-    }
-
-    print("{} Results".format(dataset))
-    print("Exact Match: {}".format(metrics["exact_match"]))
-    print("Precision: {}".format(metrics["precision"]))
-    print("Recall: {}".format(metrics["recall"]))
-    print("F1: {}".format(metrics["f1"]))
-    print("right: {}, error: {}, evaluated: {}, total: {}".format(
-        num_right,
-        num_error,
-        evaluated,
-        len(output_datas),
-    ))
-
-    save_result2json_with_prf(dataset, metrics, "ToG")
-
-
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--dataset", type=str,
                         default="cwq", help="choose the dataset.")
     parser.add_argument("--output_file", type=str,
-                        default=None, help="the output file name.")
+                        default="ToG_cwq.json", help="the output file name.")
     parser.add_argument("--constraints_refuse", type=bool,
                         default=True, help="LLM may have refuse erorr, enable this option to skip current sample.")
     args = parser.parse_args()
 
-    if args.dataset == "both":
-        for dataset in ["webqsp", "cwq"]:
-            evaluate(dataset, DEFAULT_OUTPUT_FILES[dataset], args.constraints_refuse)
-    else:
-        output_file = args.output_file or DEFAULT_OUTPUT_FILES.get(args.dataset, "ToG_{}.json".format(args.dataset))
-        evaluate(args.dataset, output_file, args.constraints_refuse)
+    ground_truth_datas, question_string, output_datas = prepare_dataset_for_eval(args.dataset, args.output_file)
+
+    num_right = 0
+    num_error = 0
+    # RoG-compatible metrics (computed over every record, alongside Exact Match)
+    hit_list = []
+    f1_list = []
+    precision_list = []
+    recall_list = []
+    for data in output_datas:
+        # Prefer the gold answers stored inline in the record (self-contained,
+        # matches RoG); fall back to align() for older records without it.
+        answers = data.get("ground_truth") or align(
+            args.dataset, question_string, data, ground_truth_datas)
+        results = data['results']
+
+        # --- RoG-style Hits@1 / F1 ---
+        prediction = prediction_to_list(results)
+        hit_list.append(rog_eval_hit(prediction, answers))
+        f1, prec, rec = rog_eval_f1(prediction, answers)
+        f1_list.append(f1)
+        precision_list.append(prec)
+        recall_list.append(rec)
+
+        # --- Exact Match (unchanged) ---
+        if check_string(results):
+            response = clean_results(results)
+            if response=="NULL":
+                response = results
+            else:
+                if exact_match(response, answers):
+                    num_right+=1
+                else:
+                    num_error+=1
+        else:
+            response = results
+            if args.constraints_refuse and check_string(response):
+                continue
+            if exact_match(response, answers):
+                num_right+=1
+            else:
+                num_error+=1
+
+    n = len(output_datas)
+    hits1 = sum(hit_list) / n if n else 0.0
+    f1 = sum(f1_list) / n if n else 0.0
+    precision = sum(precision_list) / n if n else 0.0
+    recall = sum(recall_list) / n if n else 0.0
+
+    print("Exact Match: {}".format(float(num_right/n)))
+    print("right: {}, error: {}".format(num_right, num_error))
+    print("Hits@1: {}".format(hits1))
+    print("F1: {}".format(f1))
+    print("Precision: {}".format(precision))
+    print("Recall: {}".format(recall))
+
+    save_result2json(args.dataset, num_right, num_error, n, "ToG",
+                     extra_metrics={
+                         "Hits@1": hits1,
+                         "F1": f1,
+                         "Precision": precision,
+                         "Recall": recall,
+                     })
+    

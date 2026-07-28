@@ -8,6 +8,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
+plt.rcParams.update({"xtick.labelsize": 16, "ytick.labelsize": 16})
+
 DEFAULT_INPUT = Path(__file__).resolve().parents[1] / "output" / "cache_sim_summary.json"
 DEFAULT_OUTPUT_DIR = Path(__file__).resolve().parents[1] / "output"
 POLICIES = ["lru", "lfu"]
@@ -116,7 +118,7 @@ def plot_end_to_end_breakdown(payload: dict, cache_size: int, output_path: Path)
                 f"{total:.1f}s",
                 ha="center",
                 va="bottom",
-                fontsize=9,
+                fontsize=15,
                 fontweight="bold",
                 color="#333333",
             )
@@ -128,7 +130,7 @@ def plot_end_to_end_breakdown(payload: dict, cache_size: int, output_path: Path)
                     f"-{saved:.1f}s",
                     ha="center",
                     va="top",
-                    fontsize=10,
+                    fontsize=16,
                     fontweight="bold",
                     color="#C44E52",
                 )
@@ -154,7 +156,7 @@ def plot_end_to_end_breakdown(payload: dict, cache_size: int, output_path: Path)
                 f"{value:.1f}s",
                 ha="center",
                 va="bottom",
-                fontsize=8.5,
+                fontsize=14,
                 fontweight="bold",
                 color="#333333",
             )
@@ -184,7 +186,7 @@ def plot_end_to_end_breakdown(payload: dict, cache_size: int, output_path: Path)
                 textcoords="offset points",
                 ha="center",
                 va="bottom",
-                fontsize=8.5,
+                fontsize=14,
                 fontweight="bold",
                 color=SPEEDUP_COLOR,
                 bbox={
@@ -195,15 +197,15 @@ def plot_end_to_end_breakdown(payload: dict, cache_size: int, output_path: Path)
                 },
             )
 
-        ax_total.set_title(dataset, fontsize=13, fontweight="bold", pad=12)
+        ax_total.set_title(dataset, fontsize=18, fontweight="bold", pad=12)
         ax_total.set_xticks(x)
-        ax_total.set_xticklabels(labels, fontsize=11, fontweight="bold")
+        ax_total.set_xticklabels(labels, fontsize=16, fontweight="bold")
         ax_total.tick_params(axis="x", labelbottom=True)
         ax_total.grid(axis="y", linestyle="--", alpha=0.5, zorder=0)
         ax_total.spines[["top", "right"]].set_visible(False)
 
         ax_zoom.set_xticks(x)
-        ax_zoom.set_xticklabels(labels, fontsize=11, fontweight="bold")
+        ax_zoom.set_xticklabels(labels, fontsize=16, fontweight="bold")
         ax_zoom.grid(axis="y", linestyle="--", alpha=0.5, zorder=0)
         ax_zoom.spines[["top", "right"]].set_visible(False)
         ax_zoom.set_ylim(0, max(zoom_bottom) * 1.22)
@@ -214,16 +216,16 @@ def plot_end_to_end_breakdown(payload: dict, cache_size: int, output_path: Path)
         ax_speedup.spines["top"].set_visible(False)
         ax_speedup.tick_params(axis="y", colors=SPEEDUP_COLOR)
         ax_speedup.yaxis.label.set_color(SPEEDUP_COLOR)
-        ax_speedup.set_ylabel("KG Speedup", fontsize=11)
+        ax_speedup.set_ylabel("KG Speedup", fontsize=16)
         ax_speedup.yaxis.set_major_formatter(plt.FuncFormatter(lambda value, _: f"{value:.1f}x"))
 
-    axes[0, 0].set_ylabel("End-to-End Time (s)", fontsize=11)
-    axes[1, 0].set_ylabel("KG Time (s)", fontsize=11)
+    axes[0, 0].set_ylabel("End-to-End Time (s)", fontsize=16)
+    axes[1, 0].set_ylabel("KG Time (s)", fontsize=16)
     handles, labels = axes[0, 0].get_legend_handles_labels()
     fig.legend(
         handles,
         labels,
-        fontsize=10,
+        fontsize=15,
         loc="upper center",
         bbox_to_anchor=(0.5, 1.01),
         ncol=2,

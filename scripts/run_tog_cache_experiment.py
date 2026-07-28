@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
 """ToG + question caching: the real accuracy experiment.
 
-Drives compare_cache_accuracy.py, which runs four configurations end to end over
-the Freebase KG and scores each with eval.py (Exact Match):
-    1. main_freebase.py       --no-question-cache     baseline_main
-    2. main_freebase.py       cache enabled           cache_main
-    3. main_freebase_loop.py  --no-question-cache     baseline_loop
-    4. main_freebase_loop.py  cache enabled           cache_loop
+Drives compare_cache_accuracy.py, which sweeps the cache policies (default run
+order: semantic_lru semantic_lfu none exact semantic_oracle) end to end over the
+Freebase KG and scores each with eval.py (Exact Match / Hits@1 / F1). This covers
+the same policies as the RoG experiment, so scripts/summarize_tog_cache.py +
+plot_rog_cache_results.py can put ToG and RoG on the same per-policy figure.
 
-A cache hit skips the Virtuoso traversal plus the per-loop scoring LLM calls; the
-final-answer LLM call still runs, so any Exact-Match delta comes only from reusing
-the cached reasoning chain. The loop configs run the split twice so the cache
-warms up (cache_loop's second pass should be near-100% hit).
+'none' is the uncached baseline; every other policy runs the same single pass with
+that cache enabled (cold). A cache hit skips the Virtuoso traversal plus the
+per-loop scoring LLM calls; the final-answer LLM call still runs, so any accuracy
+delta comes only from reusing the cached reasoning chain. Pass --loop N (N>1) to
+warm the cache across N passes per policy instead of a single pass.
 
 Requires:
     - the KG_cash conda env (override with --conda-env / CONDA_ENV)
@@ -59,7 +59,16 @@ def main() -> None:
     p.add_argument("--width", default=env("WIDTH", "3"))
     p.add_argument("--threshold", default=env("THRESHOLD", "0.90"),
                    help="cosine threshold for the semantic cache")
-    p.add_argument("--loop", default=env("LOOP", "2"), help="loop count for main_freebase_loop.py")
+    p.add_argument("--capacity", default=env("CAPACITY", "4096"),
+                   help="max cached questions per policy (LRU/LFU eviction); "
+                        "the uncached 'none' baseline ignores it")
+    p.add_argument("--policies",
+                   default=env("POLICIES", "semantic_lru semantic_lfu none exact semantic_oracle"),
+                   help="cache policies to sweep, in run order (space- or "
+                        "comma-separated)")
+    p.add_argument("--loop", default=env("LOOP", "1"),
+                   help="passes per policy (1 = single pass, matching RoG; "
+                        ">1 warms the cache via main_freebase_loop.py)")
     p.add_argument("--fresh", action="store_true", default=env("FRESH", "0") == "1",
                    help="wipe this run-tag's caches/outputs and start over. Default "
                         "resumes: re-using a run-tag continues where it stopped.")
@@ -84,7 +93,8 @@ def main() -> None:
     print(f">>> ToG cache experiment  [dataset={args.dataset}, N={args.limit}, "
           f"vendor={args.vendor}, model={args.model or '(vendor default)'},")
     print(f">>>   depth={args.depth}, width={args.width}, threshold={args.threshold}, "
-          f"loop={args.loop}, kg={args.kg_backend} @ {endpoint}]")
+          f"capacity={args.capacity}, loop={args.loop}, kg={args.kg_backend} @ {endpoint}]")
+    print(f">>>   policies: {args.policies}")
     print("=" * 64)
 
     # compare_cache_accuracy.py uses paths relative to TOG_DIR (eval.py, ../output).
@@ -98,6 +108,8 @@ def main() -> None:
             "--depth", args.depth,
             "--width", args.width,
             "--similarity-threshold", args.threshold,
+            "--capacity", args.capacity,
+            "--policies", args.policies,
             "--loop", args.loop,
             *(["--fresh"] if args.fresh else []),
             *dir_flags,

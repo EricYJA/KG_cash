@@ -12,7 +12,7 @@ __pycache__
 .codex
 venv
 .venv
-.env
+.env*
 .env_gemini
 .env_gpt
 .env_oxi

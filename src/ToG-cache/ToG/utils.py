@@ -13,6 +13,26 @@ from sentence_transformers import util
 from sentence_transformers import SentenceTransformer
 
 
+# Process-wide count of LLM calls made through run_llm(), so a run can report how
+# many LLM calls it made (and, against the per-miss average, how many a cache
+# saved) -- the ToG analog of RoG's planner_llm_calls / planner_llm_calls_saved.
+_LLM_CALLS = 0
+
+
+def llm_call_count():
+    return _LLM_CALLS
+
+
+# Restart-safe per-question metrics live in cache_metrics (stdlib only) so scripts
+# can reuse them without utils.py's ML imports; re-exported here for the callers
+# that reach them via `from utils import *`.
+from cache_metrics import (  # noqa: E402
+    aggregate_run_metrics,
+    append_question_metrics,
+    metrics_sidecar_path,
+)
+
+
 def parse_test_limit(value):
     """argparse type for --test-limit: an int, or 'all' for the whole split.
 
@@ -134,6 +154,8 @@ def clean_relations_bm25_sent(topn_relations, topn_scores, entity_id, head_relat
 
 
 def run_llm(prompt, temperature, max_tokens, opeani_api_keys, engine="gpt-3.5-turbo", vendor=None, model=None):
+    global _LLM_CALLS
+    _LLM_CALLS += 1
     # An explicit --model overrides the vendor preset (tamu) or the engine id (openai/google).
     model = model or None  # normalise "" -> None so the preset default wins
     if vendor == "tamu":
@@ -315,8 +337,49 @@ def generate_answer(question, cluster_chain_of_entities, args):
     return result
 
 
-def save_2_jsonl(question, answer, cluster_chain_of_entities, file_name, output_file=None):
-    dict = {"question":question, "results": answer, "reasoning_chains": cluster_chain_of_entities}
+def extract_record_id(data, dataset):
+    """Stable per-question id for the output record (matches RoG's `id`)."""
+    if dataset == "webqsp":
+        return data.get("QuestionId")
+    if dataset == "cwq":
+        return data.get("ID")
+    return data.get("id") or data.get("ID") or data.get("QuestionId")
+
+
+def extract_ground_truth(data, dataset):
+    """Readable gold-answer list for a dataset row (mirrors eval align())."""
+    answers = []
+    if dataset == "webqsp":
+        for parse in data.get("Parses", []) or []:
+            for a in parse.get("Answers", []) or []:
+                answers.append(a.get("EntityName") or a.get("AnswerArgument"))
+    elif dataset == "cwq":
+        raw = data.get("answers", data.get("answer"))
+        if isinstance(raw, str):
+            answers.append(raw)
+        elif isinstance(raw, list):
+            for a in raw:
+                if isinstance(a, dict):
+                    answers.extend(a.get("aliases", []) or [])
+                    if a.get("answer"):
+                        answers.append(a["answer"])
+                elif a is not None:
+                    answers.append(a)
+    return [str(x) for x in answers if x is not None]
+
+
+def save_2_jsonl(question, answer, cluster_chain_of_entities, file_name, output_file=None,
+                 qid=None, ground_truth=None, loop_idx=None):
+    dict = {}
+    if qid is not None:
+        dict["id"] = qid
+    dict["question"] = question
+    dict["results"] = answer
+    if ground_truth is not None:
+        dict["ground_truth"] = ground_truth
+    if loop_idx is not None:
+        dict["loop_idx"] = loop_idx
+    dict["reasoning_chains"] = cluster_chain_of_entities
     output_path = output_file or os.path.join(os.path.dirname(os.path.dirname(__file__)), "output", "ToG_{}.jsonl".format(file_name))
     output_dir = os.path.dirname(output_path)
     if output_dir:
@@ -369,10 +432,12 @@ def if_true(prompt):
         return True
     return False
 
-def half_stop(question, cluster_chain_of_entities, args):
+def half_stop(question, cluster_chain_of_entities, args, qid=None, ground_truth=None, loop_idx=None):
     print("No new knowledge added during search depth %d, stop searching." % args.depth)
     answer = generate_answer(question, cluster_chain_of_entities, args)
-    save_2_jsonl(question, answer, cluster_chain_of_entities, file_name=args.dataset, output_file=getattr(args, "output_file", None))
+    save_2_jsonl(question, answer, cluster_chain_of_entities, file_name=args.dataset,
+                 output_file=getattr(args, "output_file", None),
+                 qid=qid, ground_truth=ground_truth, loop_idx=loop_idx)
 
 
 def generate_without_explored_paths(question, args):

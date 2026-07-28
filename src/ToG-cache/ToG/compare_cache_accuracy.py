@@ -1,15 +1,13 @@
-"""Run main_freebase.py and main_freebase_loop.py with and without the
-question cache, then print a side-by-side Exact Match table.
+"""Sweep the question-cache policies over ToG, scoring each with eval.py.
 
-Four configurations:
-  1. main_freebase.py            --no-question-cache    (baseline_main)
-  2. main_freebase.py            cache enabled          (cache_main)
-  3. main_freebase_loop.py       --no-question-cache    (baseline_loop)
-  4. main_freebase_loop.py       cache enabled          (cache_loop)
-
-For (3) and (4), the loop is run twice over the same questions so the cache
-can warm up (cache_loop's second pass should be near-100% hit). The eval
-script is invoked on each output JSONL to compute Exact Match.
+Runs one config per --policies entry (default: none exact semantic_lfu
+semantic_lru semantic_oracle), mirroring the RoG experiment's policy sweep so the
+two are directly comparable. 'none' is the uncached baseline; every other policy
+runs the same single pass with that cache policy enabled (cold, its own cache
+file). Each config's output JSONL is scored for Exact Match / Hits@1 / F1, and
+the per-policy rows are written to summary.json (fed to summarize_tog_cache.py ->
+plot_rog_cache_results.py). With --loop N (N>1) each policy instead runs
+main_freebase_loop.py for N passes so the cache warms across passes.
 
 Run from src/ToG-cache/ToG/ (so eval.py's relative paths resolve).
 """
@@ -31,34 +29,52 @@ OUTPUT_DIR = HERE.parent / "output"
 
 def run(cmd: list[str], cwd: Path) -> str:
     print(f"\n[cmd] (cwd={cwd}) {' '.join(cmd)}", flush=True)
-    proc = subprocess.run(cmd, cwd=cwd, check=False, text=True,
-                          stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-    print(proc.stdout)
+    # Stream the child's output live (so long runs aren't silent) while still
+    # capturing it -- eval_jsonl() parses the returned text. PYTHONUNBUFFERED
+    # forces the child to flush promptly through the pipe (it's not a TTY).
+    env = {**os.environ, "PYTHONUNBUFFERED": "1"}
+    proc = subprocess.Popen(cmd, cwd=cwd, text=True, bufsize=1, env=env,
+                            stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    captured: list[str] = []
+    assert proc.stdout is not None
+    for line in proc.stdout:
+        sys.stdout.write(line)
+        sys.stdout.flush()
+        captured.append(line)
+    proc.wait()
     if proc.returncode != 0:
         raise SystemExit(f"command failed (rc={proc.returncode}): {' '.join(cmd)}")
-    return proc.stdout
+    return "".join(captured)
 
 
-def eval_jsonl(jsonl_path: Path, dataset: str) -> tuple[float, int, int, int]:
-    """Run eval.py on a JSONL and parse its stdout."""
+def eval_jsonl(jsonl_path: Path, dataset: str) -> dict:
+    """Run eval.py on a JSONL and parse its stdout into a metrics dict."""
     out = run(
         [sys.executable, "eval.py", "--dataset", dataset,
          "--output_file", str(jsonl_path)],
         cwd=EVAL_DIR,
     )
-    em = right = error = total = 0
-    em_match = re.search(r"Exact Match:\s*([0-9.]+)", out)
+
+    def _num(pattern: str) -> float:
+        m = re.search(pattern, out)
+        return float(m.group(1)) if m else 0.0
+
+    em = _num(r"Exact Match:\s*([0-9.]+)")
+    right = error = 0
     rt_match = re.search(r"right:\s*(\d+),\s*error:\s*(\d+)", out)
-    if em_match:
-        em = float(em_match.group(1))
     if rt_match:
         right = int(rt_match.group(1))
         error = int(rt_match.group(2))
+    hits1 = _num(r"Hits@1:\s*([0-9.]+)")
+    f1 = _num(r"F1:\s*([0-9.]+)")
+    precision = _num(r"Precision:\s*([0-9.]+)")
+    recall = _num(r"Recall:\s*([0-9.]+)")
     # Total = number of records in the JSONL (eval skips refusals so
     # right+error may be < total).
     with jsonl_path.open() as f:
         total = sum(1 for line in f if line.strip())
-    return em, right, error, total
+    return {"exact_match": em, "right": right, "error": error, "records": total,
+            "hits1": hits1, "f1": f1, "precision": precision, "recall": recall}
 
 
 def main():
@@ -74,8 +90,22 @@ def main():
     parser.add_argument("--depth", type=int, default=3)
     parser.add_argument("--width", type=int, default=3)
     parser.add_argument("--similarity-threshold", type=float, default=0.90)
-    parser.add_argument("--loop", type=int, default=2,
-                        help="loop count for main_freebase_loop.py.")
+    parser.add_argument("--capacity", type=int, default=4096,
+                        help="max cached questions per policy (LRU/LFU eviction). "
+                             "Forwarded to main_freebase.py as "
+                             "--question-cache-capacity; ignored by the 'none' "
+                             "baseline.")
+    parser.add_argument("--policies",
+                        default="semantic_lru semantic_lfu none exact semantic_oracle",
+                        help="cache policies to sweep, in run order (space- or "
+                             "comma-separated). 'none' is the uncached baseline; the "
+                             "rest map to main_freebase.py --cache-policy. Covers the "
+                             "same policies as the RoG experiment so the two are "
+                             "comparable.")
+    parser.add_argument("--loop", type=int, default=1,
+                        help="passes per policy. 1 (default) = single pass via "
+                             "main_freebase.py, matching RoG; >1 uses "
+                             "main_freebase_loop.py to warm the cache.")
     parser.add_argument("--cache-dir", default=str(OUTPUT_DIR / "compare_caches"),
                         help="dir for per-config cache JSON files (cleared on start).")
     parser.add_argument("--results-dir", default=str(OUTPUT_DIR / "compare_results"),
@@ -108,71 +138,50 @@ def main():
     if args.model:
         common += ["--model", args.model]
 
+    # One config per cache policy, mirroring the RoG experiment's --policies sweep.
+    # 'none' is the uncached baseline; every other policy runs the same single pass
+    # with its cache enabled (cold, its own cache file). loop>1 switches to the
+    # loop runner so the cache can warm across passes.
+    policies = [p for p in args.policies.replace(",", " ").split() if p]
+    looped = args.loop > 1
+    runner = "main_freebase_loop.py" if looped else "main_freebase.py"
+
     configs: list[tuple[str, list[str], Path]] = []
-
-    # 1. main, no cache
-    p1 = results_dir / "baseline_main.jsonl"
-    configs.append((
-        "baseline_main",
-        [sys.executable, "main_freebase.py", *common, "--no-question-cache",
-         "--output-file", str(p1)],
-        p1,
-    ))
-
-    # 2. main, with cache
-    p2 = results_dir / "cache_main.jsonl"
-    configs.append((
-        "cache_main",
-        [sys.executable, "main_freebase.py", *common,
-         "--question-cache-path", str(cache_dir / "main.json"),
-         "--similarity-threshold", str(args.similarity_threshold),
-         "--output-file", str(p2)],
-        p2,
-    ))
-
-    # 3. loop, no cache
-    p3 = results_dir / "baseline_loop.jsonl"
-    configs.append((
-        "baseline_loop",
-        [sys.executable, "main_freebase_loop.py", *common, "--no-question-cache",
-         "--loop", str(args.loop),
-         "--output-file", str(p3)],
-        p3,
-    ))
-
-    # 4. loop, with cache
-    p4 = results_dir / "cache_loop.jsonl"
-    configs.append((
-        "cache_loop",
-        [sys.executable, "main_freebase_loop.py", *common,
-         "--question-cache-path", str(cache_dir / "loop.json"),
-         "--similarity-threshold", str(args.similarity_threshold),
-         "--loop", str(args.loop),
-         "--output-file", str(p4)],
-        p4,
-    ))
+    for policy in policies:
+        out_path = results_dir / f"{policy}.jsonl"
+        cmd = [sys.executable, runner, *common, "--output-file", str(out_path)]
+        if looped:
+            cmd += ["--loop", str(args.loop)]
+        if policy == "none":
+            cmd += ["--no-question-cache"]
+        else:
+            cmd += ["--question-cache-path", str(cache_dir / f"{policy}.json"),
+                    "--cache-policy", policy,
+                    "--similarity-threshold", str(args.similarity_threshold),
+                    "--question-cache-capacity", str(args.capacity)]
+        configs.append((policy, cmd, out_path))
 
     rows: list[dict] = []
     for name, cmd, out_path in configs:
         done_marker = results_dir / f"{name}.done"
         if done_marker.exists() and not args.fresh:
-            print(f"\n[resume] config {name!r} already complete; skipping its run "
+            print(f"\n[resume] policy {name!r} already complete; skipping its run "
                   f"(delete {done_marker} or pass --fresh to redo)")
         else:
             # No unlink: main_freebase.py / main_freebase_loop.py resume from an
             # existing JSONL, skipping questions already answered.
             run(cmd, cwd=HERE)
             done_marker.write_text("")  # mark complete only after the run succeeds
-        em, right, error, total = eval_jsonl(out_path, args.dataset)
-        rows.append({"config": name, "exact_match": em, "right": right,
-                     "error": error, "records": total, "output": str(out_path)})
+        metrics = eval_jsonl(out_path, args.dataset)
+        rows.append({"config": name, "policy": name, **metrics, "output": str(out_path)})
 
     print("\n" + "=" * 78)
-    print(f"{'config':<16} {'records':>8} {'right':>6} {'error':>6} {'EM':>8}")
+    print(f"{'policy':<16} {'records':>8} {'right':>6} {'error':>6} "
+          f"{'EM':>8} {'Hits@1':>8} {'F1':>8}")
     print("-" * 78)
     for r in rows:
-        print(f"{r['config']:<16} {r['records']:>8} {r['right']:>6} "
-              f"{r['error']:>6} {r['exact_match']:>8.4f}")
+        print(f"{r['policy']:<16} {r['records']:>8} {r['right']:>6} "
+              f"{r['error']:>6} {r['exact_match']:>8.4f} {r['hits1']:>8.4f} {r['f1']:>8.4f}")
     print("=" * 78)
 
     summary_path = results_dir / "summary.json"

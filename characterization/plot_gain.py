@@ -28,17 +28,18 @@ cwq_gain = {
 # IEEE Style Configuration
 plt.rcParams.update({
     "font.family": "serif",      # Matches IEEE Times/Computer Modern
-    "font.size": 9,              # Standard font size for IEEE figures
-    "axes.labelsize": 10,
-    "legend.fontsize": 8,
-    "xtick.labelsize": 8,
-    "ytick.labelsize": 8,
-    "lines.linewidth": 1.5,
-    "lines.markersize": 5
+    "font.size": 17,             # Enlarged for readability
+    "axes.labelsize": 19,
+    "axes.titlesize": 19,
+    "legend.fontsize": 15,
+    "xtick.labelsize": 15,
+    "ytick.labelsize": 15,
+    "lines.linewidth": 2.0,
+    "lines.markersize": 7
 })
 
 # IEEE Double-column width is typically ~7.16 inches.
-fig, axes = plt.subplots(1, 2, figsize=(7.16, 2.8))
+fig, axes = plt.subplots(1, 2, figsize=(11.0, 5.0))
 
 # Markers and line styles for grayscale-friendly styling
 markers = ['o', 's', '^', 'D', 'v']

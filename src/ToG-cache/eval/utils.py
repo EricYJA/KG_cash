@@ -1,5 +1,64 @@
 import json
 import re
+import string
+
+
+# --- RoG-compatible metrics (Hits@1 / F1) -------------------------------------
+# Copied verbatim from ref_KG_projects/RoG/src/qa_prediction/evaluate_results.py
+# so ToG's Hits@1 / F1 are computed identically to the RoG experiment and the two
+# are directly comparable. Existing Exact Match is left untouched.
+def rog_normalize(s: str) -> str:
+    """Lower text and remove punctuation, articles and extra whitespace."""
+    s = s.lower()
+    exclude = set(string.punctuation)
+    s = "".join(char for char in s if char not in exclude)
+    s = re.sub(r"\b(a|an|the)\b", " ", s)
+    s = re.sub(r"\b(<pad>)\b", " ", s)
+    s = " ".join(s.split())
+    return s
+
+
+def rog_match(s1: str, s2: str) -> bool:
+    return rog_normalize(s2) in rog_normalize(s1)
+
+
+def rog_eval_hit(prediction, answer) -> int:
+    """1 if any gold answer appears in the (joined) prediction, else 0."""
+    prediction_str = " ".join(prediction) if isinstance(prediction, list) else prediction
+    for a in answer:
+        if rog_match(prediction_str, a):
+            return 1
+    return 0
+
+
+def rog_eval_f1(prediction, answer):
+    """(f1, precision, recall); precision divides by number of predicted items."""
+    if len(prediction) == 0 or len(answer) == 0:
+        return 0.0, 0.0, 0.0
+    prediction_str = " ".join(prediction)
+    matched = sum(1 for a in answer if rog_match(prediction_str, a))
+    precision = matched / len(prediction)
+    recall = matched / len(answer)
+    if precision + recall == 0:
+        return 0.0, precision, recall
+    return 2 * precision * recall / (precision + recall), precision, recall
+
+
+def prediction_to_list(results):
+    """Turn a ToG `results` string into a RoG-style list of predicted answers.
+
+    RoG splits its prediction on newlines; ToG usually emits a single line, so
+    this yields a 1-element list in the common case (precision divides by 1).
+    """
+    if isinstance(results, list):
+        items = results
+    else:
+        text = clean_results(results)
+        if text == "NULL":
+            text = results if isinstance(results, str) else str(results)
+        items = text.split("\n")
+    items = [p.strip() for p in items if isinstance(p, str) and p.strip()]
+    return items or [str(results)]
 
 
 def prepare_dataset_for_eval(dataset_name, output_file):
@@ -218,7 +277,7 @@ def precision_recall_f1(predictions, answer_groups):
     f1 = 2 * precision * recall / (precision + recall) if precision + recall > 0 else 0.0
     return precision, recall, f1
 
-def save_result2json(dataset_name, num_right, num_error, total_nums, method):
+def save_result2json(dataset_name, num_right, num_error, total_nums, method, extra_metrics=None):
     results_data = {
         'dataset': dataset_name,
         'method': method,
@@ -226,6 +285,8 @@ def save_result2json(dataset_name, num_right, num_error, total_nums, method):
         'Right Samples': num_right,
         'Error Sampels': num_error
     }
+    if extra_metrics:
+        results_data.update(extra_metrics)
     with open('ToG_{}_results.json'.format(dataset_name), 'w', encoding='utf-8') as f:
         json.dump(results_data, f, ensure_ascii=False, indent=4)
 

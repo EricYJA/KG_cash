@@ -1,59 +1,115 @@
-data = {0: 0.598535692495424, 128: 0, 512: 0.614399023794997, 2048: 0}
+#!/usr/bin/env python3
+"""Accuracy-by-cache-policy bar chart, from the LIVE run results.
+
+This used to hardcode an accuracy-vs-cache-size series. The live experiments run
+one cache *capacity* per run (there is no accuracy-vs-capacity sweep to read), but
+they do measure end-to-end accuracy for every cache *policy*. So the chart now
+reads a real run summary under artifacts/{tog,rog}_cache/ and plots first-pass
+accuracy (or Hits@1 / F1) per policy, with None as the uncached baseline.
+
+    PYTHONPATH=src python src/ToG-cache/output/accuracy_plot.py --run gemini_tog_cache_oxi_test
+    python src/ToG-cache/output/accuracy_plot.py --run rog_cache_virtuoso_test --metric hit
+"""
+from __future__ import annotations
+
+import argparse
+import json
+from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.ticker import PercentFormatter
 
-# Sample data
-cache_sizes = ['0', '128', '512', '2048']
-accuracies = [0.598535692495424, 0.6186699206833435, 0.614399023794997, 0.62660158633313]
+REPO_ROOT = Path(__file__).resolve().parents[3]
+ART = {
+    "tog": REPO_ROOT / "artifacts" / "tog_cache",
+    "rog": REPO_ROOT / "artifacts" / "rog_cache",
+}
 
-# IEEE Paper style settings
-plt.rcParams.update({
-    'font.size': 10,
-    'font.family': 'serif',
-    'axes.labelsize': 10,
-    'xtick.labelsize': 9,
-    'ytick.labelsize': 9,
-    'legend.fontsize': 9,
-    'figure.figsize': (3.5, 2.5),
-    'figure.dpi': 300,
-})
+POLICY_ORDER = ["none", "exact", "semantic_lru", "semantic_lfu", "semantic_oracle"]
+POLICY_LABELS = {
+    "none": "None", "exact": "Exact", "semantic_lru": "Sem-LRU",
+    "semantic_lfu": "Sem-LFU", "semantic_oracle": "Sem-Oracle",
+}
+METRIC_LABELS = {"accuracy": "Accuracy", "hit": "Hits@1", "f1": "F1"}
 
-fig, ax = plt.subplots()
 
-x_pos = np.arange(len(cache_sizes))
+def load_summary(run: str, first_pass: bool) -> tuple[dict[str, dict], Path]:
+    """{policy: record} for a run; prefers the 1st-pass (cold) ToG summary."""
+    system = "tog" if "tog" in run.lower() else "rog"
+    path = ART[system] / run / "summary.json"
+    if first_pass:
+        p1 = ART["tog"] / f"{run}_pass1" / "summary.json"   # ToG loop runs only
+        if p1.exists():
+            path = p1
+    if not path.exists():
+        raise SystemExit(f"no summary for run {run!r} (looked for {path})")
+    records = json.loads(path.read_text())
+    return {r["policy"]: r for r in records}, path
 
-# Use the tab10 categorical color palette
-colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728']
-hatch_patterns = ['/', '\\', '|', '-']
 
-# Plot bars with colors and black edges
-bars = ax.bar(x_pos, accuracies, color=colors, edgecolor='black', width=0.6)
+def main() -> None:
+    ap = argparse.ArgumentParser(description=__doc__,
+                                 formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--run", default="gemini_tog_cache_oxi_test",
+                    help="run tag under artifacts/{tog,rog}_cache/")
+    ap.add_argument("--metric", default="accuracy", choices=list(METRIC_LABELS),
+                    help="which measured metric to plot (default: accuracy)")
+    ap.add_argument("--whole", action="store_true",
+                    help="use the whole-run summary instead of the 1st pass")
+    ap.add_argument("-o", "--output",
+                    default=str(Path(__file__).resolve().parent / "cache_vs_accuracy.pdf"),
+                    help="output PDF path")
+    args = ap.parse_args()
 
-# Apply hatches
-for i, bar in enumerate(bars):
-    bar.set_hatch(hatch_patterns[i % len(hatch_patterns)])
+    recs, path = load_summary(args.run, first_pass=not args.whole)
+    policies = [p for p in POLICY_ORDER if p in recs]
+    labels = [POLICY_LABELS.get(p, p) for p in policies]
+    # Summary metrics are 0-100 percentages; scale to 0-1 for PercentFormatter.
+    values = [(recs[p].get(args.metric) or 0.0) / 100.0 for p in policies]
 
-# Labels and ticks
-ax.set_xlabel('Cache Size')
-ax.set_ylabel('Accuracy')
-ax.set_xticks(x_pos)
-ax.set_xticklabels(cache_sizes)
+    # IEEE paper style settings (unchanged from the original chart).
+    plt.rcParams.update({
+        'font.size': 16,
+        'font.family': 'serif',
+        'axes.labelsize': 17,
+        'axes.titlesize': 17,
+        'xtick.labelsize': 15,
+        'ytick.labelsize': 15,
+        'legend.fontsize': 15,
+        'figure.figsize': (5.2, 3.8),
+        'figure.dpi': 300,
+    })
 
-# Format the y-axis as percentages (xmax=1.0 means data is in 0.0-1.0 range)
-ax.yaxis.set_major_formatter(PercentFormatter(xmax=1.0, decimals=0))
+    fig, ax = plt.subplots()
+    x_pos = np.arange(len(policies))
+    colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd']
+    hatch_patterns = ['/', '\\', '|', '-', 'x']
 
-# Y-axis limit with error handling for all-zero arrays
-max_acc = max(accuracies)
-ax.set_ylim(0, (max_acc * 1.1) if max_acc > 0 else 1.0)
+    bars = ax.bar(x_pos, values, color=[colors[i % len(colors)] for i in x_pos],
+                  edgecolor='black', width=0.6)
+    for i, bar in enumerate(bars):
+        bar.set_hatch(hatch_patterns[i % len(hatch_patterns)])
+        # Value label on top -- accuracy spreads across policies are small.
+        ax.annotate(f"{100 * values[i]:.1f}", (bar.get_x() + bar.get_width() / 2,
+                    values[i]), ha='center', va='bottom', fontsize=11)
 
-# Grid setup
-ax.yaxis.grid(True, linestyle='--', alpha=0.7)
-ax.set_axisbelow(True)
+    ax.set_xlabel('Cache Policy')
+    ax.set_ylabel(METRIC_LABELS[args.metric])
+    ax.set_xticks(x_pos)
+    ax.set_xticklabels(labels, rotation=20, ha='right')
+    ax.yaxis.set_major_formatter(PercentFormatter(xmax=1.0, decimals=0))
 
-plt.tight_layout()
+    max_v = max(values) if values else 0
+    ax.set_ylim(0, (max_v * 1.18) if max_v > 0 else 1.0)
+    ax.yaxis.grid(True, linestyle='--', alpha=0.7)
+    ax.set_axisbelow(True)
+    plt.tight_layout()
 
-# Save and show
-plt.savefig('cache_vs_accuracy.pdf', format='pdf', bbox_inches='tight')
-plt.show()
+    plt.savefig(args.output, format='pdf', bbox_inches='tight')
+    pass_note = "whole-run" if args.whole else "1st pass"
+    print(f"wrote {args.output}  [{args.run}, {args.metric}, {pass_note}] from {path}")
+
+
+if __name__ == "__main__":
+    main()

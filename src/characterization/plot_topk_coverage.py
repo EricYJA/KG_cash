@@ -5,6 +5,8 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 
 
+plt.rcParams.update({"xtick.labelsize": 16, "ytick.labelsize": 16})
+
 ROOT = Path(__file__).resolve().parents[1]
 TRACE_DIR = ROOT / "ToG-cache" / "output" / "traces"
 TRACE_FILES = {
@@ -90,7 +92,7 @@ def draw_topk(ax, webqsp_coverage, cwq_coverage, subtitle, ylabel, label_offsets
                 f"{webqsp:.2f}%",
                 ha="center",
                 va=webqsp_va,
-                fontsize=9.5,
+                fontsize=15,
                 color=C_WEBQSP,
                 fontweight="bold",
             )
@@ -100,7 +102,7 @@ def draw_topk(ax, webqsp_coverage, cwq_coverage, subtitle, ylabel, label_offsets
                 f"{cwq:.2f}%",
                 ha="center",
                 va=cwq_va,
-                fontsize=9.5,
+                fontsize=15,
                 color=C_CWQ,
                 fontweight="bold",
             )
@@ -113,7 +115,7 @@ def draw_topk(ax, webqsp_coverage, cwq_coverage, subtitle, ylabel, label_offsets
                 f"{webqsp:.2f}%",
                 ha="center",
                 va=webqsp_va,
-                fontsize=9.5,
+                fontsize=15,
                 color=C_WEBQSP,
                 fontweight="bold",
             )
@@ -123,7 +125,7 @@ def draw_topk(ax, webqsp_coverage, cwq_coverage, subtitle, ylabel, label_offsets
                 f"{cwq:.2f}%",
                 ha="center",
                 va=cwq_va,
-                fontsize=9.5,
+                fontsize=15,
                 color=C_CWQ,
                 fontweight="bold",
             )
@@ -134,7 +136,7 @@ def draw_topk(ax, webqsp_coverage, cwq_coverage, subtitle, ylabel, label_offsets
                 f"{webqsp:.2f}%",
                 ha="center",
                 va="bottom",
-                fontsize=9.5,
+                fontsize=15,
                 color=C_WEBQSP,
                 fontweight="bold",
             )
@@ -144,7 +146,7 @@ def draw_topk(ax, webqsp_coverage, cwq_coverage, subtitle, ylabel, label_offsets
                 f"{cwq:.2f}%",
                 ha="center",
                 va="top",
-                fontsize=9.5,
+                fontsize=15,
                 color=C_CWQ,
                 fontweight="bold",
             )
@@ -153,8 +155,8 @@ def draw_topk(ax, webqsp_coverage, cwq_coverage, subtitle, ylabel, label_offsets
     ax.fill_between(K_VALUES, cwq_coverage, alpha=0.12, color=C_CWQ)
 
     ax.set_xticks(K_VALUES)
-    ax.set_xticklabels(TOP_K_LABELS, fontsize=12)
-    ax.set_ylabel(ylabel, fontsize=12)
+    ax.set_xticklabels(TOP_K_LABELS, fontsize=17)
+    ax.set_ylabel(ylabel, fontsize=17)
     ax.set_ylim(0, 50)
     ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda value, _: f"{value:.0f}%"))
     ax.grid(axis="y", linestyle="--", alpha=0.5, zorder=0)
@@ -166,7 +168,7 @@ def draw_topk(ax, webqsp_coverage, cwq_coverage, subtitle, ylabel, label_offsets
         transform=ax.transAxes,
         ha="center",
         va="top",
-        fontsize=14,
+        fontsize=19,
         fontweight="bold",
         color="#222222",
     )
@@ -219,7 +221,7 @@ draw_topk(
 fig.legend(
     handles=legend_handles,
     labels=["WebQSP", "CWQ"],
-    fontsize=11,
+    fontsize=16,
     loc="upper center",
     bbox_to_anchor=(0.5, 1.02),
     ncol=2,
