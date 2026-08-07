@@ -1,0 +1,1092 @@
+{
+  "metadata": {
+    "cache_sizes": [
+      10,
+      50,
+      100,
+      500,
+      1000
+    ],
+    "policies": [
+      "lru",
+      "lfu",
+      "oracle"
+    ],
+    "shuffle_seed": 0,
+    "random_seed": 0,
+    "random_repeats": 5,
+    "question_limit": 400,
+    "cache_unit": "one-hop neighbourhood lookup, keyed by entity id",
+    "access_patterns": [
+      "sequential",
+      "request_block_shuffled"
+    ],
+    "shuffled_semantics": "Question order is shuffled; the KG access order inside a question is preserved.",
+    "stage_keys": {
+      "cached": "kg",
+      "uncached": "llm"
+    },
+    "stage_labels": {
+      "cached": "KG",
+      "uncached": "LLM"
+    },
+    "timing_note": "RoG's lookups are in-memory networkx calls with no measured duration; time columns are zero and only hit rate is meaningful.",
+    "source": "simulate_rog_kg_cache.py"
+  },
+  "datasets": {
+    "RoG-webqsp": {
+      "predictions_path": "/home/stanic/KG_cash/artifacts/rog_cache/rog_cache_virtuoso_new/gen_rule_path/none/RoG-webqsp/RoG/test/predictions_3_False.jsonl",
+      "request_count": 2763,
+      "unique_entities": 1782,
+      "questions": 400,
+      "time_breakdown_ms": {
+        "kg": 0,
+        "llm": 0,
+        "other": 0,
+        "total": 0
+      },
+      "timing_available": false,
+      "sequential": [
+        {
+          "policy": "lru",
+          "cache_size": 10,
+          "requests": 2763,
+          "hits": 811,
+          "misses": 1952,
+          "hit_rate": 0.2935,
+          "time_breakdown_ms": {
+            "kg_base": 0,
+            "kg_simulated": 0,
+            "llm": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "lfu",
+          "cache_size": 10,
+          "requests": 2763,
+          "hits": 631,
+          "misses": 2132,
+          "hit_rate": 0.2284,
+          "time_breakdown_ms": {
+            "kg_base": 0,
+            "kg_simulated": 0,
+            "llm": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "oracle",
+          "cache_size": 10,
+          "requests": 2763,
+          "hits": 114,
+          "misses": 2649,
+          "hit_rate": 0.0413,
+          "time_breakdown_ms": {
+            "kg_base": 0,
+            "kg_simulated": 0,
+            "llm": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "lru",
+          "cache_size": 50,
+          "requests": 2763,
+          "hits": 869,
+          "misses": 1894,
+          "hit_rate": 0.3145,
+          "time_breakdown_ms": {
+            "kg_base": 0,
+            "kg_simulated": 0,
+            "llm": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "lfu",
+          "cache_size": 50,
+          "requests": 2763,
+          "hits": 680,
+          "misses": 2083,
+          "hit_rate": 0.2461,
+          "time_breakdown_ms": {
+            "kg_base": 0,
+            "kg_simulated": 0,
+            "llm": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "oracle",
+          "cache_size": 50,
+          "requests": 2763,
+          "hits": 371,
+          "misses": 2392,
+          "hit_rate": 0.1343,
+          "time_breakdown_ms": {
+            "kg_base": 0,
+            "kg_simulated": 0,
+            "llm": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "lru",
+          "cache_size": 100,
+          "requests": 2763,
+          "hits": 876,
+          "misses": 1887,
+          "hit_rate": 0.317,
+          "time_breakdown_ms": {
+            "kg_base": 0,
+            "kg_simulated": 0,
+            "llm": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "lfu",
+          "cache_size": 100,
+          "requests": 2763,
+          "hits": 737,
+          "misses": 2026,
+          "hit_rate": 0.2667,
+          "time_breakdown_ms": {
+            "kg_base": 0,
+            "kg_simulated": 0,
+            "llm": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "oracle",
+          "cache_size": 100,
+          "requests": 2763,
+          "hits": 550,
+          "misses": 2213,
+          "hit_rate": 0.1991,
+          "time_breakdown_ms": {
+            "kg_base": 0,
+            "kg_simulated": 0,
+            "llm": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "lru",
+          "cache_size": 500,
+          "requests": 2763,
+          "hits": 947,
+          "misses": 1816,
+          "hit_rate": 0.3427,
+          "time_breakdown_ms": {
+            "kg_base": 0,
+            "kg_simulated": 0,
+            "llm": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "lfu",
+          "cache_size": 500,
+          "requests": 2763,
+          "hits": 974,
+          "misses": 1789,
+          "hit_rate": 0.3525,
+          "time_breakdown_ms": {
+            "kg_base": 0,
+            "kg_simulated": 0,
+            "llm": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "oracle",
+          "cache_size": 500,
+          "requests": 2763,
+          "hits": 1481,
+          "misses": 1282,
+          "hit_rate": 0.536,
+          "time_breakdown_ms": {
+            "kg_base": 0,
+            "kg_simulated": 0,
+            "llm": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "lru",
+          "cache_size": 1000,
+          "requests": 2763,
+          "hits": 971,
+          "misses": 1792,
+          "hit_rate": 0.3514,
+          "time_breakdown_ms": {
+            "kg_base": 0,
+            "kg_simulated": 0,
+            "llm": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "lfu",
+          "cache_size": 1000,
+          "requests": 2763,
+          "hits": 978,
+          "misses": 1785,
+          "hit_rate": 0.354,
+          "time_breakdown_ms": {
+            "kg_base": 0,
+            "kg_simulated": 0,
+            "llm": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "oracle",
+          "cache_size": 1000,
+          "requests": 2763,
+          "hits": 1981,
+          "misses": 782,
+          "hit_rate": 0.717,
+          "time_breakdown_ms": {
+            "kg_base": 0,
+            "kg_simulated": 0,
+            "llm": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        }
+      ],
+      "shuffled": [
+        {
+          "policy": "lru",
+          "cache_size": 10,
+          "requests": 2763,
+          "hits": 814,
+          "misses": 1949,
+          "hit_rate": 0.2946,
+          "time_breakdown_ms": {
+            "kg_base": 0,
+            "kg_simulated": 0,
+            "llm": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "lfu",
+          "cache_size": 10,
+          "requests": 2763,
+          "hits": 630,
+          "misses": 2133,
+          "hit_rate": 0.228,
+          "time_breakdown_ms": {
+            "kg_base": 0,
+            "kg_simulated": 0,
+            "llm": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "oracle",
+          "cache_size": 10,
+          "requests": 2763,
+          "hits": 114,
+          "misses": 2649,
+          "hit_rate": 0.0413,
+          "time_breakdown_ms": {
+            "kg_base": 0,
+            "kg_simulated": 0,
+            "llm": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "lru",
+          "cache_size": 50,
+          "requests": 2763,
+          "hits": 872,
+          "misses": 1891,
+          "hit_rate": 0.3156,
+          "time_breakdown_ms": {
+            "kg_base": 0,
+            "kg_simulated": 0,
+            "llm": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "lfu",
+          "cache_size": 50,
+          "requests": 2763,
+          "hits": 670,
+          "misses": 2093,
+          "hit_rate": 0.2425,
+          "time_breakdown_ms": {
+            "kg_base": 0,
+            "kg_simulated": 0,
+            "llm": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "oracle",
+          "cache_size": 50,
+          "requests": 2763,
+          "hits": 371,
+          "misses": 2392,
+          "hit_rate": 0.1343,
+          "time_breakdown_ms": {
+            "kg_base": 0,
+            "kg_simulated": 0,
+            "llm": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "lru",
+          "cache_size": 100,
+          "requests": 2763,
+          "hits": 877,
+          "misses": 1886,
+          "hit_rate": 0.3174,
+          "time_breakdown_ms": {
+            "kg_base": 0,
+            "kg_simulated": 0,
+            "llm": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "lfu",
+          "cache_size": 100,
+          "requests": 2763,
+          "hits": 732,
+          "misses": 2031,
+          "hit_rate": 0.2649,
+          "time_breakdown_ms": {
+            "kg_base": 0,
+            "kg_simulated": 0,
+            "llm": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "oracle",
+          "cache_size": 100,
+          "requests": 2763,
+          "hits": 550,
+          "misses": 2213,
+          "hit_rate": 0.1991,
+          "time_breakdown_ms": {
+            "kg_base": 0,
+            "kg_simulated": 0,
+            "llm": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "lru",
+          "cache_size": 500,
+          "requests": 2763,
+          "hits": 935,
+          "misses": 1828,
+          "hit_rate": 0.3384,
+          "time_breakdown_ms": {
+            "kg_base": 0,
+            "kg_simulated": 0,
+            "llm": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "lfu",
+          "cache_size": 500,
+          "requests": 2763,
+          "hits": 973,
+          "misses": 1790,
+          "hit_rate": 0.3522,
+          "time_breakdown_ms": {
+            "kg_base": 0,
+            "kg_simulated": 0,
+            "llm": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "oracle",
+          "cache_size": 500,
+          "requests": 2763,
+          "hits": 1481,
+          "misses": 1282,
+          "hit_rate": 0.536,
+          "time_breakdown_ms": {
+            "kg_base": 0,
+            "kg_simulated": 0,
+            "llm": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "lru",
+          "cache_size": 1000,
+          "requests": 2763,
+          "hits": 969,
+          "misses": 1794,
+          "hit_rate": 0.3507,
+          "time_breakdown_ms": {
+            "kg_base": 0,
+            "kg_simulated": 0,
+            "llm": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "lfu",
+          "cache_size": 1000,
+          "requests": 2763,
+          "hits": 980,
+          "misses": 1783,
+          "hit_rate": 0.3547,
+          "time_breakdown_ms": {
+            "kg_base": 0,
+            "kg_simulated": 0,
+            "llm": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "oracle",
+          "cache_size": 1000,
+          "requests": 2763,
+          "hits": 1981,
+          "misses": 782,
+          "hit_rate": 0.717,
+          "time_breakdown_ms": {
+            "kg_base": 0,
+            "kg_simulated": 0,
+            "llm": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        }
+      ]
+    },
+    "RoG-cwq": {
+      "predictions_path": "/home/stanic/KG_cash/artifacts/rog_cache/rog-cwq_planner/gen_rule_path/none/RoG-cwq/RoG/test[:400]/predictions_3_False.jsonl",
+      "request_count": 4465,
+      "unique_entities": 2106,
+      "questions": 400,
+      "time_breakdown_ms": {
+        "kg": 0,
+        "llm": 0,
+        "other": 0,
+        "total": 0
+      },
+      "timing_available": false,
+      "sequential": [
+        {
+          "policy": "lru",
+          "cache_size": 10,
+          "requests": 4465,
+          "hits": 1450,
+          "misses": 3015,
+          "hit_rate": 0.3247,
+          "time_breakdown_ms": {
+            "kg_base": 0,
+            "kg_simulated": 0,
+            "llm": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "lfu",
+          "cache_size": 10,
+          "requests": 4465,
+          "hits": 330,
+          "misses": 4135,
+          "hit_rate": 0.0739,
+          "time_breakdown_ms": {
+            "kg_base": 0,
+            "kg_simulated": 0,
+            "llm": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "oracle",
+          "cache_size": 10,
+          "requests": 4465,
+          "hits": 378,
+          "misses": 4087,
+          "hit_rate": 0.0847,
+          "time_breakdown_ms": {
+            "kg_base": 0,
+            "kg_simulated": 0,
+            "llm": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "lru",
+          "cache_size": 50,
+          "requests": 4465,
+          "hits": 1752,
+          "misses": 2713,
+          "hit_rate": 0.3924,
+          "time_breakdown_ms": {
+            "kg_base": 0,
+            "kg_simulated": 0,
+            "llm": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "lfu",
+          "cache_size": 50,
+          "requests": 4465,
+          "hits": 574,
+          "misses": 3891,
+          "hit_rate": 0.1286,
+          "time_breakdown_ms": {
+            "kg_base": 0,
+            "kg_simulated": 0,
+            "llm": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "oracle",
+          "cache_size": 50,
+          "requests": 4465,
+          "hits": 842,
+          "misses": 3623,
+          "hit_rate": 0.1886,
+          "time_breakdown_ms": {
+            "kg_base": 0,
+            "kg_simulated": 0,
+            "llm": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "lru",
+          "cache_size": 100,
+          "requests": 4465,
+          "hits": 1826,
+          "misses": 2639,
+          "hit_rate": 0.409,
+          "time_breakdown_ms": {
+            "kg_base": 0,
+            "kg_simulated": 0,
+            "llm": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "lfu",
+          "cache_size": 100,
+          "requests": 4465,
+          "hits": 783,
+          "misses": 3682,
+          "hit_rate": 0.1754,
+          "time_breakdown_ms": {
+            "kg_base": 0,
+            "kg_simulated": 0,
+            "llm": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "oracle",
+          "cache_size": 100,
+          "requests": 4465,
+          "hits": 1143,
+          "misses": 3322,
+          "hit_rate": 0.256,
+          "time_breakdown_ms": {
+            "kg_base": 0,
+            "kg_simulated": 0,
+            "llm": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "lru",
+          "cache_size": 500,
+          "requests": 4465,
+          "hits": 2086,
+          "misses": 2379,
+          "hit_rate": 0.4672,
+          "time_breakdown_ms": {
+            "kg_base": 0,
+            "kg_simulated": 0,
+            "llm": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "lfu",
+          "cache_size": 500,
+          "requests": 4465,
+          "hits": 1854,
+          "misses": 2611,
+          "hit_rate": 0.4152,
+          "time_breakdown_ms": {
+            "kg_base": 0,
+            "kg_simulated": 0,
+            "llm": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "oracle",
+          "cache_size": 500,
+          "requests": 4465,
+          "hits": 2406,
+          "misses": 2059,
+          "hit_rate": 0.5389,
+          "time_breakdown_ms": {
+            "kg_base": 0,
+            "kg_simulated": 0,
+            "llm": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "lru",
+          "cache_size": 1000,
+          "requests": 4465,
+          "hits": 2235,
+          "misses": 2230,
+          "hit_rate": 0.5006,
+          "time_breakdown_ms": {
+            "kg_base": 0,
+            "kg_simulated": 0,
+            "llm": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "lfu",
+          "cache_size": 1000,
+          "requests": 4465,
+          "hits": 2293,
+          "misses": 2172,
+          "hit_rate": 0.5135,
+          "time_breakdown_ms": {
+            "kg_base": 0,
+            "kg_simulated": 0,
+            "llm": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "oracle",
+          "cache_size": 1000,
+          "requests": 4465,
+          "hits": 3359,
+          "misses": 1106,
+          "hit_rate": 0.7523,
+          "time_breakdown_ms": {
+            "kg_base": 0,
+            "kg_simulated": 0,
+            "llm": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        }
+      ],
+      "shuffled": [
+        {
+          "policy": "lru",
+          "cache_size": 10,
+          "requests": 4465,
+          "hits": 1446,
+          "misses": 3019,
+          "hit_rate": 0.3239,
+          "time_breakdown_ms": {
+            "kg_base": 0,
+            "kg_simulated": 0,
+            "llm": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "lfu",
+          "cache_size": 10,
+          "requests": 4465,
+          "hits": 336,
+          "misses": 4129,
+          "hit_rate": 0.0753,
+          "time_breakdown_ms": {
+            "kg_base": 0,
+            "kg_simulated": 0,
+            "llm": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "oracle",
+          "cache_size": 10,
+          "requests": 4465,
+          "hits": 378,
+          "misses": 4087,
+          "hit_rate": 0.0847,
+          "time_breakdown_ms": {
+            "kg_base": 0,
+            "kg_simulated": 0,
+            "llm": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "lru",
+          "cache_size": 50,
+          "requests": 4465,
+          "hits": 1697,
+          "misses": 2768,
+          "hit_rate": 0.3801,
+          "time_breakdown_ms": {
+            "kg_base": 0,
+            "kg_simulated": 0,
+            "llm": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "lfu",
+          "cache_size": 50,
+          "requests": 4465,
+          "hits": 673,
+          "misses": 3792,
+          "hit_rate": 0.1507,
+          "time_breakdown_ms": {
+            "kg_base": 0,
+            "kg_simulated": 0,
+            "llm": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "oracle",
+          "cache_size": 50,
+          "requests": 4465,
+          "hits": 842,
+          "misses": 3623,
+          "hit_rate": 0.1886,
+          "time_breakdown_ms": {
+            "kg_base": 0,
+            "kg_simulated": 0,
+            "llm": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "lru",
+          "cache_size": 100,
+          "requests": 4465,
+          "hits": 1757,
+          "misses": 2708,
+          "hit_rate": 0.3935,
+          "time_breakdown_ms": {
+            "kg_base": 0,
+            "kg_simulated": 0,
+            "llm": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "lfu",
+          "cache_size": 100,
+          "requests": 4465,
+          "hits": 934,
+          "misses": 3531,
+          "hit_rate": 0.2092,
+          "time_breakdown_ms": {
+            "kg_base": 0,
+            "kg_simulated": 0,
+            "llm": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "oracle",
+          "cache_size": 100,
+          "requests": 4465,
+          "hits": 1143,
+          "misses": 3322,
+          "hit_rate": 0.256,
+          "time_breakdown_ms": {
+            "kg_base": 0,
+            "kg_simulated": 0,
+            "llm": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "lru",
+          "cache_size": 500,
+          "requests": 4465,
+          "hits": 2085,
+          "misses": 2380,
+          "hit_rate": 0.467,
+          "time_breakdown_ms": {
+            "kg_base": 0,
+            "kg_simulated": 0,
+            "llm": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "lfu",
+          "cache_size": 500,
+          "requests": 4465,
+          "hits": 1840,
+          "misses": 2625,
+          "hit_rate": 0.4121,
+          "time_breakdown_ms": {
+            "kg_base": 0,
+            "kg_simulated": 0,
+            "llm": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "oracle",
+          "cache_size": 500,
+          "requests": 4465,
+          "hits": 2406,
+          "misses": 2059,
+          "hit_rate": 0.5389,
+          "time_breakdown_ms": {
+            "kg_base": 0,
+            "kg_simulated": 0,
+            "llm": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "lru",
+          "cache_size": 1000,
+          "requests": 4465,
+          "hits": 2258,
+          "misses": 2207,
+          "hit_rate": 0.5057,
+          "time_breakdown_ms": {
+            "kg_base": 0,
+            "kg_simulated": 0,
+            "llm": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "lfu",
+          "cache_size": 1000,
+          "requests": 4465,
+          "hits": 2298,
+          "misses": 2167,
+          "hit_rate": 0.5147,
+          "time_breakdown_ms": {
+            "kg_base": 0,
+            "kg_simulated": 0,
+            "llm": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "oracle",
+          "cache_size": 1000,
+          "requests": 4465,
+          "hits": 3359,
+          "misses": 1106,
+          "hit_rate": 0.7523,
+          "time_breakdown_ms": {
+            "kg_base": 0,
+            "kg_simulated": 0,
+            "llm": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        }
+      ]
+    }
+  }
+}

@@ -213,6 +213,15 @@ def main() -> None:
             "policy": policy,
             "eval_file": predict_file.replace("predictions.jsonl", "eval_result.txt"),
             "cache_stats": f"{rule_dir}/cache_stats.json",
+            # Per-question times from BOTH stages. The summarizer joins them on
+            # question id to get whole-question timings, which is the only way
+            # this pipeline can report a full-system speedup: stage 1 alone
+            # measures the planner, and the cache is a planner cache, so a
+            # stage-1 speedup says nothing about the reasoner half that always
+            # runs. Sidecar naming follows cache_metrics.metrics_sidecar_path.
+            "stage1_metrics": f"{rule_path}.metrics.jsonl",
+            "stage2_metrics": f"{predict_file}.metrics.jsonl",
+            "predict_file": predict_file,
         }
         (out_host / f"manifest_{tag}.json").write_text(json.dumps(manifest, indent=2))
         done_marker.write_text("")  # policy fully scored: skip it on a same-tag resume

@@ -6,8 +6,9 @@ The ToG twin of plot_rog_cache_results.py. That script overlays a run's cold
 **separate figure per loop** -- loop 1 (cold cache) in one plot, loop 2 (warm
 cache) in another -- so the per-loop behaviour is read without the two passes
 crowding each other. Within each loop figure the layout matches the RoG figures
-exactly: three metric panels (accuracy / cache hit rate / full-system speedup),
-policies on the x-axis, one line per run, shared bottom legend, IEEE serif style.
+exactly: three metric panels (accuracy / cache hit rate / full-system speedup)
+stacked one per row at a single-column journal width, policies on the x-axis, one
+line per run, shared bottom legend, serif body-text style.
 
 Input is the per-pass summaries written by
 
@@ -68,13 +69,15 @@ rog = _load_rog_module()
 DROP_NONE_FIELDS = {"hit_rate", "full_speedup_x"}
 
 
-def _draw_bar_panel(ax, runs, policies, field, title, scale, baseline) -> None:
+def _draw_bar_panel(ax, runs, policies, field, title, scale, baseline,
+                    reserve_legend_band: bool = True) -> None:
     """Grouped bar chart for one metric: one bar per run within each policy group.
 
     The bar twin of rog._draw_panel (which draws lines). Same colour-per-run and
     baseline-fallback semantics, styled to match the repo's other bar charts
-    (characterization/): serif IEEE rcParams from rog._set_style, white bar edges,
-    a dashed y-grid behind the bars. An in-axes legend keeps the plot dominant.
+    (characterization/): serif journal rcParams from rog._set_style, white bar
+    edges, a dashed y-grid behind the bars. An in-axes legend keeps the plot
+    dominant.
 
     For the Full-System Speedup panel the y-axis is zoomed to start just below the
     1x reference (rather than 0) so the near-1x spread on the cold pass -- and the
@@ -84,6 +87,7 @@ def _draw_bar_panel(ax, runs, policies, field, title, scale, baseline) -> None:
     n = max(len(runs), 1)
     width = 0.8 / n                       # groups span 0.8 of the unit slot
     all_y: list[float] = []
+    per_run_y: list[list[float]] = []     # [run][policy], for the per-policy best label
     for ri, run_name in enumerate(runs):
         recs = runs[run_name]
         y = []
@@ -93,18 +97,25 @@ def _draw_bar_panel(ax, runs, policies, field, title, scale, baseline) -> None:
             # the line version so uncached policies show their floor, not a gap.
             y.append(v * scale if isinstance(v, (int, float)) else baseline)
         all_y.extend(y)
+        per_run_y.append(y)
         offset = (ri - (n - 1) / 2.0) * width
         ax.bar(x + offset, y, width=width, color=rog.COLORS[ri % len(rog.COLORS)],
                label=rog.pretty_label(run_name), edgecolor="white", linewidth=0.8,
                zorder=3)
 
     if field == "full_speedup_x":
+        # Same per-policy "best run" label as the RoG speedup panel.
+        rog._label_best_per_group(ax, x, per_run_y, width, n)
         ax.axhline(1.0, color="#555555", linewidth=0.9, linestyle="--", zorder=2)
-        # y-axis runs 0.5 -> max bar: the near-1x differences stay legible and the
-        # empty band below the 1x reference gives the legend a place to sit.
+        # The near-1x differences stay legible either way; with an in-axes legend
+        # the floor drops to 0.5 to open an empty band below the 1x reference for
+        # it to sit in. The stacked figure legends above the panels, so it keeps
+        # the tighter floor and spends the height on bars instead.
         hi = max(all_y) if all_y else 1.0
-        ax.set_ylim(0.5, hi + max((hi - 1.0) * 0.10, 0.05))
-    ax.set_title(title)
+        ax.set_ylim(0.5 if reserve_legend_band else 0.9,
+                    hi + max((hi - 1.0) * 0.10, 0.05))
+    # No panel title -- the metric names the y-axis instead (see rog._draw_panel).
+    ax.set_ylabel(rog.YLABELS.get(title, title))
     ax.set_xlabel("Cache Policy")
     ax.set_xticks(x)
     ax.set_xticklabels([rog.POLICY_LABELS.get(p, p) for p in policies],
@@ -164,29 +175,28 @@ def make_loop_figure(runs: dict[str, dict], accuracy_metric: str, loop_idx: int,
     rog._set_style()
     policies = rog._policies(runs)
     panels = rog._panels(accuracy_metric)
-    fig, axes = plt.subplots(1, len(panels), figsize=(14.0, 5.0))
-    speedup_ax = axes[0]
+    # One metric per row (journal width leaves no room for a 3-across strip).
+    fig, axes = plt.subplots(len(panels), 1,
+                             figsize=(rog.FIG_WIDTH, rog.PANEL_HEIGHT * len(panels)))
     for ax, (field, title, scale, baseline) in zip(axes, panels):
         panel_policies = policies
         if field in DROP_NONE_FIELDS and drop_none:
             panel_policies = [p for p in policies if p != "none"]
-        _draw_bar_panel(ax, runs, panel_policies, field, title, scale, baseline)
-        if field == "full_speedup_x":
-            speedup_ax = ax
+        _draw_bar_panel(ax, runs, panel_policies, field, title, scale, baseline,
+                        reserve_legend_band=False)
 
-    # No suptitle -- keep the panels the whole figure. The legend sits in the empty
-    # band below the 1x line on the speedup panel, so it steals no reserved margin.
-    if len(runs) > 1:
-        speedup_ax.legend(loc="lower center", framealpha=0.9, fontsize=9, ncol=2,
-                          handlelength=1.2, handletextpad=0.5, labelspacing=0.3,
-                          columnspacing=1.0, borderpad=0.4)
     plt.tight_layout()
+    # No suptitle -- keep the panels the whole figure. One shared legend above the
+    # stack (see rog._add_figure_legend): at this panel height an in-axes copy
+    # would cover the bars.
+    if len(runs) > 1:
+        rog._add_figure_legend(fig, axes[0], len(runs))
     return fig
 
 
 def make_loop_separate(runs: dict[str, dict], accuracy_metric: str, loop_idx: int,
                        drop_none: bool = True) -> list[tuple[str, plt.Figure]]:
-    """One single-column figure per metric for a single loop; [(field, fig), ...].
+    """One journal-width figure per metric for a single loop; [(field, fig), ...].
 
     The per-loop twin of rog.make_separate: same three metrics, but each written to
     its own figure so the panels can be placed independently. ``drop_none`` keeps
@@ -200,16 +210,14 @@ def make_loop_separate(runs: dict[str, dict], accuracy_metric: str, loop_idx: in
         panel_policies = policies
         if field in DROP_NONE_FIELDS and drop_none:
             panel_policies = [p for p in policies if p != "none"]
-        fig, ax = plt.subplots(figsize=(6.0, 4.5))
-        _draw_bar_panel(ax, runs, panel_policies, field, title, scale, baseline)
-        # No suptitle; in-axes legend so the bars stay the dominant element. On the
-        # speedup figure it drops into the empty band below the 1x reference.
-        if len(runs) > 1:
-            loc = "lower center" if field == "full_speedup_x" else "best"
-            ax.legend(loc=loc, framealpha=0.9, fontsize=9, ncol=2, handlelength=1.2,
-                      handletextpad=0.5, labelspacing=0.3, columnspacing=1.0,
-                      borderpad=0.4)
+        fig, ax = plt.subplots(figsize=(rog.FIG_WIDTH, rog.SOLO_PANEL_HEIGHT))
+        _draw_bar_panel(ax, runs, panel_policies, field, title, scale, baseline,
+                        reserve_legend_band=False)
         plt.tight_layout()
+        # No suptitle; legend above the axes (see rog._add_figure_legend) so the
+        # bars keep the full panel height.
+        if len(runs) > 1:
+            rog._add_figure_legend(fig, ax, len(runs))
         out.append((field, fig))
     return out
 

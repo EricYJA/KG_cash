@@ -1,0 +1,18 @@
+\begin{table}[htbp]
+\centering
+\caption{Simulated Planner Time and Speedup by Cache Policy (sequential access, cache capacity 1000). Times are seconds of Planner time over the whole trace; Reasoner time is unaffected by the cache and is excluded.}
+\label{tab:planner_timing_sequential_1000}
+\begin{tabular}{llrrrrr}
+\hline
+\textbf{Dataset} & \textbf{Policy} & \textbf{Hit Rate} & \textbf{Planner (no cache)} & \textbf{Planner (cached)} & \textbf{Saved} & \textbf{Planner Speedup} \\
+\hline
+RoG-webqsp & Exact    & 0.0\% & 2687.6 & 2687.6 & 0.0 & 1.00$\times$ \\
+         & LRU      & 6.6\% & 2687.6 & 2515.2 & 172.5 & 1.07$\times$ \\
+         & LFU      & 6.6\% & 2687.6 & 2515.0 & 172.7 & 1.07$\times$ \\
+         & FIFO     & 6.4\% & 2687.6 & 2520.6 & 167.0 & 1.07$\times$ \\
+         & Random   & 7.1\% & 2687.6 & 2500.9 & 186.7 & 1.07$\times$ \\
+         & Belady (MIN) & 7.7\% & 2687.6 & 2486.5 & 201.1 & 1.08$\times$ \\
+         & Oracle (gold-gated) & 5.7\% & 2687.6 & 2535.5 & 152.1 & 1.06$\times$ \\
+\hline
+\end{tabular}
+\end{table}

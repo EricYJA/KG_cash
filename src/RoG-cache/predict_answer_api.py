@@ -26,14 +26,20 @@ import os
 import random
 import re
 import sys
+import time
 
 sys.path.append(os.path.dirname(os.path.realpath(__file__)))
 
+import qa_prediction.predict_answer as upstream_predict_answer
 from llms.language_models.base_language_model import BaseLanguageModel
 from qa_prediction.predict_answer import main as predict_answer_main
 
 from llm_client import ChatMessage, LLMChatClient  # noqa: E402  (ToG's client, reused)
 from llm_config import resolve_llm_config  # noqa: E402
+from rog_e2e_metrics import (  # noqa: E402  (ToG's sidecar helpers, reused)
+    append_question_metrics,
+    metrics_sidecar_path,
+)
 
 # RoG sizes prompts against a 4096-token Llama-2 window. Every vendor we target
 # is far larger, but keeping the upstream budget is the point: it holds the
@@ -159,6 +165,64 @@ class ApiLLM(BaseLanguageModel):
         return "\n".join(_extract_answers(text))
 
 
+def install_stage2_timing():
+    """Time each question in upstream's stage-2 loop into a ToG-shaped sidecar.
+
+    Stage 2 is upstream's `predict_answer.main()`, run unmodified -- so the timer
+    goes in by patching the two module globals it calls, not by editing it:
+
+      `prediction(data, ...)` is upstream's per-question unit of work. It builds
+      the prompt (which grounds stage 1's relation paths against the subgraph)
+      and makes the reasoner LLM call, so bracketing it captures the whole of a
+      question's stage-2 cost -- the part the planner cache never touches and
+      that the old stage-1-only `full_speedup_x` pretended did not exist.
+
+      `get_output_file(path, ...)` is where upstream reveals its output path.
+      Wrapping it puts the sidecar beside predictions.jsonl without this file
+      re-deriving the `rule_postfix` directory name, which would silently drift
+      the moment upstream changed how that name is built.
+
+    Both are looked up on the module at call time (including through the
+    `partial` in the -n > 1 branch), so patching before `main()` covers both.
+    """
+    state = {"metrics_path": None}
+    original_get_output_file = upstream_predict_answer.get_output_file
+    original_prediction = upstream_predict_answer.prediction
+
+    def get_output_file(path, force=False):
+        state["metrics_path"] = metrics_sidecar_path(path)
+        if force and state["metrics_path"] and os.path.exists(state["metrics_path"]):
+            # --force rewrites predictions.jsonl from scratch; a stale sidecar
+            # would leave the join pairing new stage-1 times with old stage-2 ones.
+            os.remove(state["metrics_path"])
+        return original_get_output_file(path, force=force)
+
+    def prediction(data, processed_list, input_builder, model):
+        # A question already in predictions.jsonl is upstream's resume skip: no
+        # work happens, so timing it would enter a ~0s record and understate the
+        # miss cost. Its record is already in the sidecar from the earlier run.
+        if data["id"] in processed_list:
+            return original_prediction(data, processed_list, input_builder, model)
+
+        started = time.perf_counter()
+        result = original_prediction(data, processed_list, input_builder, model)
+        append_question_metrics(
+            state["metrics_path"],
+            {
+                "id": data["id"],
+                "elapsed_s": time.perf_counter() - started,
+                # One reasoner call per question, whether or not it came back
+                # usable; a failed call still cost its latency.
+                "llm_calls": 1,
+                "answered": result is not None,
+            },
+        )
+        return result
+
+    upstream_predict_answer.get_output_file = get_output_file
+    upstream_predict_answer.prediction = prediction
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--data_path", default="rmanluo")
@@ -186,5 +250,8 @@ if __name__ == "__main__":
     # identically per record, so determinism survives, but upstream's Pool
     # ordering does not affect the seeded draw either way.
     random.seed(args.seed)
+
+    # Must also happen before main(): it patches the globals main() resolves.
+    install_stage2_timing()
 
     predict_answer_main(args, ApiLLM)

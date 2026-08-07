@@ -1,0 +1,3 @@
+policy,tag,hit_rate,n_questions,planner_llm_calls,planner_llm_calls_saved,hits,misses,hit_total_s,miss_total_s,avg_hit_s,avg_miss_s,estimated_time_saved_s,speedup_x,wall_s_total,accuracy,hit,f1,precision,recall
+none,none,0.0,10,10,0,0,10,0,93.855,0.0,9.386,0.0,,93.86,66.66666666666666,80.0,66.66666666666666,75.0,66.66666666666666
+semantic_oracle,semantic_oracle_t0.85,0.0,10,10,0,0,10,0,92.728,0.0,9.273,0.0,,92.73,66.66666666666666,80.0,66.66666666666666,75.0,66.66666666666666

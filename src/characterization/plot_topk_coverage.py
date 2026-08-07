@@ -5,7 +5,13 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 
 
-plt.rcParams.update({"xtick.labelsize": 16, "ytick.labelsize": 16})
+# Journal (single-column body) sizing: the figure is placed at ~6.5in and
+# printed at 100%, so tick labels sit at body-text size rather than the
+# inflated sizes an IEEE two-column shrink needed.
+plt.rcParams.update({"font.size": 10, "xtick.labelsize": 9, "ytick.labelsize": 9})
+
+FIG_WIDTH = 6.5      # single-column journal text width, in inches
+PANEL_HEIGHT = 2.5   # per stacked panel
 
 ROOT = Path(__file__).resolve().parents[1]
 TRACE_DIR = ROOT / "ToG-cache" / "output" / "traces"
@@ -61,10 +67,10 @@ def draw_topk(ax, webqsp_coverage, cwq_coverage, subtitle, ylabel, label_offsets
         webqsp_coverage,
         "o-",
         color=C_WEBQSP,
-        linewidth=2.5,
-        markersize=8,
+        linewidth=1.8,
+        markersize=5,
         markeredgecolor="white",
-        markeredgewidth=1.5,
+        markeredgewidth=1.0,
         label="WebQSP",
         zorder=3,
     )
@@ -73,10 +79,10 @@ def draw_topk(ax, webqsp_coverage, cwq_coverage, subtitle, ylabel, label_offsets
         cwq_coverage,
         "s-",
         color=C_CWQ,
-        linewidth=2.5,
-        markersize=8,
+        linewidth=1.8,
+        markersize=5,
         markeredgecolor="white",
-        markeredgewidth=1.5,
+        markeredgewidth=1.0,
         label="CWQ",
         zorder=3,
     )
@@ -92,7 +98,7 @@ def draw_topk(ax, webqsp_coverage, cwq_coverage, subtitle, ylabel, label_offsets
                 f"{webqsp:.2f}%",
                 ha="center",
                 va=webqsp_va,
-                fontsize=15,
+                fontsize=8,
                 color=C_WEBQSP,
                 fontweight="bold",
             )
@@ -102,7 +108,7 @@ def draw_topk(ax, webqsp_coverage, cwq_coverage, subtitle, ylabel, label_offsets
                 f"{cwq:.2f}%",
                 ha="center",
                 va=cwq_va,
-                fontsize=15,
+                fontsize=8,
                 color=C_CWQ,
                 fontweight="bold",
             )
@@ -115,7 +121,7 @@ def draw_topk(ax, webqsp_coverage, cwq_coverage, subtitle, ylabel, label_offsets
                 f"{webqsp:.2f}%",
                 ha="center",
                 va=webqsp_va,
-                fontsize=15,
+                fontsize=8,
                 color=C_WEBQSP,
                 fontweight="bold",
             )
@@ -125,7 +131,7 @@ def draw_topk(ax, webqsp_coverage, cwq_coverage, subtitle, ylabel, label_offsets
                 f"{cwq:.2f}%",
                 ha="center",
                 va=cwq_va,
-                fontsize=15,
+                fontsize=8,
                 color=C_CWQ,
                 fontweight="bold",
             )
@@ -136,7 +142,7 @@ def draw_topk(ax, webqsp_coverage, cwq_coverage, subtitle, ylabel, label_offsets
                 f"{webqsp:.2f}%",
                 ha="center",
                 va="bottom",
-                fontsize=15,
+                fontsize=8,
                 color=C_WEBQSP,
                 fontweight="bold",
             )
@@ -146,7 +152,7 @@ def draw_topk(ax, webqsp_coverage, cwq_coverage, subtitle, ylabel, label_offsets
                 f"{cwq:.2f}%",
                 ha="center",
                 va="top",
-                fontsize=15,
+                fontsize=8,
                 color=C_CWQ,
                 fontweight="bold",
             )
@@ -155,8 +161,8 @@ def draw_topk(ax, webqsp_coverage, cwq_coverage, subtitle, ylabel, label_offsets
     ax.fill_between(K_VALUES, cwq_coverage, alpha=0.12, color=C_CWQ)
 
     ax.set_xticks(K_VALUES)
-    ax.set_xticklabels(TOP_K_LABELS, fontsize=17)
-    ax.set_ylabel(ylabel, fontsize=17)
+    ax.set_xticklabels(TOP_K_LABELS, fontsize=9)
+    ax.set_ylabel(ylabel, fontsize=11)
     ax.set_ylim(0, 50)
     ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda value, _: f"{value:.0f}%"))
     ax.grid(axis="y", linestyle="--", alpha=0.5, zorder=0)
@@ -168,7 +174,7 @@ def draw_topk(ax, webqsp_coverage, cwq_coverage, subtitle, ylabel, label_offsets
         transform=ax.transAxes,
         ha="center",
         va="top",
-        fontsize=19,
+        fontsize=11,
         fontweight="bold",
         color="#222222",
     )
@@ -196,7 +202,9 @@ C_CWQ = "#DD8452"
 
 
 # Plot
-fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10.5, 4.8))
+# Stacked one panel per row: at a single-column journal width the two views
+# do not fit side by side.
+fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(FIG_WIDTH, 2 * PANEL_HEIGHT))
 fig.patch.set_facecolor("white")
 ax1.set_facecolor("white")
 ax2.set_facecolor("white")
@@ -206,7 +214,7 @@ legend_handles = draw_topk(
     starting_topk["WebQSP"],
     starting_topk["CWQ"],
     subtitle="Initial Query Entities",
-    ylabel="Coverage (% of all starting entities)",
+    ylabel="Coverage (%)",
 )
 
 draw_topk(
@@ -214,14 +222,14 @@ draw_topk(
     iterative_topk["WebQSP"],
     iterative_topk["CWQ"],
     subtitle="All Entities Considering Iterative Traversal",
-    ylabel="Coverage (% of all iterative entities)",
+    ylabel="Coverage (%)",
     label_offsets=[(1.2, 1.2), (-1.8, 1.2), (-1.8, 1.2)],
 )
 
 fig.legend(
     handles=legend_handles,
     labels=["WebQSP", "CWQ"],
-    fontsize=16,
+    fontsize=9,
     loc="upper center",
     bbox_to_anchor=(0.5, 1.02),
     ncol=2,
@@ -229,8 +237,9 @@ fig.legend(
     edgecolor="#cccccc",
 )
 
-fig.tight_layout(pad=2.5)
-fig.subplots_adjust(bottom=0.2)
+fig.tight_layout(pad=1.6)
+# Room under each panel for its bold subtitle, and at the top for the legend.
+fig.subplots_adjust(bottom=0.11, top=0.93, hspace=0.55)
 fig.savefig(
     "entity_topk_coverage.pdf",
     dpi=150,

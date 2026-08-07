@@ -31,14 +31,52 @@ Cache policies (selected via `policy=`):
 
 import json
 import os
+import random
 import threading
 from collections import OrderedDict
 
 
-_VALID_POLICIES = ("exact", "semantic_lru", "semantic_lfu", "semantic_oracle")
+_VALID_POLICIES = (
+    "exact",
+    "semantic_lru",
+    "semantic_lfu",
+    "semantic_fifo",
+    "semantic_random",
+    "semantic_belady",
+    "semantic_oracle",
+)
+# Belady's MIN needs the whole future request stream, so it is only realisable
+# offline. It is accepted here so the simulator can reuse this class, but the
+# live _evict_one refuses it rather than silently degrading to FIFO.
+_SIMULATION_ONLY_POLICIES = ("semantic_belady",)
 # Accept old names as aliases so existing scripts / cache files keep working.
 _POLICY_ALIASES = {"semantic": "semantic_lru", "oracle": "semantic_oracle"}
-_USES_EMBEDDING = ("semantic_lru", "semantic_lfu", "semantic_oracle")
+_USES_EMBEDDING = (
+    "semantic_lru",
+    "semantic_lfu",
+    "semantic_fifo",
+    "semantic_random",
+    "semantic_belady",
+    "semantic_oracle",
+)
+# Policies whose eviction order is insertion order, so a hit must NOT reorder
+# the store. Everything else refreshes the entry's position on access (LRU).
+_INSERTION_ORDERED = (
+    "semantic_lfu",
+    "semantic_fifo",
+    "semantic_random",
+    "semantic_belady",
+)
+# Semantic policies that match on plain cosine similarity, with no extra
+# admission test. `semantic_oracle` is excluded: it also requires a gold-answer
+# overlap, so it takes the separate branch in get().
+_PLAIN_SEMANTIC = (
+    "semantic_lru",
+    "semantic_lfu",
+    "semantic_fifo",
+    "semantic_random",
+    "semantic_belady",
+)
 
 
 def _normalize(question: str) -> str:
@@ -140,6 +178,7 @@ class PersistentQuestionCache:
         policy: str = "exact",
         similarity_threshold: float = 0.95,
         embedder_model: str = "all-MiniLM-L6-v2",
+        random_seed: int = 0,
     ):
         policy = _POLICY_ALIASES.get(policy, policy)
         if policy not in _VALID_POLICIES:
@@ -149,6 +188,11 @@ class PersistentQuestionCache:
         self.policy = policy
         self.similarity_threshold = similarity_threshold
         self.embedder_model = embedder_model
+        self.random_seed = random_seed
+        # Own RNG instance so `semantic_random` is reproducible and does not
+        # perturb (or get perturbed by) the global random stream, which
+        # predict_answer_api.py seeds to pin RoG's path shuffle.
+        self._rng = random.Random(random_seed)
         self._lock = threading.Lock()
         self._store: "OrderedDict[str, list]" = OrderedDict()
         self._embeddings: "dict[str, list]" = {}
@@ -159,6 +203,9 @@ class PersistentQuestionCache:
         self.exact_hits = 0
         self.semantic_lru_hits = 0
         self.semantic_lfu_hits = 0
+        self.semantic_fifo_hits = 0
+        self.semantic_random_hits = 0
+        self.semantic_belady_hits = 0
         self.semantic_oracle_hits = 0
         self._embedder: "_Embedder | None" = None
         self._load()
@@ -242,6 +289,12 @@ class PersistentQuestionCache:
         """Evict one entry per the cache's eviction strategy. Caller holds _lock."""
         if not self._store:
             return None
+        if self.policy in _SIMULATION_ONLY_POLICIES:
+            raise NotImplementedError(
+                f"policy {self.policy!r} needs the future request stream and is only "
+                f"available under the offline simulator "
+                f"(simulate_cache.SemanticBeladyCache), not in a live run"
+            )
         if self.policy == "semantic_lfu":
             # Find min frequency; tie-break by insertion order (first hit in iteration).
             min_freq = None
@@ -252,8 +305,12 @@ class PersistentQuestionCache:
                     min_freq = f
                     evicted = k
             del self._store[evicted]
+        elif self.policy == "semantic_random":
+            evicted = self._rng.choice(list(self._store))
+            del self._store[evicted]
         else:
-            # LRU (default): pop the least-recently-touched entry.
+            # LRU (default) and FIFO both pop from the front. They differ only in
+            # whether a hit moves the entry to the back -- see _touch/_INSERTION_ORDERED.
             evicted, _ = self._store.popitem(last=False)
         self._embeddings.pop(evicted, None)
         self._oracle_keys.pop(evicted, None)
@@ -318,18 +375,23 @@ class PersistentQuestionCache:
                 self.exact_hits += 1
                 self.last_hit_kind = "exact"
                 return self._store[key]
-            if self.policy in ("semantic_lru", "semantic_lfu"):
+            if self.policy in _PLAIN_SEMANTIC:
                 sem = self._semantic_lookup(key)
                 if sem is not None:
                     matched_key, sim = sem
                     self._touch(matched_key)
                     self.hits += 1
+                    label = self.policy
                     if self.policy == "semantic_lfu":
                         self.semantic_lfu_hits += 1
-                        label = "semantic_lfu"
+                    elif self.policy == "semantic_fifo":
+                        self.semantic_fifo_hits += 1
+                    elif self.policy == "semantic_random":
+                        self.semantic_random_hits += 1
+                    elif self.policy == "semantic_belady":
+                        self.semantic_belady_hits += 1
                     else:
                         self.semantic_lru_hits += 1
-                        label = "semantic_lru"
                     self.last_hit_kind = label
                     print(f"[question_cache] {label} hit (sim={sim:.3f}) "
                           f"{key[:60]!r} -> {matched_key[:60]!r}")
@@ -351,7 +413,7 @@ class PersistentQuestionCache:
     def _touch(self, key: str) -> None:
         """Bookkeeping on a successful hit: bump freq, refresh LRU position."""
         self._freq[key] = self._freq.get(key, 0) + 1
-        if self.policy != "semantic_lfu":
+        if self.policy not in _INSERTION_ORDERED:
             self._store.move_to_end(key)
 
     def has(self, question: str) -> bool:
@@ -362,7 +424,7 @@ class PersistentQuestionCache:
         key = _normalize(question)
         with self._lock:
             existed = key in self._store
-            if existed and self.policy != "semantic_lfu":
+            if existed and self.policy not in _INSERTION_ORDERED:
                 self._store.move_to_end(key)
             self._store[key] = chain
             # Treat put as an access: new entries start at freq=1, repeats bump.
@@ -388,6 +450,9 @@ class PersistentQuestionCache:
                 "exact_hits": self.exact_hits,
                 "semantic_lru_hits": self.semantic_lru_hits,
                 "semantic_lfu_hits": self.semantic_lfu_hits,
+                "semantic_fifo_hits": self.semantic_fifo_hits,
+                "semantic_random_hits": self.semantic_random_hits,
+                "semantic_belady_hits": self.semantic_belady_hits,
                 "semantic_oracle_hits": self.semantic_oracle_hits,
                 "misses": self.misses,
                 "hit_rate": (self.hits / total) if total else 0.0,

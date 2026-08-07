@@ -25,21 +25,24 @@ cwq_gain = {
     500: [0.02, 0.38, 1.23, 2.48, 4.50],
 }
 
-# IEEE Style Configuration
+# Journal Style Configuration (single-column body text, figure printed at 100%)
 plt.rcParams.update({
-    "font.family": "serif",      # Matches IEEE Times/Computer Modern
-    "font.size": 17,             # Enlarged for readability
-    "axes.labelsize": 19,
-    "axes.titlesize": 19,
-    "legend.fontsize": 15,
-    "xtick.labelsize": 15,
-    "ytick.labelsize": 15,
-    "lines.linewidth": 2.0,
-    "lines.markersize": 7
+    "font.family": "serif",      # Matches the journal body font (Times/CM)
+    "font.size": 10,             # No shrink-to-column, so match body text
+    "axes.labelsize": 11,
+    "axes.titlesize": 11,
+    "legend.fontsize": 9,
+    "xtick.labelsize": 9,
+    "ytick.labelsize": 9,
+    "lines.linewidth": 1.6,
+    "lines.markersize": 5
 })
 
-# IEEE Double-column width is typically ~7.16 inches.
-fig, axes = plt.subplots(1, 2, figsize=(11.0, 5.0))
+# A single-column journal text block is ~6.5 inches wide, so the two datasets
+# stack one above the other instead of sitting side by side.
+FIG_WIDTH = 6.5
+PANEL_HEIGHT = 2.4
+fig, axes = plt.subplots(2, 1, figsize=(FIG_WIDTH, 2 * PANEL_HEIGHT))
 
 # Markers and line styles for grayscale-friendly styling
 markers = ['o', 's', '^', 'D', 'v']
@@ -66,14 +69,16 @@ for i, size in enumerate(cache_sizes):
 
 axes[1].set_title('Complex Web Questions (CWQ)')
 axes[1].set_xlabel('Similarity Threshold')
+# Stacked panels no longer share a y-axis edge, so the lower one is labelled too.
+axes[1].set_ylabel('Hit Rate Gain (%)')
 axes[1].grid(True, linestyle='--', alpha=0.6)
 
-# Single shared legend
+# Single shared legend; 3 columns so the 5 entries fit the narrower text width
 handles, labels = axes[1].get_legend_handles_labels()
-fig.legend(handles, labels, loc='lower center', ncol=5, bbox_to_anchor=(0.5, -0.05), frameon=False)
+fig.legend(handles, labels, loc='lower center', ncol=3, bbox_to_anchor=(0.5, -0.04), frameon=False)
 
 # Adjust layout
-plt.tight_layout(rect=[0, 0.08, 1, 1])
+plt.tight_layout(rect=[0, 0.06, 1, 1])
 
 # Save as PDF
 output_path = "hit_rate_gain_vs_threshold.pdf"

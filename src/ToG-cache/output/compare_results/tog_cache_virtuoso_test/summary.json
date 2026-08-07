@@ -1,0 +1,83 @@
+{
+  "args": {
+    "dataset": "webqsp",
+    "test_limit": "all",
+    "vendor": "tamu",
+    "model": "",
+    "depth": 3,
+    "width": 3,
+    "similarity_threshold": 0.9,
+    "policies": "semantic_lru semantic_lfu none exact semantic_oracle",
+    "loop": 2,
+    "cache_dir": "/home/stanic/KG_cash/src/ToG-cache/output/compare_caches/tog_cache_virtuoso_test",
+    "results_dir": "/home/stanic/KG_cash/src/ToG-cache/output/compare_results/tog_cache_virtuoso_test",
+    "fresh": false
+  },
+  "rows": [
+    {
+      "config": "semantic_lru",
+      "policy": "semantic_lru",
+      "exact_match": 0.6384990848078096,
+      "right": 2093,
+      "error": 1185,
+      "records": 3278,
+      "hits1": 0.5234899328859061,
+      "f1": 0.352613651246179,
+      "precision": 0.925335191662936,
+      "recall": 0.3613031948176254,
+      "output": "/home/stanic/KG_cash/src/ToG-cache/output/compare_results/tog_cache_virtuoso_test/semantic_lru.jsonl"
+    },
+    {
+      "config": "semantic_lfu",
+      "policy": "semantic_lfu",
+      "exact_match": 0.6388041488712629,
+      "right": 2094,
+      "error": 1184,
+      "records": 3278,
+      "hits1": 0.5179987797437462,
+      "f1": 0.35037843847671235,
+      "precision": 0.8769593853590796,
+      "recall": 0.35766884346872585,
+      "output": "/home/stanic/KG_cash/src/ToG-cache/output/compare_results/tog_cache_virtuoso_test/semantic_lfu.jsonl"
+    },
+    {
+      "config": "none",
+      "policy": "none",
+      "exact_match": 0.6058572300183038,
+      "right": 1986,
+      "error": 1292,
+      "records": 3278,
+      "hits1": 0.47284929835265405,
+      "f1": 0.24287780670767042,
+      "precision": 0.4894180763308297,
+      "recall": 0.338804735992452,
+      "output": "/home/stanic/KG_cash/src/ToG-cache/output/compare_results/tog_cache_virtuoso_test/none.jsonl"
+    },
+    {
+      "config": "exact",
+      "policy": "exact",
+      "exact_match": 0.6336180597925565,
+      "right": 2077,
+      "error": 1201,
+      "records": 3278,
+      "hits1": 0.5201342281879194,
+      "f1": 0.34490746837069386,
+      "precision": 0.795540857861656,
+      "recall": 0.3589534181813419,
+      "output": "/home/stanic/KG_cash/src/ToG-cache/output/compare_results/tog_cache_virtuoso_test/exact.jsonl"
+    },
+    {
+      "config": "semantic_oracle",
+      "policy": "semantic_oracle",
+      "exact_match": 0.6256863941427699,
+      "right": 2051,
+      "error": 1227,
+      "records": 3278,
+      "hits1": 0.5222696766320928,
+      "f1": 0.3532114963895282,
+      "precision": 0.8110270441373788,
+      "recall": 0.3608618563117321,
+      "output": "/home/stanic/KG_cash/src/ToG-cache/output/compare_results/tog_cache_virtuoso_test/semantic_oracle.jsonl"
+    }
+  ]
+}

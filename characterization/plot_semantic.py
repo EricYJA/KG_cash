@@ -24,22 +24,25 @@ cwq_overlap = {
     '0.80': [70.00, 65.33, 67.00, 65.15, 67.29]
 }
 
-# IEEE Style Configuration
+# Journal Style Configuration (single-column body text, figure printed at 100%)
 plt.rcParams.update({
-    "font.family": "serif",      # Matches IEEE Times/Computer Modern
-    "font.size": 17,             # Enlarged for readability
-    "axes.labelsize": 19,
-    "axes.titlesize": 19,
-    "legend.fontsize": 15,
-    "xtick.labelsize": 15,
-    "ytick.labelsize": 15,
-    "lines.linewidth": 2.0,
-    "lines.markersize": 7
+    "font.family": "serif",      # Matches the journal body font (Times/CM)
+    "font.size": 10,             # No shrink-to-column, so match body text
+    "axes.labelsize": 11,
+    "axes.titlesize": 11,
+    "legend.fontsize": 9,
+    "xtick.labelsize": 9,
+    "ytick.labelsize": 9,
+    "lines.linewidth": 1.6,
+    "lines.markersize": 5
 })
 
-# IEEE Double-column width is typically ~7.16 inches.
-# Using a 7.16 x 2.8 size gives a nice wide aspect ratio for a two-chart arrangement
-fig, axes = plt.subplots(1, 2, figsize=(11.0, 5.0), sharey=True)
+# A single-column journal text block is ~6.5 inches wide, so the two datasets
+# stack one above the other. sharey keeps the common overlap scale; the x-axis is
+# left unshared so each stacked panel carries its own ticks and label.
+FIG_WIDTH = 6.5
+PANEL_HEIGHT = 2.4
+fig, axes = plt.subplots(2, 1, figsize=(FIG_WIDTH, 2 * PANEL_HEIGHT), sharey=True)
 
 # Markers and line styles to ensure differentiation in grayscale/b&w printing
 markers = ['o', 's', '^', 'D', 'v']
@@ -68,15 +71,17 @@ for i, thresh in enumerate(thresholds):
 
 axes[1].set_title('Complex Web Questions (CWQ)')
 axes[1].set_xlabel('Cache Size')
+# Stacked panels no longer share a y-axis edge, so the lower one is labelled too.
+axes[1].set_ylabel('Avg Sem Hit Entity Overlap (%)')
 axes[1].set_xticks(cache_sizes)
 axes[1].grid(True, linestyle='--', alpha=0.6)
 
-# Provide a single elegant legend for the whole figure
+# Single shared legend; 3 columns so the 5 entries fit the narrower text width
 handles, labels = axes[1].get_legend_handles_labels()
-fig.legend(handles, labels, loc='lower center', ncol=5, bbox_to_anchor=(0.5, -0.05), frameon=False)
+fig.legend(handles, labels, loc='lower center', ncol=3, bbox_to_anchor=(0.5, -0.04), frameon=False)
 
 # Adjust layout to make room for the legend underneath and keep spacing tight
-plt.tight_layout(rect=[0, 0.08, 1, 1])
+plt.tight_layout(rect=[0, 0.06, 1, 1])
 
 # Save uniquely tailored for LaTeX/Overleaf
 output_path = "entity_overlap_vs_cache_size.pdf"

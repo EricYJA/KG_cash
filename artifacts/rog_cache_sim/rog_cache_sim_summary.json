@@ -1,0 +1,1249 @@
+{
+  "metadata": {
+    "cache_sizes": [
+      10,
+      50,
+      100,
+      500,
+      1000
+    ],
+    "policies": [
+      "exact",
+      "semantic_lru",
+      "semantic_lfu",
+      "semantic_fifo",
+      "semantic_random",
+      "semantic_belady",
+      "semantic_oracle"
+    ],
+    "shuffle_seed": 0,
+    "random_seed": 0,
+    "similarity_threshold": 0.9,
+    "embedder_model": "all-MiniLM-L6-v2",
+    "hit_cost_ms": 0,
+    "access_patterns": [
+      "sequential",
+      "question_shuffled"
+    ],
+    "shuffled_semantics": "Questions are replayed in a shuffled order; each question keeps its own measured stage-1/stage-2 cost.",
+    "stage_keys": {
+      "cached": "planner",
+      "uncached": "reasoner"
+    },
+    "stage_labels": {
+      "cached": "Planner",
+      "uncached": "Reasoner"
+    },
+    "source": "simulate_rog_cache_timing.py"
+  },
+  "datasets": {
+    "RoG-webqsp": {
+      "run_dir": "artifacts/rog_cache/rog_cache_virtuoso_new",
+      "policy_tag": "none",
+      "stage1_metrics": "artifacts/rog_cache/rog_cache_virtuoso_new/gen_rule_path/none/RoG-webqsp/RoG/test/predictions_3_False.jsonl.metrics.jsonl",
+      "stage2_metrics": "artifacts/rog_cache/rog_cache_virtuoso_new/KGQA/none/RoG-webqsp/RoG/test/_out_gen_rule_path_none_RoG-webqsp_RoG_test_predictions_3_False_jsonl/predictions.jsonl.metrics.jsonl",
+      "questions_dropped": 0,
+      "request_count": 1628,
+      "time_breakdown_ms": {
+        "planner": 2687635,
+        "reasoner": 2331411,
+        "other": 0,
+        "total": 5019046
+      },
+      "sequential": [
+        {
+          "policy": "exact",
+          "cache_size": 10,
+          "requests": 1628,
+          "hits": 0,
+          "misses": 1628,
+          "hit_rate": 0.0,
+          "time_breakdown_ms": {
+            "planner_base": 2687635,
+            "planner_simulated": 2687635,
+            "reasoner": 2331411,
+            "other": 0,
+            "total_base": 5019046,
+            "total_simulated": 5019046,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "semantic_lru",
+          "cache_size": 10,
+          "requests": 1628,
+          "hits": 2,
+          "misses": 1626,
+          "hit_rate": 0.0012,
+          "time_breakdown_ms": {
+            "planner_base": 2687635,
+            "planner_simulated": 2684902,
+            "reasoner": 2331411,
+            "other": 0,
+            "total_base": 5019046,
+            "total_simulated": 5016313,
+            "saved": 2733
+          }
+        },
+        {
+          "policy": "semantic_lfu",
+          "cache_size": 10,
+          "requests": 1628,
+          "hits": 2,
+          "misses": 1626,
+          "hit_rate": 0.0012,
+          "time_breakdown_ms": {
+            "planner_base": 2687635,
+            "planner_simulated": 2684902,
+            "reasoner": 2331411,
+            "other": 0,
+            "total_base": 5019046,
+            "total_simulated": 5016313,
+            "saved": 2733
+          }
+        },
+        {
+          "policy": "semantic_fifo",
+          "cache_size": 10,
+          "requests": 1628,
+          "hits": 2,
+          "misses": 1626,
+          "hit_rate": 0.0012,
+          "time_breakdown_ms": {
+            "planner_base": 2687635,
+            "planner_simulated": 2684902,
+            "reasoner": 2331411,
+            "other": 0,
+            "total_base": 5019046,
+            "total_simulated": 5016313,
+            "saved": 2733
+          }
+        },
+        {
+          "policy": "semantic_random",
+          "cache_size": 10,
+          "requests": 1628,
+          "hits": 1,
+          "misses": 1627,
+          "hit_rate": 0.0006,
+          "time_breakdown_ms": {
+            "planner_base": 2687635,
+            "planner_simulated": 2686368,
+            "reasoner": 2331411,
+            "other": 0,
+            "total_base": 5019046,
+            "total_simulated": 5017779,
+            "saved": 1267
+          }
+        },
+        {
+          "policy": "semantic_belady",
+          "cache_size": 10,
+          "requests": 1628,
+          "hits": 58,
+          "misses": 1570,
+          "hit_rate": 0.0356,
+          "time_breakdown_ms": {
+            "planner_base": 2687635,
+            "planner_simulated": 2598873,
+            "reasoner": 2331411,
+            "other": 0,
+            "total_base": 5019046,
+            "total_simulated": 4930284,
+            "saved": 88762
+          }
+        },
+        {
+          "policy": "semantic_oracle",
+          "cache_size": 10,
+          "requests": 1628,
+          "hits": 1,
+          "misses": 1627,
+          "hit_rate": 0.0006,
+          "time_breakdown_ms": {
+            "planner_base": 2687635,
+            "planner_simulated": 2686368,
+            "reasoner": 2331411,
+            "other": 0,
+            "total_base": 5019046,
+            "total_simulated": 5017779,
+            "saved": 1267
+          }
+        },
+        {
+          "policy": "exact",
+          "cache_size": 50,
+          "requests": 1628,
+          "hits": 0,
+          "misses": 1628,
+          "hit_rate": 0.0,
+          "time_breakdown_ms": {
+            "planner_base": 2687635,
+            "planner_simulated": 2687635,
+            "reasoner": 2331411,
+            "other": 0,
+            "total_base": 5019046,
+            "total_simulated": 5019046,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "semantic_lru",
+          "cache_size": 50,
+          "requests": 1628,
+          "hits": 12,
+          "misses": 1616,
+          "hit_rate": 0.0074,
+          "time_breakdown_ms": {
+            "planner_base": 2687635,
+            "planner_simulated": 2668847,
+            "reasoner": 2331411,
+            "other": 0,
+            "total_base": 5019046,
+            "total_simulated": 5000258,
+            "saved": 18788
+          }
+        },
+        {
+          "policy": "semantic_lfu",
+          "cache_size": 50,
+          "requests": 1628,
+          "hits": 12,
+          "misses": 1616,
+          "hit_rate": 0.0074,
+          "time_breakdown_ms": {
+            "planner_base": 2687635,
+            "planner_simulated": 2668767,
+            "reasoner": 2331411,
+            "other": 0,
+            "total_base": 5019046,
+            "total_simulated": 5000178,
+            "saved": 18868
+          }
+        },
+        {
+          "policy": "semantic_fifo",
+          "cache_size": 50,
+          "requests": 1628,
+          "hits": 13,
+          "misses": 1615,
+          "hit_rate": 0.008,
+          "time_breakdown_ms": {
+            "planner_base": 2687635,
+            "planner_simulated": 2667305,
+            "reasoner": 2331411,
+            "other": 0,
+            "total_base": 5019046,
+            "total_simulated": 4998716,
+            "saved": 20330
+          }
+        },
+        {
+          "policy": "semantic_random",
+          "cache_size": 50,
+          "requests": 1628,
+          "hits": 9,
+          "misses": 1619,
+          "hit_rate": 0.0055,
+          "time_breakdown_ms": {
+            "planner_base": 2687635,
+            "planner_simulated": 2673450,
+            "reasoner": 2331411,
+            "other": 0,
+            "total_base": 5019046,
+            "total_simulated": 5004861,
+            "saved": 14185
+          }
+        },
+        {
+          "policy": "semantic_belady",
+          "cache_size": 50,
+          "requests": 1628,
+          "hits": 113,
+          "misses": 1515,
+          "hit_rate": 0.0694,
+          "time_breakdown_ms": {
+            "planner_base": 2687635,
+            "planner_simulated": 2505465,
+            "reasoner": 2331411,
+            "other": 0,
+            "total_base": 5019046,
+            "total_simulated": 4836876,
+            "saved": 182170
+          }
+        },
+        {
+          "policy": "semantic_oracle",
+          "cache_size": 50,
+          "requests": 1628,
+          "hits": 9,
+          "misses": 1619,
+          "hit_rate": 0.0055,
+          "time_breakdown_ms": {
+            "planner_base": 2687635,
+            "planner_simulated": 2673207,
+            "reasoner": 2331411,
+            "other": 0,
+            "total_base": 5019046,
+            "total_simulated": 5004618,
+            "saved": 14428
+          }
+        },
+        {
+          "policy": "exact",
+          "cache_size": 100,
+          "requests": 1628,
+          "hits": 0,
+          "misses": 1628,
+          "hit_rate": 0.0,
+          "time_breakdown_ms": {
+            "planner_base": 2687635,
+            "planner_simulated": 2687635,
+            "reasoner": 2331411,
+            "other": 0,
+            "total_base": 5019046,
+            "total_simulated": 5019046,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "semantic_lru",
+          "cache_size": 100,
+          "requests": 1628,
+          "hits": 20,
+          "misses": 1608,
+          "hit_rate": 0.0123,
+          "time_breakdown_ms": {
+            "planner_base": 2687635,
+            "planner_simulated": 2656947,
+            "reasoner": 2331411,
+            "other": 0,
+            "total_base": 5019046,
+            "total_simulated": 4988358,
+            "saved": 30688
+          }
+        },
+        {
+          "policy": "semantic_lfu",
+          "cache_size": 100,
+          "requests": 1628,
+          "hits": 25,
+          "misses": 1603,
+          "hit_rate": 0.0154,
+          "time_breakdown_ms": {
+            "planner_base": 2687635,
+            "planner_simulated": 2650071,
+            "reasoner": 2331411,
+            "other": 0,
+            "total_base": 5019046,
+            "total_simulated": 4981482,
+            "saved": 37564
+          }
+        },
+        {
+          "policy": "semantic_fifo",
+          "cache_size": 100,
+          "requests": 1628,
+          "hits": 20,
+          "misses": 1608,
+          "hit_rate": 0.0123,
+          "time_breakdown_ms": {
+            "planner_base": 2687635,
+            "planner_simulated": 2656947,
+            "reasoner": 2331411,
+            "other": 0,
+            "total_base": 5019046,
+            "total_simulated": 4988358,
+            "saved": 30688
+          }
+        },
+        {
+          "policy": "semantic_random",
+          "cache_size": 100,
+          "requests": 1628,
+          "hits": 15,
+          "misses": 1613,
+          "hit_rate": 0.0092,
+          "time_breakdown_ms": {
+            "planner_base": 2687635,
+            "planner_simulated": 2662842,
+            "reasoner": 2331411,
+            "other": 0,
+            "total_base": 5019046,
+            "total_simulated": 4994253,
+            "saved": 24793
+          }
+        },
+        {
+          "policy": "semantic_belady",
+          "cache_size": 100,
+          "requests": 1628,
+          "hits": 125,
+          "misses": 1503,
+          "hit_rate": 0.0768,
+          "time_breakdown_ms": {
+            "planner_base": 2687635,
+            "planner_simulated": 2486518,
+            "reasoner": 2331411,
+            "other": 0,
+            "total_base": 5019046,
+            "total_simulated": 4817929,
+            "saved": 201117
+          }
+        },
+        {
+          "policy": "semantic_oracle",
+          "cache_size": 100,
+          "requests": 1628,
+          "hits": 17,
+          "misses": 1611,
+          "hit_rate": 0.0104,
+          "time_breakdown_ms": {
+            "planner_base": 2687635,
+            "planner_simulated": 2661307,
+            "reasoner": 2331411,
+            "other": 0,
+            "total_base": 5019046,
+            "total_simulated": 4992718,
+            "saved": 26328
+          }
+        },
+        {
+          "policy": "exact",
+          "cache_size": 500,
+          "requests": 1628,
+          "hits": 0,
+          "misses": 1628,
+          "hit_rate": 0.0,
+          "time_breakdown_ms": {
+            "planner_base": 2687635,
+            "planner_simulated": 2687635,
+            "reasoner": 2331411,
+            "other": 0,
+            "total_base": 5019046,
+            "total_simulated": 5019046,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "semantic_lru",
+          "cache_size": 500,
+          "requests": 1628,
+          "hits": 68,
+          "misses": 1560,
+          "hit_rate": 0.0418,
+          "time_breakdown_ms": {
+            "planner_base": 2687635,
+            "planner_simulated": 2581850,
+            "reasoner": 2331411,
+            "other": 0,
+            "total_base": 5019046,
+            "total_simulated": 4913261,
+            "saved": 105785
+          }
+        },
+        {
+          "policy": "semantic_lfu",
+          "cache_size": 500,
+          "requests": 1628,
+          "hits": 72,
+          "misses": 1556,
+          "hit_rate": 0.0442,
+          "time_breakdown_ms": {
+            "planner_base": 2687635,
+            "planner_simulated": 2575403,
+            "reasoner": 2331411,
+            "other": 0,
+            "total_base": 5019046,
+            "total_simulated": 4906814,
+            "saved": 112232
+          }
+        },
+        {
+          "policy": "semantic_fifo",
+          "cache_size": 500,
+          "requests": 1628,
+          "hits": 69,
+          "misses": 1559,
+          "hit_rate": 0.0424,
+          "time_breakdown_ms": {
+            "planner_base": 2687635,
+            "planner_simulated": 2580049,
+            "reasoner": 2331411,
+            "other": 0,
+            "total_base": 5019046,
+            "total_simulated": 4911460,
+            "saved": 107586
+          }
+        },
+        {
+          "policy": "semantic_random",
+          "cache_size": 500,
+          "requests": 1628,
+          "hits": 71,
+          "misses": 1557,
+          "hit_rate": 0.0436,
+          "time_breakdown_ms": {
+            "planner_base": 2687635,
+            "planner_simulated": 2576239,
+            "reasoner": 2331411,
+            "other": 0,
+            "total_base": 5019046,
+            "total_simulated": 4907650,
+            "saved": 111396
+          }
+        },
+        {
+          "policy": "semantic_belady",
+          "cache_size": 500,
+          "requests": 1628,
+          "hits": 125,
+          "misses": 1503,
+          "hit_rate": 0.0768,
+          "time_breakdown_ms": {
+            "planner_base": 2687635,
+            "planner_simulated": 2486518,
+            "reasoner": 2331411,
+            "other": 0,
+            "total_base": 5019046,
+            "total_simulated": 4817929,
+            "saved": 201117
+          }
+        },
+        {
+          "policy": "semantic_oracle",
+          "cache_size": 500,
+          "requests": 1628,
+          "hits": 56,
+          "misses": 1572,
+          "hit_rate": 0.0344,
+          "time_breakdown_ms": {
+            "planner_base": 2687635,
+            "planner_simulated": 2599273,
+            "reasoner": 2331411,
+            "other": 0,
+            "total_base": 5019046,
+            "total_simulated": 4930684,
+            "saved": 88362
+          }
+        },
+        {
+          "policy": "exact",
+          "cache_size": 1000,
+          "requests": 1628,
+          "hits": 0,
+          "misses": 1628,
+          "hit_rate": 0.0,
+          "time_breakdown_ms": {
+            "planner_base": 2687635,
+            "planner_simulated": 2687635,
+            "reasoner": 2331411,
+            "other": 0,
+            "total_base": 5019046,
+            "total_simulated": 5019046,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "semantic_lru",
+          "cache_size": 1000,
+          "requests": 1628,
+          "hits": 107,
+          "misses": 1521,
+          "hit_rate": 0.0657,
+          "time_breakdown_ms": {
+            "planner_base": 2687635,
+            "planner_simulated": 2515180,
+            "reasoner": 2331411,
+            "other": 0,
+            "total_base": 5019046,
+            "total_simulated": 4846591,
+            "saved": 172455
+          }
+        },
+        {
+          "policy": "semantic_lfu",
+          "cache_size": 1000,
+          "requests": 1628,
+          "hits": 107,
+          "misses": 1521,
+          "hit_rate": 0.0657,
+          "time_breakdown_ms": {
+            "planner_base": 2687635,
+            "planner_simulated": 2514957,
+            "reasoner": 2331411,
+            "other": 0,
+            "total_base": 5019046,
+            "total_simulated": 4846368,
+            "saved": 172678
+          }
+        },
+        {
+          "policy": "semantic_fifo",
+          "cache_size": 1000,
+          "requests": 1628,
+          "hits": 104,
+          "misses": 1524,
+          "hit_rate": 0.0639,
+          "time_breakdown_ms": {
+            "planner_base": 2687635,
+            "planner_simulated": 2520610,
+            "reasoner": 2331411,
+            "other": 0,
+            "total_base": 5019046,
+            "total_simulated": 4852021,
+            "saved": 167025
+          }
+        },
+        {
+          "policy": "semantic_random",
+          "cache_size": 1000,
+          "requests": 1628,
+          "hits": 116,
+          "misses": 1512,
+          "hit_rate": 0.0713,
+          "time_breakdown_ms": {
+            "planner_base": 2687635,
+            "planner_simulated": 2500900,
+            "reasoner": 2331411,
+            "other": 0,
+            "total_base": 5019046,
+            "total_simulated": 4832311,
+            "saved": 186735
+          }
+        },
+        {
+          "policy": "semantic_belady",
+          "cache_size": 1000,
+          "requests": 1628,
+          "hits": 125,
+          "misses": 1503,
+          "hit_rate": 0.0768,
+          "time_breakdown_ms": {
+            "planner_base": 2687635,
+            "planner_simulated": 2486518,
+            "reasoner": 2331411,
+            "other": 0,
+            "total_base": 5019046,
+            "total_simulated": 4817929,
+            "saved": 201117
+          }
+        },
+        {
+          "policy": "semantic_oracle",
+          "cache_size": 1000,
+          "requests": 1628,
+          "hits": 93,
+          "misses": 1535,
+          "hit_rate": 0.0571,
+          "time_breakdown_ms": {
+            "planner_base": 2687635,
+            "planner_simulated": 2535513,
+            "reasoner": 2331411,
+            "other": 0,
+            "total_base": 5019046,
+            "total_simulated": 4866924,
+            "saved": 152122
+          }
+        }
+      ],
+      "shuffled": [
+        {
+          "policy": "exact",
+          "cache_size": 10,
+          "requests": 1628,
+          "hits": 0,
+          "misses": 1628,
+          "hit_rate": 0.0,
+          "time_breakdown_ms": {
+            "planner_base": 2687635,
+            "planner_simulated": 2687635,
+            "reasoner": 2331411,
+            "other": 0,
+            "total_base": 5019046,
+            "total_simulated": 5019046,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "semantic_lru",
+          "cache_size": 10,
+          "requests": 1628,
+          "hits": 5,
+          "misses": 1623,
+          "hit_rate": 0.0031,
+          "time_breakdown_ms": {
+            "planner_base": 2687635,
+            "planner_simulated": 2678405,
+            "reasoner": 2331411,
+            "other": 0,
+            "total_base": 5019046,
+            "total_simulated": 5009816,
+            "saved": 9230
+          }
+        },
+        {
+          "policy": "semantic_lfu",
+          "cache_size": 10,
+          "requests": 1628,
+          "hits": 4,
+          "misses": 1624,
+          "hit_rate": 0.0025,
+          "time_breakdown_ms": {
+            "planner_base": 2687635,
+            "planner_simulated": 2680231,
+            "reasoner": 2331411,
+            "other": 0,
+            "total_base": 5019046,
+            "total_simulated": 5011642,
+            "saved": 7404
+          }
+        },
+        {
+          "policy": "semantic_fifo",
+          "cache_size": 10,
+          "requests": 1628,
+          "hits": 5,
+          "misses": 1623,
+          "hit_rate": 0.0031,
+          "time_breakdown_ms": {
+            "planner_base": 2687635,
+            "planner_simulated": 2678405,
+            "reasoner": 2331411,
+            "other": 0,
+            "total_base": 5019046,
+            "total_simulated": 5009816,
+            "saved": 9230
+          }
+        },
+        {
+          "policy": "semantic_random",
+          "cache_size": 10,
+          "requests": 1628,
+          "hits": 6,
+          "misses": 1622,
+          "hit_rate": 0.0037,
+          "time_breakdown_ms": {
+            "planner_base": 2687635,
+            "planner_simulated": 2678457,
+            "reasoner": 2331411,
+            "other": 0,
+            "total_base": 5019046,
+            "total_simulated": 5009868,
+            "saved": 9178
+          }
+        },
+        {
+          "policy": "semantic_belady",
+          "cache_size": 10,
+          "requests": 1628,
+          "hits": 59,
+          "misses": 1569,
+          "hit_rate": 0.0362,
+          "time_breakdown_ms": {
+            "planner_base": 2687635,
+            "planner_simulated": 2591769,
+            "reasoner": 2331411,
+            "other": 0,
+            "total_base": 5019046,
+            "total_simulated": 4923180,
+            "saved": 95866
+          }
+        },
+        {
+          "policy": "semantic_oracle",
+          "cache_size": 10,
+          "requests": 1628,
+          "hits": 3,
+          "misses": 1625,
+          "hit_rate": 0.0018,
+          "time_breakdown_ms": {
+            "planner_base": 2687635,
+            "planner_simulated": 2682396,
+            "reasoner": 2331411,
+            "other": 0,
+            "total_base": 5019046,
+            "total_simulated": 5013807,
+            "saved": 5239
+          }
+        },
+        {
+          "policy": "exact",
+          "cache_size": 50,
+          "requests": 1628,
+          "hits": 0,
+          "misses": 1628,
+          "hit_rate": 0.0,
+          "time_breakdown_ms": {
+            "planner_base": 2687635,
+            "planner_simulated": 2687635,
+            "reasoner": 2331411,
+            "other": 0,
+            "total_base": 5019046,
+            "total_simulated": 5019046,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "semantic_lru",
+          "cache_size": 50,
+          "requests": 1628,
+          "hits": 14,
+          "misses": 1614,
+          "hit_rate": 0.0086,
+          "time_breakdown_ms": {
+            "planner_base": 2687635,
+            "planner_simulated": 2664897,
+            "reasoner": 2331411,
+            "other": 0,
+            "total_base": 5019046,
+            "total_simulated": 4996308,
+            "saved": 22738
+          }
+        },
+        {
+          "policy": "semantic_lfu",
+          "cache_size": 50,
+          "requests": 1628,
+          "hits": 14,
+          "misses": 1614,
+          "hit_rate": 0.0086,
+          "time_breakdown_ms": {
+            "planner_base": 2687635,
+            "planner_simulated": 2664897,
+            "reasoner": 2331411,
+            "other": 0,
+            "total_base": 5019046,
+            "total_simulated": 4996308,
+            "saved": 22738
+          }
+        },
+        {
+          "policy": "semantic_fifo",
+          "cache_size": 50,
+          "requests": 1628,
+          "hits": 14,
+          "misses": 1614,
+          "hit_rate": 0.0086,
+          "time_breakdown_ms": {
+            "planner_base": 2687635,
+            "planner_simulated": 2664897,
+            "reasoner": 2331411,
+            "other": 0,
+            "total_base": 5019046,
+            "total_simulated": 4996308,
+            "saved": 22738
+          }
+        },
+        {
+          "policy": "semantic_random",
+          "cache_size": 50,
+          "requests": 1628,
+          "hits": 13,
+          "misses": 1615,
+          "hit_rate": 0.008,
+          "time_breakdown_ms": {
+            "planner_base": 2687635,
+            "planner_simulated": 2665934,
+            "reasoner": 2331411,
+            "other": 0,
+            "total_base": 5019046,
+            "total_simulated": 4997345,
+            "saved": 21701
+          }
+        },
+        {
+          "policy": "semantic_belady",
+          "cache_size": 50,
+          "requests": 1628,
+          "hits": 112,
+          "misses": 1516,
+          "hit_rate": 0.0688,
+          "time_breakdown_ms": {
+            "planner_base": 2687635,
+            "planner_simulated": 2505998,
+            "reasoner": 2331411,
+            "other": 0,
+            "total_base": 5019046,
+            "total_simulated": 4837409,
+            "saved": 181637
+          }
+        },
+        {
+          "policy": "semantic_oracle",
+          "cache_size": 50,
+          "requests": 1628,
+          "hits": 10,
+          "misses": 1618,
+          "hit_rate": 0.0061,
+          "time_breakdown_ms": {
+            "planner_base": 2687635,
+            "planner_simulated": 2671573,
+            "reasoner": 2331411,
+            "other": 0,
+            "total_base": 5019046,
+            "total_simulated": 5002984,
+            "saved": 16062
+          }
+        },
+        {
+          "policy": "exact",
+          "cache_size": 100,
+          "requests": 1628,
+          "hits": 0,
+          "misses": 1628,
+          "hit_rate": 0.0,
+          "time_breakdown_ms": {
+            "planner_base": 2687635,
+            "planner_simulated": 2687635,
+            "reasoner": 2331411,
+            "other": 0,
+            "total_base": 5019046,
+            "total_simulated": 5019046,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "semantic_lru",
+          "cache_size": 100,
+          "requests": 1628,
+          "hits": 20,
+          "misses": 1608,
+          "hit_rate": 0.0123,
+          "time_breakdown_ms": {
+            "planner_base": 2687635,
+            "planner_simulated": 2654733,
+            "reasoner": 2331411,
+            "other": 0,
+            "total_base": 5019046,
+            "total_simulated": 4986144,
+            "saved": 32902
+          }
+        },
+        {
+          "policy": "semantic_lfu",
+          "cache_size": 100,
+          "requests": 1628,
+          "hits": 17,
+          "misses": 1611,
+          "hit_rate": 0.0104,
+          "time_breakdown_ms": {
+            "planner_base": 2687635,
+            "planner_simulated": 2660215,
+            "reasoner": 2331411,
+            "other": 0,
+            "total_base": 5019046,
+            "total_simulated": 4991626,
+            "saved": 27420
+          }
+        },
+        {
+          "policy": "semantic_fifo",
+          "cache_size": 100,
+          "requests": 1628,
+          "hits": 20,
+          "misses": 1608,
+          "hit_rate": 0.0123,
+          "time_breakdown_ms": {
+            "planner_base": 2687635,
+            "planner_simulated": 2654733,
+            "reasoner": 2331411,
+            "other": 0,
+            "total_base": 5019046,
+            "total_simulated": 4986144,
+            "saved": 32902
+          }
+        },
+        {
+          "policy": "semantic_random",
+          "cache_size": 100,
+          "requests": 1628,
+          "hits": 25,
+          "misses": 1603,
+          "hit_rate": 0.0154,
+          "time_breakdown_ms": {
+            "planner_base": 2687635,
+            "planner_simulated": 2644579,
+            "reasoner": 2331411,
+            "other": 0,
+            "total_base": 5019046,
+            "total_simulated": 4975990,
+            "saved": 43056
+          }
+        },
+        {
+          "policy": "semantic_belady",
+          "cache_size": 100,
+          "requests": 1628,
+          "hits": 122,
+          "misses": 1506,
+          "hit_rate": 0.0749,
+          "time_breakdown_ms": {
+            "planner_base": 2687635,
+            "planner_simulated": 2487844,
+            "reasoner": 2331411,
+            "other": 0,
+            "total_base": 5019046,
+            "total_simulated": 4819255,
+            "saved": 199791
+          }
+        },
+        {
+          "policy": "semantic_oracle",
+          "cache_size": 100,
+          "requests": 1628,
+          "hits": 14,
+          "misses": 1614,
+          "hit_rate": 0.0086,
+          "time_breakdown_ms": {
+            "planner_base": 2687635,
+            "planner_simulated": 2665808,
+            "reasoner": 2331411,
+            "other": 0,
+            "total_base": 5019046,
+            "total_simulated": 4997219,
+            "saved": 21827
+          }
+        },
+        {
+          "policy": "exact",
+          "cache_size": 500,
+          "requests": 1628,
+          "hits": 0,
+          "misses": 1628,
+          "hit_rate": 0.0,
+          "time_breakdown_ms": {
+            "planner_base": 2687635,
+            "planner_simulated": 2687635,
+            "reasoner": 2331411,
+            "other": 0,
+            "total_base": 5019046,
+            "total_simulated": 5019046,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "semantic_lru",
+          "cache_size": 500,
+          "requests": 1628,
+          "hits": 71,
+          "misses": 1557,
+          "hit_rate": 0.0436,
+          "time_breakdown_ms": {
+            "planner_base": 2687635,
+            "planner_simulated": 2574411,
+            "reasoner": 2331411,
+            "other": 0,
+            "total_base": 5019046,
+            "total_simulated": 4905822,
+            "saved": 113224
+          }
+        },
+        {
+          "policy": "semantic_lfu",
+          "cache_size": 500,
+          "requests": 1628,
+          "hits": 73,
+          "misses": 1555,
+          "hit_rate": 0.0448,
+          "time_breakdown_ms": {
+            "planner_base": 2687635,
+            "planner_simulated": 2570513,
+            "reasoner": 2331411,
+            "other": 0,
+            "total_base": 5019046,
+            "total_simulated": 4901924,
+            "saved": 117122
+          }
+        },
+        {
+          "policy": "semantic_fifo",
+          "cache_size": 500,
+          "requests": 1628,
+          "hits": 71,
+          "misses": 1557,
+          "hit_rate": 0.0436,
+          "time_breakdown_ms": {
+            "planner_base": 2687635,
+            "planner_simulated": 2575006,
+            "reasoner": 2331411,
+            "other": 0,
+            "total_base": 5019046,
+            "total_simulated": 4906417,
+            "saved": 112629
+          }
+        },
+        {
+          "policy": "semantic_random",
+          "cache_size": 500,
+          "requests": 1628,
+          "hits": 79,
+          "misses": 1549,
+          "hit_rate": 0.0485,
+          "time_breakdown_ms": {
+            "planner_base": 2687635,
+            "planner_simulated": 2556276,
+            "reasoner": 2331411,
+            "other": 0,
+            "total_base": 5019046,
+            "total_simulated": 4887687,
+            "saved": 131359
+          }
+        },
+        {
+          "policy": "semantic_belady",
+          "cache_size": 500,
+          "requests": 1628,
+          "hits": 122,
+          "misses": 1506,
+          "hit_rate": 0.0749,
+          "time_breakdown_ms": {
+            "planner_base": 2687635,
+            "planner_simulated": 2487844,
+            "reasoner": 2331411,
+            "other": 0,
+            "total_base": 5019046,
+            "total_simulated": 4819255,
+            "saved": 199791
+          }
+        },
+        {
+          "policy": "semantic_oracle",
+          "cache_size": 500,
+          "requests": 1628,
+          "hits": 58,
+          "misses": 1570,
+          "hit_rate": 0.0356,
+          "time_breakdown_ms": {
+            "planner_base": 2687635,
+            "planner_simulated": 2595447,
+            "reasoner": 2331411,
+            "other": 0,
+            "total_base": 5019046,
+            "total_simulated": 4926858,
+            "saved": 92188
+          }
+        },
+        {
+          "policy": "exact",
+          "cache_size": 1000,
+          "requests": 1628,
+          "hits": 0,
+          "misses": 1628,
+          "hit_rate": 0.0,
+          "time_breakdown_ms": {
+            "planner_base": 2687635,
+            "planner_simulated": 2687635,
+            "reasoner": 2331411,
+            "other": 0,
+            "total_base": 5019046,
+            "total_simulated": 5019046,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "semantic_lru",
+          "cache_size": 1000,
+          "requests": 1628,
+          "hits": 115,
+          "misses": 1513,
+          "hit_rate": 0.0706,
+          "time_breakdown_ms": {
+            "planner_base": 2687635,
+            "planner_simulated": 2497754,
+            "reasoner": 2331411,
+            "other": 0,
+            "total_base": 5019046,
+            "total_simulated": 4829165,
+            "saved": 189881
+          }
+        },
+        {
+          "policy": "semantic_lfu",
+          "cache_size": 1000,
+          "requests": 1628,
+          "hits": 115,
+          "misses": 1513,
+          "hit_rate": 0.0706,
+          "time_breakdown_ms": {
+            "planner_base": 2687635,
+            "planner_simulated": 2497754,
+            "reasoner": 2331411,
+            "other": 0,
+            "total_base": 5019046,
+            "total_simulated": 4829165,
+            "saved": 189881
+          }
+        },
+        {
+          "policy": "semantic_fifo",
+          "cache_size": 1000,
+          "requests": 1628,
+          "hits": 110,
+          "misses": 1518,
+          "hit_rate": 0.0676,
+          "time_breakdown_ms": {
+            "planner_base": 2687635,
+            "planner_simulated": 2506726,
+            "reasoner": 2331411,
+            "other": 0,
+            "total_base": 5019046,
+            "total_simulated": 4838137,
+            "saved": 180909
+          }
+        },
+        {
+          "policy": "semantic_random",
+          "cache_size": 1000,
+          "requests": 1628,
+          "hits": 117,
+          "misses": 1511,
+          "hit_rate": 0.0719,
+          "time_breakdown_ms": {
+            "planner_base": 2687635,
+            "planner_simulated": 2495280,
+            "reasoner": 2331411,
+            "other": 0,
+            "total_base": 5019046,
+            "total_simulated": 4826691,
+            "saved": 192355
+          }
+        },
+        {
+          "policy": "semantic_belady",
+          "cache_size": 1000,
+          "requests": 1628,
+          "hits": 122,
+          "misses": 1506,
+          "hit_rate": 0.0749,
+          "time_breakdown_ms": {
+            "planner_base": 2687635,
+            "planner_simulated": 2487844,
+            "reasoner": 2331411,
+            "other": 0,
+            "total_base": 5019046,
+            "total_simulated": 4819255,
+            "saved": 199791
+          }
+        },
+        {
+          "policy": "semantic_oracle",
+          "cache_size": 1000,
+          "requests": 1628,
+          "hits": 101,
+          "misses": 1527,
+          "hit_rate": 0.062,
+          "time_breakdown_ms": {
+            "planner_base": 2687635,
+            "planner_simulated": 2519615,
+            "reasoner": 2331411,
+            "other": 0,
+            "total_base": 5019046,
+            "total_simulated": 4851026,
+            "saved": 168020
+          }
+        }
+      ]
+    }
+  }
+}

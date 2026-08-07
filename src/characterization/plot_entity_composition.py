@@ -6,7 +6,13 @@ import matplotlib.patches as mpatches
 import numpy as np
 
 
-plt.rcParams.update({"xtick.labelsize": 16, "ytick.labelsize": 16})
+# Journal (single-column body) sizing: the figure is placed at ~6.5in and
+# printed at 100%, so tick labels sit at body-text size rather than the
+# inflated sizes an IEEE two-column shrink needed.
+plt.rcParams.update({"font.size": 10, "xtick.labelsize": 9, "ytick.labelsize": 9})
+
+FIG_WIDTH = 6.5      # single-column journal text width, in inches
+PANEL_HEIGHT = 2.5   # per stacked panel
 
 ROOT = Path(__file__).resolve().parents[1]
 TRACE_DIR = ROOT / "ToG-cache" / "output" / "traces"
@@ -80,7 +86,7 @@ def draw_stacked(ax, datasets, unique_pct, reused_pct, unique_counts, reused_cou
                 f"{up:.1f}%\n({u:,})",
                 ha="center",
                 va="center",
-                fontsize=16,
+                fontsize=9,
                 fontweight="bold",
                 color="white",
             )
@@ -91,7 +97,7 @@ def draw_stacked(ax, datasets, unique_pct, reused_pct, unique_counts, reused_cou
                 f"{rp:.1f}%\n({r:,})",
                 ha="center",
                 va="center",
-                fontsize=16,
+                fontsize=9,
                 fontweight="bold",
                 color="white",
             )
@@ -101,13 +107,13 @@ def draw_stacked(ax, datasets, unique_pct, reused_pct, unique_counts, reused_cou
             f"Total: {t:,}",
             ha="center",
             va="bottom",
-            fontsize=16,
+            fontsize=9,
             color="#333333",
         )
 
     ax.set_xticks(x)
-    ax.set_xticklabels(datasets, fontsize=19, fontweight="bold")
-    ax.set_ylabel(ylabel, fontsize=17)
+    ax.set_xticklabels(datasets, fontsize=11, fontweight="bold")
+    ax.set_ylabel(ylabel, fontsize=11)
     ax.set_ylim(0, 112)
     ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda v, _: f"{v:.0f}%"))
     ax.grid(axis="y", linestyle="--", alpha=0.5, zorder=0)
@@ -119,7 +125,7 @@ def draw_stacked(ax, datasets, unique_pct, reused_pct, unique_counts, reused_cou
         transform=ax.transAxes,
         ha="center",
         va="top",
-        fontsize=19,
+        fontsize=11,
         fontweight="bold",
         color="#222222",
     )
@@ -158,7 +164,9 @@ C_REUSED = "#E07B54"
 
 
 # Plot
-fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10.5, 4.8))
+# Stacked one panel per row: at a single-column journal width the two views
+# do not fit side by side.
+fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(FIG_WIDTH, 2 * PANEL_HEIGHT))
 fig.patch.set_facecolor("white")
 ax1.set_facecolor("white")
 ax2.set_facecolor("white")
@@ -193,7 +201,7 @@ legend_handles = [
 ]
 fig.legend(
     handles=legend_handles,
-    fontsize=16,
+    fontsize=9,
     loc="upper center",
     bbox_to_anchor=(0.5, 1.02),
     ncol=2,
@@ -201,8 +209,9 @@ fig.legend(
     edgecolor="#cccccc",
 )
 
-fig.tight_layout(pad=2.5)
-fig.subplots_adjust(bottom=0.2)
+fig.tight_layout(pad=1.6)
+# Room under each panel for its bold subtitle, and at the top for the legend.
+fig.subplots_adjust(bottom=0.11, top=0.93, hspace=0.55)
 fig.savefig(
     "entity_unique_vs_reused_mentions.pdf",
     dpi=150,

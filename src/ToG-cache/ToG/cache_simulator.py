@@ -12,7 +12,7 @@ from pathlib import Path
 KG_EVENT_TYPE = "KG"
 LLM_EVENT_TYPE = "LLM"
 OTHER_EVENT_TYPE = "OTHER"
-SUPPORTED_POLICIES = ("lru", "lfu", "oracle")
+DEFAULT_RANDOM_REPEATS = 5
 DEFAULT_TRACE_DIR = Path(__file__).resolve().parents[1] / "output" / "traces"
 DEFAULT_TRACE_FILES = {
     "WebQSP": DEFAULT_TRACE_DIR / "tog_trace_webqsp.json",
@@ -173,106 +173,190 @@ def extract_time_breakdown(traces: list[dict]) -> dict[str, int]:
     }
 
 
-def _simulate_lru(requests: list[KGRequest], cache_size: int) -> tuple[int, int]:
-    if cache_size <= 0:
-        return 0, len(requests)
+# Each simulator makes a single pass over the request stream and returns
+# (hits, misses, kg_simulated_ms) together, so hit accounting and the served-time
+# accounting can never drift apart. `kg_simulated_ms` is the summed duration of
+# the requests that miss; hits are assumed to be served for free.
+
+
+def _no_cache(requests: list[KGRequest]) -> tuple[int, int, int]:
+    return 0, len(requests), sum(request.duration_ms for request in requests)
+
+
+def _simulate_recency(
+    requests: list[KGRequest], cache_size: int, *, touch_on_hit: bool
+) -> tuple[int, int, int]:
+    """LRU when `touch_on_hit`, FIFO otherwise -- the two differ only in that."""
     cache: OrderedDict[str, None] = OrderedDict()
     hits = 0
+    kg_simulated_ms = 0
     for request in requests:
         if request.key in cache:
-            cache.move_to_end(request.key)
             hits += 1
-        else:
-            if len(cache) >= cache_size:
-                cache.popitem(last=False)
-            cache[request.key] = None
-    return hits, len(requests) - hits
+            if touch_on_hit:
+                cache.move_to_end(request.key)
+            continue
+        kg_simulated_ms += request.duration_ms
+        if len(cache) >= cache_size:
+            cache.popitem(last=False)
+        cache[request.key] = None
+    return hits, len(requests) - hits, kg_simulated_ms
 
 
-def _simulate_lfu(requests: list[KGRequest], cache_size: int) -> tuple[int, int]:
-    if cache_size <= 0:
-        return 0, len(requests)
+def _simulate_lfu(requests: list[KGRequest], cache_size: int) -> tuple[int, int, int]:
     cache: dict[str, None] = {}
     freq: Counter[str] = Counter()
     hits = 0
+    kg_simulated_ms = 0
     for request in requests:
         if request.key in cache:
             freq[request.key] += 1
             hits += 1
-        else:
-            if len(cache) >= cache_size:
-                lfu_key = min(freq, key=lambda key: freq[key])
-                del cache[lfu_key]
-                del freq[lfu_key]
-            cache[request.key] = None
-            freq[request.key] = 1
-    return hits, len(requests) - hits
+            continue
+        kg_simulated_ms += request.duration_ms
+        if len(cache) >= cache_size:
+            lfu_key = min(freq, key=lambda key: freq[key])
+            del cache[lfu_key]
+            del freq[lfu_key]
+        cache[request.key] = None
+        freq[request.key] = 1
+    return hits, len(requests) - hits, kg_simulated_ms
 
 
-def _simulate_oracle(requests: list[KGRequest], cache_size: int) -> tuple[int, int]:
-    if cache_size <= 0:
-        return 0, len(requests)
+def _simulate_random_once(
+    requests: list[KGRequest], cache_size: int, seed: int
+) -> tuple[int, int, int]:
+    rng = random.Random(seed)
+    cache: dict[str, None] = {}
+    # Parallel key list so eviction is an O(1) swap-with-last instead of an O(n)
+    # reservoir walk over the dict.
+    keys: list[str] = []
+    hits = 0
+    kg_simulated_ms = 0
+    for request in requests:
+        if request.key in cache:
+            hits += 1
+            continue
+        kg_simulated_ms += request.duration_ms
+        if len(cache) >= cache_size:
+            victim_index = rng.randrange(len(keys))
+            victim = keys[victim_index]
+            keys[victim_index] = keys[-1]
+            keys.pop()
+            del cache[victim]
+        cache[request.key] = None
+        keys.append(request.key)
+    return hits, len(requests) - hits, kg_simulated_ms
+
+
+def _simulate_random(
+    requests: list[KGRequest], cache_size: int, seed: int, repeats: int
+) -> tuple[int, int, int]:
+    """Random replacement over `repeats` seeds, reporting the *representative*
+    run -- the one whose hit count lands closest to the mean.
+
+    Averaging the three numbers independently would let them contradict each
+    other (a mean miss count that does not match the mean served time, once
+    both are rounded), which then shows up as a hit rate and a `saved` figure
+    that disagree in the plots. Picking a single real run keeps the record
+    internally consistent while still not letting one unlucky draw decide it.
+    """
+    runs = max(repeats, 1)
+    trials = [_simulate_random_once(requests, cache_size, seed + offset) for offset in range(runs)]
+    mean_hits = sum(trial[0] for trial in trials) / runs
+    return min(trials, key=lambda trial: (abs(trial[0] - mean_hits), trial[0]))
+
+
+def _next_use_table(requests: list[KGRequest]) -> list[int]:
+    """next_use[i] = index of the next request for the same key, else len(requests)."""
+    horizon = len(requests)
+    next_use = [horizon] * horizon
+    last_seen: dict[str, int] = {}
+    for index in range(horizon - 1, -1, -1):
+        key = requests[index].key
+        next_use[index] = last_seen.get(key, horizon)
+        last_seen[key] = index
+    return next_use
+
+
+def _simulate_belady(requests: list[KGRequest], cache_size: int) -> tuple[int, int, int]:
+    """Belady's MIN: evict whatever is reused farthest in the future.
+
+    This is the true offline optimum and therefore the honest upper bound on
+    what any online policy could achieve. It is *not* the same thing as the
+    `oracle` policy below, which only preloads the globally hottest keys.
+    """
+    horizon = len(requests)
+    next_use = _next_use_table(requests)
+    cached: dict[str, int] = {}  # key -> index of its next use
+    hits = 0
+    kg_simulated_ms = 0
+    for index, request in enumerate(requests):
+        if request.key in cached:
+            hits += 1
+            cached[request.key] = next_use[index]
+            continue
+        kg_simulated_ms += request.duration_ms
+        if next_use[index] >= horizon:
+            continue  # never referenced again: admitting it can only displace something useful
+        if len(cached) >= cache_size:
+            victim = max(cached, key=lambda key: cached[key])
+            if cached[victim] <= next_use[index]:
+                continue  # everything resident is reused sooner; decline admission
+            del cached[victim]
+        cached[request.key] = next_use[index]
+    return hits, len(requests) - hits, kg_simulated_ms
+
+
+def _simulate_oracle(requests: list[KGRequest], cache_size: int) -> tuple[int, int, int]:
+    """Static preload of the globally most-frequent keys; never evicts."""
     freq = Counter(request.key for request in requests)
     preloaded = {key for key, _ in freq.most_common(cache_size)}
-    hits = sum(1 for request in requests if request.key in preloaded)
-    return hits, len(requests) - hits
-
-
-def _simulate_kg_time(requests: list[KGRequest], policy: str, cache_size: int) -> tuple[int, int, int]:
-    if policy == "lru":
-        hits, misses = _simulate_lru(requests, cache_size)
-    elif policy == "lfu":
-        hits, misses = _simulate_lfu(requests, cache_size)
-    elif policy == "oracle":
-        hits, misses = _simulate_oracle(requests, cache_size)
-    else:
-        raise ValueError(f"Unknown policy: {policy}")
-
+    hits = 0
     kg_simulated_ms = 0
-    if policy == "oracle":
-        freq = Counter(request.key for request in requests)
-        cached = {key for key, _ in freq.most_common(max(cache_size, 0))}
-        for request in requests:
-            if request.key not in cached:
-                kg_simulated_ms += request.duration_ms
-    elif policy == "lru":
-        if cache_size <= 0:
-            kg_simulated_ms = sum(request.duration_ms for request in requests)
+    for request in requests:
+        if request.key in preloaded:
+            hits += 1
         else:
-            cache: OrderedDict[str, None] = OrderedDict()
-            for request in requests:
-                if request.key in cache:
-                    cache.move_to_end(request.key)
-                    continue
-                kg_simulated_ms += request.duration_ms
-                if len(cache) >= cache_size:
-                    cache.popitem(last=False)
-                cache[request.key] = None
-    else:
-        if cache_size <= 0:
-            kg_simulated_ms = sum(request.duration_ms for request in requests)
-        else:
-            cache: dict[str, None] = {}
-            freq: Counter[str] = Counter()
-            for request in requests:
-                if request.key in cache:
-                    freq[request.key] += 1
-                    continue
-                kg_simulated_ms += request.duration_ms
-                if len(cache) >= cache_size:
-                    lfu_key = min(freq, key=lambda key: freq[key])
-                    del cache[lfu_key]
-                    del freq[lfu_key]
-                cache[request.key] = None
-                freq[request.key] = 1
+            kg_simulated_ms += request.duration_ms
+    return hits, len(requests) - hits, kg_simulated_ms
 
-    return hits, misses, kg_simulated_ms
+
+# policy name -> (requests, cache_size, random_seed, random_repeats) -> (hits, misses, ms)
+POLICY_SIMULATORS = {
+    "lru":    lambda reqs, size, seed, reps: _simulate_recency(reqs, size, touch_on_hit=True),
+    "fifo":   lambda reqs, size, seed, reps: _simulate_recency(reqs, size, touch_on_hit=False),
+    "lfu":    lambda reqs, size, seed, reps: _simulate_lfu(reqs, size),
+    "random": lambda reqs, size, seed, reps: _simulate_random(reqs, size, seed, reps),
+    "belady": lambda reqs, size, seed, reps: _simulate_belady(reqs, size),
+    "oracle": lambda reqs, size, seed, reps: _simulate_oracle(reqs, size),
+}
+
+SUPPORTED_POLICIES = tuple(POLICY_SIMULATORS)
+
+
+def _simulate_kg_time(
+    requests: list[KGRequest],
+    policy: str,
+    cache_size: int,
+    random_seed: int = 0,
+    random_repeats: int = DEFAULT_RANDOM_REPEATS,
+) -> tuple[int, int, int]:
+    try:
+        simulator = POLICY_SIMULATORS[policy]
+    except KeyError:
+        raise ValueError(f"Unknown policy: {policy}") from None
+    if cache_size <= 0:
+        return _no_cache(requests)
+    return simulator(requests, cache_size, random_seed, random_repeats)
 
 
 def run_simulation(
     traces: list[dict],
     cache_sizes: list[int],
     policies: list[str],
+    random_seed: int = 0,
+    random_repeats: int = DEFAULT_RANDOM_REPEATS,
 ) -> list[CacheSimResult]:
     invalid_policies = [policy for policy in policies if policy not in SUPPORTED_POLICIES]
     if invalid_policies:
@@ -285,6 +369,8 @@ def run_simulation(
         breakdown=breakdown,
         cache_sizes=cache_sizes,
         policies=policies,
+        random_seed=random_seed,
+        random_repeats=random_repeats,
     )
 
 
@@ -293,6 +379,8 @@ def run_simulation_from_requests(
     breakdown: dict[str, int],
     cache_sizes: list[int],
     policies: list[str],
+    random_seed: int = 0,
+    random_repeats: int = DEFAULT_RANDOM_REPEATS,
 ) -> list[CacheSimResult]:
     invalid_policies = [policy for policy in policies if policy not in SUPPORTED_POLICIES]
     if invalid_policies:
@@ -301,7 +389,9 @@ def run_simulation_from_requests(
     results: list[CacheSimResult] = []
     for size in cache_sizes:
         for policy in policies:
-            hits, misses, kg_simulated_ms = _simulate_kg_time(requests, policy, size)
+            hits, misses, kg_simulated_ms = _simulate_kg_time(
+                requests, policy, size, random_seed, random_repeats
+            )
             results.append(
                 CacheSimResult(
                     policy=policy,
@@ -323,14 +413,23 @@ def build_combined_summary(
     cache_sizes: list[int],
     policies: list[str],
     shuffle_seed: int,
+    random_seed: int = 0,
+    random_repeats: int = DEFAULT_RANDOM_REPEATS,
 ) -> dict[str, object]:
     payload: dict[str, object] = {
         "metadata": {
             "cache_sizes": cache_sizes,
             "policies": policies,
             "shuffle_seed": shuffle_seed,
+            "random_seed": random_seed,
+            "random_repeats": random_repeats,
             "access_patterns": ["sequential", "request_block_shuffled"],
             "shuffled_semantics": "Question/request traces are shuffled; internal KG access order is preserved.",
+            # Which time bucket the cache shrinks, and which it leaves alone.
+            # Consumed by plot_cache_time_breakdown.py so the same plotter works
+            # on the RoG summary, where the cached stage is the planner LLM call.
+            "stage_keys": {"cached": "kg", "uncached": "llm"},
+            "stage_labels": {"cached": "KG", "uncached": "LLM"},
         },
         "datasets": {},
     }
@@ -359,6 +458,8 @@ def build_combined_summary(
                     breakdown=breakdown,
                     cache_sizes=cache_sizes,
                     policies=policies,
+                    random_seed=random_seed,
+                    random_repeats=random_repeats,
                 )
             ],
             "shuffled": [
@@ -368,6 +469,8 @@ def build_combined_summary(
                     breakdown=breakdown,
                     cache_sizes=cache_sizes,
                     policies=policies,
+                    random_seed=random_seed,
+                    random_repeats=random_repeats,
                 )
             ],
         }
@@ -387,13 +490,21 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Run offline cache simulation on ToG traces.")
     parser.add_argument("trace_path", nargs="?", help="path to trace .jsonl or pretty .json file")
     parser.add_argument("--cache-sizes", default="0,1,2,4,8,16,32", help="comma-separated cache sizes")
-    parser.add_argument("--policies", default="lru,lfu,oracle", help="comma-separated policies")
+    parser.add_argument(
+        "--policies",
+        default="lru,lfu,fifo,random,belady,oracle",
+        help=f"comma-separated policies from: {', '.join(SUPPORTED_POLICIES)}",
+    )
     parser.add_argument("--pretty", action="store_true", help="pretty print the simulation results as JSON")
     parser.add_argument("--output", type=Path, help="write simulation JSON to this path")
     parser.add_argument("--combined", action="store_true", help="simulate WebQSP and CWQ into one JSON file")
     parser.add_argument("--webqsp-trace", type=Path, default=DEFAULT_TRACE_FILES["WebQSP"])
     parser.add_argument("--cwq-trace", type=Path, default=DEFAULT_TRACE_FILES["CWQ"])
     parser.add_argument("--shuffle-seed", type=int, default=0, help="seed for deterministic shuffled access")
+    parser.add_argument("--random-seed", type=int, default=0,
+                        help="base seed for the 'random' eviction policy")
+    parser.add_argument("--random-repeats", type=int, default=DEFAULT_RANDOM_REPEATS,
+                        help="number of seeds to average the 'random' policy over")
     args = parser.parse_args()
 
     cache_sizes = _parse_int_list(args.cache_sizes)
@@ -407,6 +518,8 @@ def main() -> None:
             cache_sizes=cache_sizes,
             policies=policies,
             shuffle_seed=args.shuffle_seed,
+            random_seed=args.random_seed,
+            random_repeats=args.random_repeats,
         )
         output_path = args.output or DEFAULT_COMBINED_OUTPUT
     else:
@@ -417,6 +530,8 @@ def main() -> None:
             traces=traces,
             cache_sizes=cache_sizes,
             policies=policies,
+            random_seed=args.random_seed,
+            random_repeats=args.random_repeats,
         )
         payload = [result.to_dict() for result in results]
         output_path = args.output
