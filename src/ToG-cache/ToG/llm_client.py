@@ -2,8 +2,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import json
+import os
 from pathlib import Path
 import shlex
+import tempfile
 from typing import Protocol
 
 import httpx
@@ -159,13 +161,18 @@ def _post_json(
     status_code = response.status_code
     body = response.text.strip()
     if status_code >= 400:
-        dump_dir = _dump_failed_request(
-            vendor=vendor,
-            url=url,
-            payload=payload,
-            status_code=status_code,
-            body=body,
-        )
+        # Best-effort debug dump; a dump failure must never mask the real error.
+        try:
+            dump_dir = _dump_failed_request(
+                vendor=vendor,
+                url=url,
+                payload=payload,
+                status_code=status_code,
+                body=body,
+            )
+        except OSError as exc:
+            print(f"[llm_client] warning: could not write failed-request dump: {exc}")
+            dump_dir = None
         detail = body
         try:
             parsed = json.loads(body) if body else {}
@@ -179,11 +186,12 @@ def _post_json(
         )
         if detail:
             message += f" Response body: {detail}"
-        message += (
-            " Request dump:"
-            f" {dump_dir / f'{vendor}_last_request.json'}"
-            f" Replay script: {dump_dir / f'replay_{vendor}_last_request.sh'}"
-        )
+        if dump_dir is not None:
+            message += (
+                " Request dump:"
+                f" {dump_dir / f'{vendor}_last_request.json'}"
+                f" Replay script: {dump_dir / f'replay_{vendor}_last_request.sh'}"
+            )
         raise RuntimeError(message)
 
     try:
@@ -194,6 +202,27 @@ def _post_json(
         ) from exc
 
 
+def _dump_base_dir() -> Path:
+    """Pick a writable directory for failed-request dumps.
+
+    Honours LLM_DUMP_DIR; else ./artifacts when writable; else a temp dir. The
+    container often runs with cwd on a read-only mount (e.g. /rog), so a relative
+    ./artifacts is not writable -- fall back rather than crash on the dump and
+    mask the real error.
+    """
+    override = os.environ.get("LLM_DUMP_DIR")
+    if override:
+        return Path(override)
+    candidate = Path("artifacts")
+    try:
+        candidate.mkdir(parents=True, exist_ok=True)
+        if os.access(candidate, os.W_OK):
+            return candidate
+    except OSError:
+        pass
+    return Path(tempfile.gettempdir()) / "llm_failed_requests"
+
+
 def _dump_failed_request(
     vendor: str,
     url: str,
@@ -201,7 +230,7 @@ def _dump_failed_request(
     status_code: int,
     body: str,
 ) -> Path:
-    dump_dir = Path("artifacts")
+    dump_dir = _dump_base_dir()
     dump_dir.mkdir(parents=True, exist_ok=True)
 
     payload_path = (dump_dir / f"{vendor}_last_request.json").resolve()

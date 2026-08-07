@@ -1,5 +1,6 @@
 from freebase_func import *
 from prompt_list import *
+import argparse
 import json
 import os
 import re
@@ -11,29 +12,49 @@ from llm_client import LLMChatClient, ChatMessage
 from sentence_transformers import util
 from sentence_transformers import SentenceTransformer
 
-def is_reasoning_model(engine):
-    model_name = engine.lower()
-    return (
-        model_name.startswith("gpt-5")
-        or model_name.startswith("o1")
-        or model_name.startswith("o3")
-        or model_name.startswith("o4")
-    )
+
+# Process-wide count of LLM calls made through run_llm(), so a run can report how
+# many LLM calls it made (and, against the per-miss average, how many a cache
+# saved) -- the ToG analog of RoG's planner_llm_calls / planner_llm_calls_saved.
+_LLM_CALLS = 0
 
 
-def should_retry_openai_error(error):
-    error_text = str(error).lower()
-    non_retryable_markers = [
-        "unsupported parameter",
-        "unknown parameter",
-        "not compatible",
-        "invalid_request",
-        "invalid request",
-        "does not support",
-        "model_not_found",
-    ]
-    return not any(marker in error_text for marker in non_retryable_markers)
+def llm_call_count():
+    return _LLM_CALLS
 
+
+# Restart-safe per-question metrics live in cache_metrics (stdlib only) so scripts
+# can reuse them without utils.py's ML imports; re-exported here for the callers
+# that reach them via `from utils import *`.
+from cache_metrics import (  # noqa: E402
+    aggregate_run_metrics,
+    append_question_metrics,
+    metrics_sidecar_path,
+)
+
+
+def parse_test_limit(value):
+    """argparse type for --test-limit: an int, or 'all' for the whole split.
+
+    Returns None for 'all', which is what the callers already treat as "no
+    limit". The RoG runners spell a full run `--limit all` (see split_for in
+    scripts/_rog_common.py); accepting it here lets every ToG caller forward the
+    string through unchanged instead of each one special-casing it.
+    """
+    if value is None:
+        return None
+    text = str(value).strip().lower()
+    if text in ("", "all", "none"):
+        return None
+    try:
+        limit = int(text)
+    except ValueError:
+        raise argparse.ArgumentTypeError(
+            f"invalid value {value!r}: expected a positive integer or 'all'")
+    if limit <= 0:
+        raise argparse.ArgumentTypeError(
+            f"invalid value {value!r}: expected a positive integer or 'all'")
+    return limit
 
 def retrieve_top_docs(query, docs, model, width=3):
     """
@@ -89,12 +110,16 @@ def compute_bm25_similarity(query, corpus, width=3):
     return relations, doc_scores
 
 
-def clean_relations(string, entity_id, head_relations):
+def clean_relations(string, entity_id, head_relations, tail_relations=None):
     pattern = r"{\s*(?P<relation>[^()]+)\s+\(Score:\s+(?P<score>[0-9.]+)\)}"
     relations=[]
+    allowed_tail = set(tail_relations) if tail_relations is not None else None
+    allowed_head = set(head_relations)
     for match in re.finditer(pattern, string):
         relation = match.group("relation").strip()
         if ';' in relation:
+            continue
+        if relation not in allowed_head and (allowed_tail is None or relation not in allowed_tail):
             continue
         score = match.group("score")
         if not relation or not score:
@@ -103,7 +128,7 @@ def clean_relations(string, entity_id, head_relations):
             score = float(score)
         except ValueError:
             return False, "Invalid score"
-        if relation in head_relations:
+        if relation in allowed_head:
             relations.append({"entity": entity_id, "relation": relation, "score": score, "head": True})
         else:
             relations.append({"entity": entity_id, "relation": relation, "score": score, "head": False})
@@ -128,9 +153,13 @@ def clean_relations_bm25_sent(topn_relations, topn_scores, entity_id, head_relat
     return True, relations
 
 
-def run_llm(prompt, temperature, max_tokens, opeani_api_keys, engine="gpt-3.5-turbo", vendor=None):
+def run_llm(prompt, temperature, max_tokens, opeani_api_keys, engine="gpt-3.5-turbo", vendor=None, model=None):
+    global _LLM_CALLS
+    _LLM_CALLS += 1
+    # An explicit --model overrides the vendor preset (tamu) or the engine id (openai/google).
+    model = model or None  # normalise "" -> None so the preset default wins
     if vendor == "tamu":
-        config = resolve_llm_config(vendor="tamu")
+        config = resolve_llm_config(vendor="tamu", model=model)
         http_client = LLMChatClient(config, timeout_s=180.0)
         messages = [
             ChatMessage(role="system", content="You are an AI assistant that helps people find information."),
@@ -141,6 +170,7 @@ def run_llm(prompt, temperature, max_tokens, opeani_api_keys, engine="gpt-3.5-tu
         print("end tamu")
         return result
 
+    engine = model or engine  # openai/google: the model id is the engine
     if "llama" in engine.lower():
         client = OpenAI(api_key="EMPTY", base_url="http://localhost:8000/v1")
         engine = client.models.list().data[0].id
@@ -154,41 +184,28 @@ def run_llm(prompt, temperature, max_tokens, opeani_api_keys, engine="gpt-3.5-tu
     print("start openai")
     while True:
         try:
-            request_kwargs = {
-                "model": engine,
-                "messages": messages,
-            }
-            if is_reasoning_model(engine):
-                request_kwargs["max_completion_tokens"] = max_tokens
-            else:
-                request_kwargs.update({
-                    "temperature": temperature,
-                    "max_tokens": max_tokens,
-                    "frequency_penalty": 0,
-                    "presence_penalty": 0,
-                })
-            response = client.chat.completions.create(**request_kwargs)
+            response = client.chat.completions.create(
+                model=engine,
+                messages=messages,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                frequency_penalty=0,
+                presence_penalty=0,
+            )
             result = response.choices[0].message.content
             break
-        except Exception as e:
-            print("openai error:", repr(e))
-            if not should_retry_openai_error(e):
-                raise
-            print("retry")
+        except Exception:
+            print("openai error, retry")
             time.sleep(2)
     print("end openai")
     return result
 
 def construct_relation_prune_prompt(question, entity_name, total_relations, args):
-    format_instruction = (
-        "\nReturn exactly {N} lines and no extra text. Each line must be in this format:\n"
-        "1. {{relation.name (Score: 0.5)}}\n"
-    ).format(N=args.width)
-    return extract_relation_prompt % (args.width, args.width) + question + '\nTopic Entity: ' + entity_name + '\nRelations: '+ '; '.join(total_relations) + format_instruction + "\nA: "
+    return extract_relation_prompt % (args.width, args.width) + question + '\nTopic Entity: ' + entity_name + '\nRelations: '+ '; '.join(total_relations) + "\nA: "
         
 
 def construct_entity_score_prompt(question, relation, entity_candidates):
-    return score_entity_candidates_prompt.format(question, relation) + "; ".join(entity_candidates) + '\nReturn only comma-separated numeric scores, with no explanation.\nScore: '
+    return score_entity_candidates_prompt.format(question, relation) + "; ".join(entity_candidates) + '\nScore: '
 
 def relation_search_prune(entity_id, entity_name, pre_relations, pre_head, question, args):
     sparql_relations_extract_head = sparql_head_relations % (entity_id)
@@ -216,8 +233,8 @@ def relation_search_prune(entity_id, entity_name, pre_relations, pre_head, quest
     if args.prune_tools == "llm":
         prompt = construct_relation_prune_prompt(question, entity_name, total_relations, args)
 
-        result = run_llm(prompt, args.temperature_exploration, args.max_length, args.opeani_api_keys, args.LLM_type, vendor=getattr(args, "vendor", None))
-        flag, retrieve_relations_with_scores = clean_relations(result, entity_id, head_relations) 
+        result = run_llm(prompt, args.temperature_exploration, args.max_length, args.opeani_api_keys, args.LLM_type, vendor=getattr(args, "vendor", None), model=getattr(args, "model", None))
+        flag, retrieve_relations_with_scores = clean_relations(result, entity_id, head_relations, tail_relations)
 
     elif args.prune_tools == "bm25":
         topn_relations, topn_scores = compute_bm25_similarity(question, total_relations, args.width)
@@ -265,7 +282,7 @@ def entity_score(question, entity_candidates_id, score, relation, args):
     if args.prune_tools == "llm":
         prompt = construct_entity_score_prompt(question, relation, entity_candidates)
 
-        result = run_llm(prompt, args.temperature_exploration, args.max_length, args.opeani_api_keys, args.LLM_type, vendor=getattr(args, "vendor", None))
+        result = run_llm(prompt, args.temperature_exploration, args.max_length, args.opeani_api_keys, args.LLM_type, vendor=getattr(args, "vendor", None), model=getattr(args, "model", None))
         return [float(x) * score for x in clean_scores(result, entity_candidates)], entity_candidates, entity_candidates_id
 
     elif args.prune_tools == "bm25":
@@ -316,12 +333,53 @@ def generate_answer(question, cluster_chain_of_entities, args):
     prompt = answer_prompt + question + '\n'
     chain_prompt = '\n'.join([', '.join([str(x) for x in chain]) for sublist in cluster_chain_of_entities for chain in sublist])
     prompt += "\nKnowledge Triplets: " + chain_prompt + 'A: '
-    result = run_llm(prompt, args.temperature_reasoning, args.max_length, args.opeani_api_keys, args.LLM_type, vendor=getattr(args, "vendor", None))
+    result = run_llm(prompt, args.temperature_reasoning, args.max_length, args.opeani_api_keys, args.LLM_type, vendor=getattr(args, "vendor", None), model=getattr(args, "model", None))
     return result
 
 
-def save_2_jsonl(question, answer, cluster_chain_of_entities, file_name, output_file=None):
-    dict = {"question":question, "results": answer, "reasoning_chains": cluster_chain_of_entities}
+def extract_record_id(data, dataset):
+    """Stable per-question id for the output record (matches RoG's `id`)."""
+    if dataset == "webqsp":
+        return data.get("QuestionId")
+    if dataset == "cwq":
+        return data.get("ID")
+    return data.get("id") or data.get("ID") or data.get("QuestionId")
+
+
+def extract_ground_truth(data, dataset):
+    """Readable gold-answer list for a dataset row (mirrors eval align())."""
+    answers = []
+    if dataset == "webqsp":
+        for parse in data.get("Parses", []) or []:
+            for a in parse.get("Answers", []) or []:
+                answers.append(a.get("EntityName") or a.get("AnswerArgument"))
+    elif dataset == "cwq":
+        raw = data.get("answers", data.get("answer"))
+        if isinstance(raw, str):
+            answers.append(raw)
+        elif isinstance(raw, list):
+            for a in raw:
+                if isinstance(a, dict):
+                    answers.extend(a.get("aliases", []) or [])
+                    if a.get("answer"):
+                        answers.append(a["answer"])
+                elif a is not None:
+                    answers.append(a)
+    return [str(x) for x in answers if x is not None]
+
+
+def save_2_jsonl(question, answer, cluster_chain_of_entities, file_name, output_file=None,
+                 qid=None, ground_truth=None, loop_idx=None):
+    dict = {}
+    if qid is not None:
+        dict["id"] = qid
+    dict["question"] = question
+    dict["results"] = answer
+    if ground_truth is not None:
+        dict["ground_truth"] = ground_truth
+    if loop_idx is not None:
+        dict["loop_idx"] = loop_idx
+    dict["reasoning_chains"] = cluster_chain_of_entities
     output_path = output_file or os.path.join(os.path.dirname(os.path.dirname(__file__)), "output", "ToG_{}.jsonl".format(file_name))
     output_dir = os.path.dirname(output_path)
     if output_dir:
@@ -353,7 +411,7 @@ def reasoning(question, cluster_chain_of_entities, args):
     chain_prompt = '\n'.join([', '.join([str(x) for x in chain]) for sublist in cluster_chain_of_entities for chain in sublist])
     prompt += "\nKnowledge Triplets: " + chain_prompt + 'A: '
 
-    response = run_llm(prompt, args.temperature_reasoning, args.max_length, args.opeani_api_keys, args.LLM_type, vendor=getattr(args, "vendor", None))
+    response = run_llm(prompt, args.temperature_reasoning, args.max_length, args.opeani_api_keys, args.LLM_type, vendor=getattr(args, "vendor", None), model=getattr(args, "model", None))
     
     result = extract_answer(response)
     if if_true(result):
@@ -374,15 +432,17 @@ def if_true(prompt):
         return True
     return False
 
-def half_stop(question, cluster_chain_of_entities, args):
+def half_stop(question, cluster_chain_of_entities, args, qid=None, ground_truth=None, loop_idx=None):
     print("No new knowledge added during search depth %d, stop searching." % args.depth)
     answer = generate_answer(question, cluster_chain_of_entities, args)
-    save_2_jsonl(question, answer, cluster_chain_of_entities, file_name=args.dataset, output_file=getattr(args, "output_file", None))
+    save_2_jsonl(question, answer, cluster_chain_of_entities, file_name=args.dataset,
+                 output_file=getattr(args, "output_file", None),
+                 qid=qid, ground_truth=ground_truth, loop_idx=loop_idx)
 
 
 def generate_without_explored_paths(question, args):
     prompt = generate_directly + "\n\nQ: " + question + "\nA:"
-    response = run_llm(prompt, args.temperature_reasoning, args.max_length, args.opeani_api_keys, args.LLM_type, vendor=getattr(args, "vendor", None))
+    response = run_llm(prompt, args.temperature_reasoning, args.max_length, args.opeani_api_keys, args.LLM_type, vendor=getattr(args, "vendor", None), model=getattr(args, "model", None))
     return response
 
 def prepare_dataset(dataset_name):
@@ -422,7 +482,17 @@ def prepare_dataset(dataset_name):
         with open('../data/creak.json',encoding='utf-8') as f:
             datas = json.load(f)
         question_string = 'sentence'
+    elif dataset_name in ('lcquad', 'lcquad_train'):
+        with open('../data/lcquad_train.json',encoding='utf-8') as f:
+            datas = json.load(f)
+        datas = [d for d in datas if d.get('question')]
+        question_string = 'question'
+    elif dataset_name == 'lcquad_test':
+        with open('../data/lcquad_test.json',encoding='utf-8') as f:
+            datas = json.load(f)
+        datas = [d for d in datas if d.get('question')]
+        question_string = 'question'
     else:
-        print("dataset not found, you should pick from {cwq, webqsp, grailqa, simpleqa, qald, webquestions, trex, zeroshotre, creak}.")
+        print("dataset not found, you should pick from {cwq, webqsp, grailqa, simpleqa, qald, webquestions, trex, zeroshotre, creak, lcquad, lcquad_train, lcquad_test}.")
         exit(-1)
     return datas, question_string

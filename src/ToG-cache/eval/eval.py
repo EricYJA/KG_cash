@@ -15,9 +15,27 @@ if __name__ == '__main__':
 
     num_right = 0
     num_error = 0
+    # RoG-compatible metrics (computed over every record, alongside Exact Match)
+    hit_list = []
+    f1_list = []
+    precision_list = []
+    recall_list = []
     for data in output_datas:
-        answers = align(args.dataset, question_string, data, ground_truth_datas)
+        # Prefer the gold answers stored inline in the record (self-contained,
+        # matches RoG); fall back to align() for older records without it.
+        answers = data.get("ground_truth") or align(
+            args.dataset, question_string, data, ground_truth_datas)
         results = data['results']
+
+        # --- RoG-style Hits@1 / F1 ---
+        prediction = prediction_to_list(results)
+        hit_list.append(rog_eval_hit(prediction, answers))
+        f1, prec, rec = rog_eval_f1(prediction, answers)
+        f1_list.append(f1)
+        precision_list.append(prec)
+        recall_list.append(rec)
+
+        # --- Exact Match (unchanged) ---
         if check_string(results):
             response = clean_results(results)
             if response=="NULL":
@@ -36,8 +54,24 @@ if __name__ == '__main__':
             else:
                 num_error+=1
 
-    print("Exact Match: {}".format(float(num_right/len(output_datas))))
-    print("right: {}, error: {}".format(num_right, num_error))
+    n = len(output_datas)
+    hits1 = sum(hit_list) / n if n else 0.0
+    f1 = sum(f1_list) / n if n else 0.0
+    precision = sum(precision_list) / n if n else 0.0
+    recall = sum(recall_list) / n if n else 0.0
 
-    save_result2json(args.dataset, num_right, num_error, len(output_datas), "ToG")
+    print("Exact Match: {}".format(float(num_right/n)))
+    print("right: {}, error: {}".format(num_right, num_error))
+    print("Hits@1: {}".format(hits1))
+    print("F1: {}".format(f1))
+    print("Precision: {}".format(precision))
+    print("Recall: {}".format(recall))
+
+    save_result2json(args.dataset, num_right, num_error, n, "ToG",
+                     extra_metrics={
+                         "Hits@1": hits1,
+                         "F1": f1,
+                         "Precision": precision,
+                         "Recall": recall,
+                     })
     

@@ -1,13 +1,22 @@
+import os
+
 from SPARQLWrapper import SPARQLWrapper, JSON
-# SPARQLPATH = "http://xxx.xxx.xxx.xxx/sparql"  # depend on your own internal address and port, shown in Freebase folder's readme.md
-SPARQLPATH = "http://localhost:8890/sparql"  # local virtuoso server address and port default in most cases
+from SPARQLWrapper.SPARQLExceptions import QueryBadFormed
+# Any SPARQL 1.1 endpoint serving the Freebase triples works here (Virtuoso,
+# Oxigraph, ...); see docker-compose.yml. Default is the local Virtuoso.
+SPARQLPATH = os.environ.get("SPARQL_ENDPOINT", "http://localhost:8890/sparql")
 
 # pre-defined sparqls
-sparql_head_relations = """\nPREFIX ns: <http://rdf.freebase.com/ns/>\nSELECT ?relation\nWHERE {\n  ns:%s ?relation ?x .\n}"""
-sparql_tail_relations = """\nPREFIX ns: <http://rdf.freebase.com/ns/>\nSELECT ?relation\nWHERE {\n  ?x ?relation ns:%s .\n}"""
-sparql_tail_entities_extract = """PREFIX ns: <http://rdf.freebase.com/ns/>\nSELECT ?tailEntity\nWHERE {\nns:%s ns:%s ?tailEntity .\n}""" 
-sparql_head_entities_extract = """PREFIX ns: <http://rdf.freebase.com/ns/>\nSELECT ?tailEntity\nWHERE {\n?tailEntity ns:%s ns:%s  .\n}"""
-sparql_id = """PREFIX ns: <http://rdf.freebase.com/ns/>\nSELECT DISTINCT ?tailEntity\nWHERE {\n  {\n    ?entity ns:type.object.name ?tailEntity .\n    FILTER(?entity = ns:%s)\n  }\n  UNION\n  {\n    ?entity <http://www.w3.org/2002/07/owl#sameAs> ?tailEntity .\n    FILTER(?entity = ns:%s)\n  }\n}"""
+#
+# Absolute IRIs on purpose: prefixed names like ns:type.object.name (two dots
+# in the local part) are valid SPARQL but rejected by some strict parsers
+# (e.g. Oxigraph), and mids/relations are substituted in as raw strings. Full
+# IRIs parse identically on every backend.
+sparql_head_relations = """\nSELECT ?relation\nWHERE {\n  <http://rdf.freebase.com/ns/%s> ?relation ?x .\n}"""
+sparql_tail_relations = """\nSELECT ?relation\nWHERE {\n  ?x ?relation <http://rdf.freebase.com/ns/%s> .\n}"""
+sparql_tail_entities_extract = """SELECT ?tailEntity\nWHERE {\n<http://rdf.freebase.com/ns/%s> <http://rdf.freebase.com/ns/%s> ?tailEntity .\n}"""
+sparql_head_entities_extract = """SELECT ?tailEntity\nWHERE {\n?tailEntity <http://rdf.freebase.com/ns/%s> <http://rdf.freebase.com/ns/%s>  .\n}"""
+sparql_id = """SELECT DISTINCT ?tailEntity\nWHERE {\n  {\n    ?entity <http://rdf.freebase.com/ns/type.object.name> ?tailEntity .\n    FILTER(?entity = <http://rdf.freebase.com/ns/%s>)\n  }\n  UNION\n  {\n    ?entity <http://www.w3.org/2002/07/owl#sameAs> ?tailEntity .\n    FILTER(?entity = <http://rdf.freebase.com/ns/%s>)\n  }\n}"""
     
 def check_end_word(s):
     words = [" ID", " code", " number", "instance of", "website", "URL", "inception", "image", " rate", " count"]
@@ -22,7 +31,11 @@ def execurte_sparql(sparql_txt):
     sparql = SPARQLWrapper(SPARQLPATH)
     sparql.setQuery(sparql_txt)
     sparql.setReturnFormat(JSON)
-    results = sparql.query().convert()
+    try:
+        results = sparql.query().convert()
+    except QueryBadFormed:
+        print(f"[sparql] skipping malformed query: {sparql_txt!r}")
+        return []
     return results["results"]["bindings"]
 
 

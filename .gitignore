@@ -12,7 +12,12 @@ __pycache__
 .codex
 venv
 .venv
-.env
+.env*
+.env_gemini
+.env_gpt
+.env_oxi
+.env_oxi_gemini
+.env_oxi_gpt
 characterization/data
 api_key.sh
 

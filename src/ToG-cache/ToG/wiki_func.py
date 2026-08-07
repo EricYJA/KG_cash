@@ -1,8 +1,9 @@
 from prompt_list import *
 import json
-import openai
 import re
 import time
+
+from llm_dispatch import run_llm  # vendor-aware LLM dispatch (tamu, openai, llama)
 
 def clean_relations(string, entity_id, head_relations):
     pattern = r"{\s*(?P<relation>[^()]+)\s+\(Score:\s+(?P<score>[0-9.]+)\)}"
@@ -27,70 +28,6 @@ def clean_relations(string, entity_id, head_relations):
     return True, relations
 
 
-
-def is_reasoning_model(engine):
-    model_name = engine.lower()
-    return (
-        model_name.startswith("gpt-5")
-        or model_name.startswith("o1")
-        or model_name.startswith("o3")
-        or model_name.startswith("o4")
-    )
-
-
-def should_retry_openai_error(error):
-    error_text = str(error).lower()
-    non_retryable_markers = [
-        "unsupported parameter",
-        "unknown parameter",
-        "not compatible",
-        "invalid_request",
-        "invalid request",
-        "does not support",
-        "model_not_found",
-    ]
-    return not any(marker in error_text for marker in non_retryable_markers)
-
-
-def run_llm(prompt, temperature, max_tokens, opeani_api_keys, engine="gpt-3.5-turbo"):
-    if "llama" in engine.lower():
-        openai.api_key = "EMPTY"
-        openai.api_base = "http://localhost:8000/v1"  # your local llama server port
-        engine = openai.Model.list()["data"][0]["id"]
-    else:
-        openai.api_key = opeani_api_keys
-
-    messages = [{"role":"system","content":"You are an AI assistant that helps people find information."}]
-    message_prompt = {"role":"user","content":prompt}
-    messages.append(message_prompt)
-    print("start openai")
-    f = 0
-    while(f == 0):
-        try:
-            request_kwargs = {
-                    "model": engine,
-                    "messages": messages,
-            }
-            if is_reasoning_model(engine):
-                request_kwargs["max_completion_tokens"] = max_tokens
-            else:
-                request_kwargs.update({
-                    "temperature": temperature,
-                    "max_tokens": max_tokens,
-                    "frequency_penalty": 0,
-                    "presence_penalty": 0,
-                })
-            response = openai.ChatCompletion.create(**request_kwargs)
-            result = response["choices"][0]['message']['content']
-            f = 1
-        except Exception as e:
-            print("openai error:", repr(e))
-            if not should_retry_openai_error(e):
-                raise
-            print("retry")
-            time.sleep(2)
-    print("end openai")
-    return result
 
 def construct_relation_prune_prompt(question, entity_name, total_relations, args):
     return extract_relation_prompt_wiki % (args.width, args.width)+question+'\nTopic Entity: '+entity_name+ '\nRelations:\n'+'\n'.join([f"{i}. {item}" for i, item in enumerate(total_relations, start=1)])+'A:'
@@ -129,7 +66,7 @@ def relation_search_prune(entity_id, entity_name, pre_relations, pre_head, quest
     
     prompt = construct_relation_prune_prompt(question, entity_name, total_relations, args)
 
-    result = run_llm(prompt, args.temperature_exploration, args.max_length, args.opeani_api_keys, args.LLM_type)
+    result = run_llm(prompt, args.temperature_exploration, args.max_length, args.opeani_api_keys, args.LLM_type, vendor=getattr(args, "vendor", None))
     flag, retrieve_relations_with_scores = clean_relations(result, entity_id, head_relations) 
 
     if flag:
@@ -200,7 +137,7 @@ def entity_score(question, entity_candidates_id, entity_candidates, score, relat
 
     prompt = construct_entity_score_prompt(question, relation, entity_candidates)
 
-    result = run_llm(prompt, args.temperature_exploration, args.max_length, args.opeani_api_keys, args.LLM_type)
+    result = run_llm(prompt, args.temperature_exploration, args.max_length, args.opeani_api_keys, args.LLM_type, vendor=getattr(args, "vendor", None))
     entity_scores = clean_scores(result, entity_candidates)
     if all_zero(entity_scores):
         return [1/len(entity_candidates) * score] * len(entity_candidates), entity_candidates, entity_candidates_id
@@ -239,7 +176,7 @@ def generate_answer(question, cluster_chain_of_entities, args):
     prompt = answer_prompt_wiki + question + '\n'
     chain_prompt = '\n'.join([', '.join([str(x) for x in chain]) for sublist in cluster_chain_of_entities for chain in sublist])
     prompt += "\nKnowledge Triplets: " + chain_prompt + 'A: '
-    result = run_llm(prompt, args.temperature_reasoning, args.max_length, args.opeani_api_keys, args.LLM_type)
+    result = run_llm(prompt, args.temperature_reasoning, args.max_length, args.opeani_api_keys, args.LLM_type, vendor=getattr(args, "vendor", None))
     return result
 
 
@@ -270,7 +207,7 @@ def reasoning(question, cluster_chain_of_entities, args):
     chain_prompt = '\n'.join([', '.join([str(x) for x in chain]) for sublist in cluster_chain_of_entities for chain in sublist])
     prompt += "\nKnowledge Triplets: " + chain_prompt + 'A: '
 
-    response = run_llm(prompt, args.temperature_reasoning, args.max_length, args.opeani_api_keys, args.LLM_type)
+    response = run_llm(prompt, args.temperature_reasoning, args.max_length, args.opeani_api_keys, args.LLM_type, vendor=getattr(args, "vendor", None))
     
     result = extract_answer(response)
     if if_true(result):
@@ -299,8 +236,68 @@ def half_stop(question, cluster_chain_of_entities, args):
 
 def generate_without_explored_paths(question, args):
     prompt = generate_directly + "\n\nQ: " + question + "\nA:"
-    response = run_llm(prompt, args.temperature_reasoning, args.max_length, args.opeani_api_keys, args.LLM_type)
+    response = run_llm(prompt, args.temperature_reasoning, args.max_length, args.opeani_api_keys, args.LLM_type, vendor=getattr(args, "vendor", None))
     return response
+
+_LCQUAD_QID_RE = re.compile(r'\bwd:(Q\d+)')
+
+
+def _load_lcquad(dataset_name):
+    """Load LC-QuAD 2.0 and shape it like the QALD records the runner expects.
+
+    Modes (suffix on dataset_name):
+      - lcquad / lcquad_train      : original questions only
+      - lcquad_para / ..._para     : paraphrased questions only
+      - lcquad_pair / ..._pair     : interleave (orig, paraphrase) per source row,
+                                     so a paraphrase immediately follows its
+                                     original — useful for showing cache hits
+                                     across surface variants.
+
+    Source records missing the chosen question form, or with no QIDs in
+    sparql_wikidata, are skipped.
+    """
+    split = 'train' if 'train' in dataset_name else 'test'
+    path = f'../data/lcquad_{split}.json'
+    with open(path, encoding='utf-8') as f:
+        raw = json.load(f)
+
+    if dataset_name.endswith('_pair'):
+        mode = 'pair'
+    elif dataset_name.endswith('_para'):
+        mode = 'para'
+    else:
+        mode = 'orig'
+
+    out = []
+    for rec in raw:
+        sparql = rec.get('sparql_wikidata') or ''
+        qids = list(dict.fromkeys(_LCQUAD_QID_RE.findall(sparql)))
+        if not qids:
+            continue
+        topic_entity = {qid: 'UnName_Entity' for qid in qids}
+        q_orig = (rec.get('question') or '').strip()
+        q_para = (rec.get('paraphrased_question') or '').strip()
+        base = {
+            'topic_entity': topic_entity,
+            'sparql': sparql,
+            'answer': rec.get('answer', []),
+            'uid': rec.get('uid'),
+        }
+        if mode == 'orig':
+            if not q_orig:
+                continue
+            out.append({**base, 'question': q_orig, 'variant': 'orig'})
+        elif mode == 'para':
+            if not q_para:
+                continue
+            out.append({**base, 'question': q_para, 'variant': 'para'})
+        else:  # pair
+            if not q_orig or not q_para:
+                continue
+            out.append({**base, 'question': q_orig, 'variant': 'orig'})
+            out.append({**base, 'question': q_para, 'variant': 'para'})
+    return out
+
 
 def prepare_dataset(dataset_name):
     if dataset_name == 'cwq':
@@ -321,8 +318,12 @@ def prepare_dataset(dataset_name):
         question_string = 'question'
     elif dataset_name == 'qald':
         with open('../data/qald_10-en.json',encoding='utf-8') as f:
-            datas = json.load(f) 
-        question_string = 'question'   
+            datas = json.load(f)
+        question_string = 'question'
+    elif dataset_name in ('lcquad', 'lcquad_para', 'lcquad_pair',
+                          'lcquad_train', 'lcquad_train_para', 'lcquad_train_pair'):
+        datas = _load_lcquad(dataset_name)
+        question_string = 'question'
     elif dataset_name == 'webquestions':
         with open('../data/WebQuestions.json',encoding='utf-8') as f:
             datas = json.load(f)
