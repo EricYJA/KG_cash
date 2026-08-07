@@ -30,7 +30,6 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
-from matplotlib.ticker import PercentFormatter
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 ART = {
@@ -51,8 +50,8 @@ COMPARE_KEYS = {"accuracy": "recall", "hit": "hits1", "f1": "f1"}
 
 SYSTEM_LABELS = {"tog": "ToG", "rog": "RoG"}
 # Same palette/hatch order as accuracy_plot.py, so the two charts read as a pair.
-COLORS = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd']
-HATCHES = ['/', '\\', '|', '-', 'x']
+COLORS = ['#999999', '#56B4E9', '#E69F00', '#009E73']
+HATCHES = ['', '/', '\\', '++']
 
 
 def run_tag(system: str, backend: str, size: int) -> str:
@@ -138,44 +137,49 @@ def main() -> None:
     # and is printed at 100%, so fonts match body text instead of being inflated
     # for an IEEE two-column shrink.
     plt.rcParams.update({
-        'font.size': 10,
+        'font.size': 9,
         'font.family': 'serif',
-        'axes.labelsize': 11,
-        'axes.titlesize': 11,
-        'xtick.labelsize': 9,
-        'ytick.labelsize': 9,
-        'legend.fontsize': 9,
-        'figure.figsize': (6.5, 3.0),
+        'axes.labelsize': 10,
+        'axes.titlesize': 10,
+        'xtick.labelsize': 8.5,
+        'ytick.labelsize': 8.5,
+        'legend.fontsize': 8.5,
+        'figure.figsize': (6.0, 3.0),
         'figure.dpi': 300,
     })
 
-    fig, ax = plt.subplots()
+    fig, ax = plt.subplots(figsize=(6.0, 3.0))
     # One cluster per system, one bar per cache size inside it.
-    group_pos = np.arange(len(systems))
-    width = 0.8 / len(sizes)
+    group_pos = np.arange(len(systems)) * 1.15
+    width = 0.68 / len(sizes)
 
     for i, size in enumerate(sizes):
         offset = (i - (len(sizes) - 1) / 2) * width
         values = [series[system][i] for system in systems]
         bars = ax.bar(group_pos + offset, values, width=width * 0.92,
-                      color=COLORS[i % len(COLORS)], edgecolor='black',
+                      color=COLORS[i % len(COLORS)], edgecolor='#555555',
+                      linewidth=0.6,
                       hatch=HATCHES[i % len(HATCHES)],
                       label=SIZE_LABELS.get(size, str(size)))
         for bar, v in zip(bars, values):
             # Value labels on top -- accuracy spreads across sizes are small.
             ax.annotate(f"{100 * v:.1f}", (bar.get_x() + bar.get_width() / 2, v),
-                        ha='center', va='bottom', fontsize=7, rotation=90)
+                        xytext=(0, 4), textcoords='offset points',
+                        ha='center', va='bottom', fontsize=7.5, rotation=90)
 
     ax.set_xlabel('System')
-    ax.set_ylabel(METRIC_LABELS[args.metric])
+    ax.set_ylabel(f'{METRIC_LABELS[args.metric]} (%)')
     ax.set_xticks(group_pos)
-    ax.set_xticklabels([SYSTEM_LABELS.get(s, s.upper()) for s in systems])
-    ax.yaxis.set_major_formatter(PercentFormatter(xmax=1.0, decimals=0))
+    ax.set_xticklabels([SYSTEM_LABELS.get(s, s.upper()) for s in systems],
+                       fontweight='bold')
+    ax.set_yticks([0.0, 0.2, 0.4, 0.6])
+    ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda value, _: f'{100 * value:.0f}'))
 
     max_v = max(v for vals in series.values() for v in vals)
-    ax.set_ylim(0, max_v * 1.22)
-    ax.yaxis.grid(True, linestyle='--', alpha=0.7)
+    ax.set_ylim(0, max_v * 1.12)
+    ax.yaxis.grid(True, linestyle='--', linewidth=0.7, alpha=0.4)
     ax.set_axisbelow(True)
+    ax.spines[['top', 'right']].set_visible(False)
     # Legend sits above the axes so it never collides with the value labels.
     ax.legend(title='Cache Size', frameon=False, ncol=len(sizes),
               loc='lower center', bbox_to_anchor=(0.5, 1.02),
@@ -183,7 +187,7 @@ def main() -> None:
               columnspacing=1.0, handlelength=1.4, handletextpad=0.5)
     plt.tight_layout()
 
-    plt.savefig(args.output, format='pdf', bbox_inches='tight')
+    plt.savefig(args.output, format='pdf')
     print(f"wrote {args.output}  [gemini, {args.backend}, {args.metric}]")
     print("\n".join(provenance))
 
