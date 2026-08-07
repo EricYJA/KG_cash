@@ -47,6 +47,7 @@ sys.path.insert(0, str(TOG_DIR))
 
 from question_cache import (  # noqa: E402
     PersistentQuestionCache,
+    _PLAIN_SEMANTIC,
     _USES_EMBEDDING,
     _normalize,
     _select_torch_device,
@@ -173,7 +174,7 @@ class FastSimCache(PersistentQuestionCache):
                 self.hits += 1
                 self.exact_hits += 1
                 return self._store[key]
-            if self.policy in ("semantic_lru", "semantic_lfu"):
+            if self.policy in _PLAIN_SEMANTIC:
                 sem = self._semantic_lookup(key)
                 if sem is not None:
                     matched_key, _sim = sem
@@ -181,6 +182,12 @@ class FastSimCache(PersistentQuestionCache):
                     self.hits += 1
                     if self.policy == "semantic_lfu":
                         self.semantic_lfu_hits += 1
+                    elif self.policy == "semantic_fifo":
+                        self.semantic_fifo_hits += 1
+                    elif self.policy == "semantic_random":
+                        self.semantic_random_hits += 1
+                    elif self.policy == "semantic_belady":
+                        self.semantic_belady_hits += 1
                     else:
                         self.semantic_lru_hits += 1
                     return self._store[matched_key]
@@ -194,6 +201,72 @@ class FastSimCache(PersistentQuestionCache):
                     return self._store[matched_key]
             self.misses += 1
             return None
+
+
+class SemanticBeladyCache(FastSimCache):
+    """Offline-optimal eviction for a *semantic* cache: evict the entry whose
+    next semantic match lies farthest in the future.
+
+    Belady's MIN assumes an exact key, where "next use of k" is unambiguous.
+    Under semantic matching a cached entry is reachable by any future question
+    within `similarity_threshold` cosine of it, so the analogue is:
+
+        next_use(k, i) = min { j > i : cos(question_j, k) >= threshold }
+
+    which is computable offline from the question-by-question similarity matrix.
+    `question_positions` is the trace order the driver will replay; the driver
+    must call `set_position(i)` before each get/put so eviction knows where in
+    that trace it currently stands.
+
+    Like exact-key MIN this is an upper bound on any online semantic policy at
+    the same threshold, and unlike `semantic_oracle` it is a *demand-paging*
+    bound: it still pays every compulsory miss.
+    """
+
+    def __init__(self, *args, question_positions=None, **kw):
+        super().__init__(*args, **kw)
+        self._position = 0
+        self._key_row: dict[str, int] = {}
+        self._match_indices: list[np.ndarray] = []
+        if question_positions is not None:
+            self._build_future(question_positions)
+
+    def _build_future(self, questions: list[str]) -> None:
+        """Precompute, for each distinct question, the sorted trace indices at
+        which some future question would semantically match it."""
+        keys = [_normalize(q) for q in questions]
+        unique = list(dict.fromkeys(keys))
+        self._key_row = {k: i for i, k in enumerate(unique)}
+        matrix = np.stack([np.asarray(self._embed(k), dtype=np.float32) for k in unique])
+        # sims[t, u] = cosine(trace question t, unique question u)
+        trace_matrix = np.stack([matrix[self._key_row[k]] for k in keys])
+        sims = trace_matrix @ matrix.T
+        hit_mask = sims >= self.similarity_threshold
+        self._match_indices = [np.flatnonzero(hit_mask[:, u]) for u in range(len(unique))]
+
+    def set_position(self, index: int) -> None:
+        self._position = index
+
+    def _next_use(self, key: str) -> int:
+        row = self._key_row.get(key)
+        if row is None:
+            return 1 << 60
+        candidates = self._match_indices[row]
+        offset = int(np.searchsorted(candidates, self._position, side="right"))
+        if offset >= len(candidates):
+            return 1 << 60  # never matched again
+        return int(candidates[offset])
+
+    def _evict_one(self):
+        if not self._store:
+            return None
+        evicted = max(self._store, key=self._next_use)
+        del self._store[evicted]
+        self._embeddings.pop(evicted, None)
+        self._oracle_keys.pop(evicted, None)
+        self._freq.pop(evicted, None)
+        self._matrix_dirty = True
+        return evicted
 
 
 def precompute_embeddings(datas, question_string, embedder_model, batch_size=128):

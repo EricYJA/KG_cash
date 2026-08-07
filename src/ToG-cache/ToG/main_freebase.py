@@ -1,11 +1,14 @@
 from tqdm import tqdm
 import argparse
 import json
+import sys
 import time
 from utils import *
 import random
 from client import *
 from question_cache import PersistentQuestionCache, extract_oracle_answer_key
+import trace_instrument
+from trace_utils import TraceRecorder, set_active_trace_recorder
 
 
 if __name__ == '__main__':
@@ -59,11 +62,41 @@ if __name__ == '__main__':
     parser.add_argument("--timing-log", type=str,
                         default="../output/cache_timing.jsonl",
                         help="Append a per-run timing record (JSON line) to this file. Set to '' to disable.")
+    parser.add_argument("--trace-output", type=str, default="",
+                        help="Record a per-question KG/LLM event trace to this .jsonl "
+                             "(a pretty .json is written alongside at the end). This is "
+                             "the input cache_simulator.py replays; off by default because "
+                             "it costs a little overhead per call.")
+    parser.add_argument("--shard-count", type=int, default=1,
+                        help="Split the dataset across this many independent processes.")
+    parser.add_argument("--shard-index", type=int, default=0,
+                        help="Which shard this process handles (0-based, < --shard-count).")
     args = parser.parse_args()
+
+    if args.shard_count < 1 or not (0 <= args.shard_index < args.shard_count):
+        parser.error(f"--shard-index must be in [0, {args.shard_count}), "
+                     f"got {args.shard_index} with --shard-count {args.shard_count}")
+
+    trace_recorder = None
+    if args.trace_output:
+        trace_recorder = TraceRecorder(enabled=True, output_path=args.trace_output)
+        set_active_trace_recorder(trace_recorder)
+        # main_freebase did `from utils import *`, so its globals hold their own
+        # references to the functions being patched; patch those too.
+        patched = trace_instrument.install([sys.modules[__name__]])
+        print(f"[trace] recording to {args.trace_output} (patched: {', '.join(patched)})")
 
     datas, question_string = prepare_dataset(args.dataset)
     if args.test_limit is not None:
         datas = datas[:min(args.test_limit, len(datas))]
+    if args.shard_count > 1:
+        # Strided, not contiguous: question cost varies a lot (a 1-hop lookup vs a
+        # 3-depth traversal), so taking every Nth question spreads the expensive
+        # ones evenly instead of leaving one shard running hours after the rest.
+        total = len(datas)
+        datas = datas[args.shard_index::args.shard_count]
+        print(f"[shard] {args.shard_index+1}/{args.shard_count}: "
+              f"{len(datas)} of {total} questions")
 
     question_cache = None
     if not args.no_question_cache:
@@ -105,6 +138,15 @@ if __name__ == '__main__':
         record_id = extract_record_id(data, args.dataset)
         ground_truth = extract_ground_truth(data, args.dataset)
 
+        if trace_recorder is not None:
+            trace_recorder.start_question(
+                question_id=record_id,
+                dataset=args.dataset,
+                question=question,
+                question_field=question_string,
+                initial_topic_entity=data.get('topic_entity'),
+            )
+
         oracle_key = (extract_oracle_answer_key(data, args.dataset)
                       if (question_cache is not None and args.cache_policy == "semantic_oracle")
                       else None)
@@ -126,6 +168,8 @@ if __name__ == '__main__':
                     "elapsed_s": time.perf_counter() - t_question_start,
                     "llm_calls": llm_call_count() - calls_start,
                 })
+                if trace_recorder is not None:
+                    trace_recorder.finish_question("cache_hit")
                 continue
 
         topic_entity = data['topic_entity']
@@ -134,6 +178,8 @@ if __name__ == '__main__':
         pre_heads= [-1] * len(topic_entity)
         flag_printed = False
         for depth in range(1, args.depth+1):
+            if trace_recorder is not None:
+                trace_recorder.set_depth(depth)
             current_entity_relations_list = []
             i=0
             for entity in topic_entity:
@@ -204,6 +250,15 @@ if __name__ == '__main__':
             "elapsed_s": time.perf_counter() - t_question_start,
             "llm_calls": llm_call_count() - calls_start,
         })
+
+        if trace_recorder is not None:
+            trace_recorder.clear_depth()
+            trace_recorder.finish_question("reasoning_stop" if flag_printed else "no_path_found")
+
+    if trace_recorder is not None:
+        # Writes the pretty .json array alongside the appended .jsonl.
+        trace_recorder.finalize_run()
+        print(f"[trace] wrote {args.trace_output} (+ pretty .json)")
 
     if question_cache is not None:
         print("[question_cache] stats: " + json.dumps(question_cache.stats()))

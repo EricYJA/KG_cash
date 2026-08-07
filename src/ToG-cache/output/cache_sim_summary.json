@@ -13,15 +13,25 @@
       "oracle"
     ],
     "shuffle_seed": 0,
+    "random_seed": 0,
+    "random_repeats": 5,
     "access_patterns": [
       "sequential",
       "request_block_shuffled"
     ],
-    "shuffled_semantics": "Question/request traces are shuffled; internal KG access order is preserved."
+    "shuffled_semantics": "Question/request traces are shuffled; internal KG access order is preserved.",
+    "stage_keys": {
+      "cached": "kg",
+      "uncached": "llm"
+    },
+    "stage_labels": {
+      "cached": "KG",
+      "uncached": "LLM"
+    }
   },
   "datasets": {
     "WebQSP": {
-      "trace_path": "/home/sabuj.laskar/PycharmProjects/KG_cash/src/ToG-cache/output/traces/tog_trace_webqsp.json",
+      "trace_path": "/home/stanic/KG_cash/src/ToG-cache/output/traces/tog_trace_webqsp.json",
       "request_count": 5769,
       "time_breakdown_ms": {
         "kg": 57031,
@@ -545,7 +555,7 @@
       ]
     },
     "CWQ": {
-      "trace_path": "/home/sabuj.laskar/PycharmProjects/KG_cash/src/ToG-cache/output/traces/tog_trace_cwq.json",
+      "trace_path": "/home/stanic/KG_cash/src/ToG-cache/output/traces/tog_trace_cwq.json",
       "request_count": 4798,
       "time_breakdown_ms": {
         "kg": 57647,

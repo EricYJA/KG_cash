@@ -43,6 +43,10 @@ datasets.disable_progress_bar()
 
 from llm_client import ChatMessage, LLMChatClient  # noqa: E402  (ToG's client, reused)
 from llm_config import resolve_llm_config  # noqa: E402
+from rog_e2e_metrics import (  # noqa: E402  (ToG's sidecar helpers, reused)
+    append_question_metrics,
+    metrics_sidecar_path,
+)
 from rog_question_cache import (  # noqa: E402
     TracingQuestionCache,
     extract_oracle_answer_key,
@@ -214,6 +218,16 @@ def main():
     prediction_file = os.path.join(output_dir, f"predictions_{args.n_beam}_False.jsonl")
     fout, processed = get_output_file(prediction_file, force=args.force)
 
+    # Per-question sidecar, in ToG's format. The aggregate `timing` block below
+    # only ever sees stage 1, so it can only ever report a planner-stage
+    # speedup; this file is stage 1's half of the whole-question time that
+    # rog_e2e_metrics.py joins with stage 2's to get a real full-system number.
+    metrics_path = metrics_sidecar_path(prediction_file)
+    if args.force and metrics_path and os.path.exists(metrics_path):
+        # --force truncates the predictions file, so the sidecar has to go too or
+        # the join would pair fresh stage-2 times with a previous run's stage 1.
+        os.remove(metrics_path)
+
     # Timing is split by hit/miss so the summary can report time actually saved
     # rather than a modelled estimate.
     hits = misses = 0
@@ -296,6 +310,20 @@ def main():
             + "\n"
         )
         fout.flush()
+
+        # Appended only after the answer is durably written, so a record here
+        # always corresponds to a question present in predictions.jsonl.
+        append_question_metrics(
+            metrics_path,
+            {
+                "id": qid,
+                "question": question,
+                "cache_hit": cache_info["hit"],
+                "cache_hit_type": cache_info["kind"],
+                "elapsed_s": elapsed,
+                "llm_calls": 0 if cache_info["hit"] else 1,
+            },
+        )
     fout.close()
 
     wall_s = time.time() - wall_start
@@ -309,17 +337,22 @@ def main():
         "avg_miss_s": round(miss_total_s / misses, 3) if misses else 0.0,
         "estimated_time_saved_s": round(hits * (miss_total_s / misses), 3) if (hits and misses) else 0.0,
         "speedup_x": None,
-        "full_speedup_x": None,
+        "planner_full_speedup_x": None,
     }
     if hits and misses:
         would_have_been = timing["estimated_time_saved_s"] + wall_s
         timing["speedup_x"] = round(would_have_been / wall_s, 3) if wall_s else None
-        # Full-system speedup: without the cache every request would have been a miss,
-        # so the amortised no-cache time is n*avg_miss against the actual hit+miss time.
-        # Unlike speedup_x (whole-run wall clock), this folds in hit rate over the served requests.
+        # PLANNER-STAGE ONLY -- not a full-system speedup. Every second measured
+        # here is inside this script's per-question timer (cache lookup, or prompt
+        # build + one planner call); stage 2's grounding and reasoner call are in
+        # another process entirely and are absent from both terms. Without the
+        # cache every request would have been a miss, so the amortised no-cache
+        # stage-1 time is n*avg_miss against the actual hit+miss stage-1 time.
+        # The real end-to-end number comes from rog_e2e_metrics.py, which joins
+        # the sidecar below with stage 2's; it is strictly lower than this one.
         served_s = hit_total_s + miss_total_s
         baseline_s = n * (miss_total_s / misses)
-        timing["full_speedup_x"] = round(baseline_s / served_s, 3) if served_s else None
+        timing["planner_full_speedup_x"] = round(baseline_s / served_s, 3) if served_s else None
 
     record = {
         "ts": datetime.now(timezone.utc).isoformat(),
@@ -348,6 +381,7 @@ def main():
             "hit_rate": (hits / n) if n else 0.0,
             "wall_s_total": round(wall_s, 2),
             "prediction_file": prediction_file,
+            "stage1_metrics_file": metrics_path,
             "vendor": config.vendor,
             "model": config.model,
         }

@@ -68,16 +68,18 @@ def main() -> None:
     # Summary metrics are 0-100 percentages; scale to 0-1 for PercentFormatter.
     values = [(recs[p].get(args.metric) or 0.0) / 100.0 for p in policies]
 
-    # IEEE paper style settings (unchanged from the original chart).
+    # Journal (single-column body) style: the figure spans the ~6.5in text block
+    # and is printed at 100%, so fonts match body text instead of being inflated
+    # for an IEEE two-column shrink.
     plt.rcParams.update({
-        'font.size': 16,
+        'font.size': 10,
         'font.family': 'serif',
-        'axes.labelsize': 17,
-        'axes.titlesize': 17,
-        'xtick.labelsize': 15,
-        'ytick.labelsize': 15,
-        'legend.fontsize': 15,
-        'figure.figsize': (5.2, 3.8),
+        'axes.labelsize': 11,
+        'axes.titlesize': 11,
+        'xtick.labelsize': 9,
+        'ytick.labelsize': 9,
+        'legend.fontsize': 9,
+        'figure.figsize': (6.5, 3.0),
         'figure.dpi': 300,
     })
 
@@ -92,7 +94,7 @@ def main() -> None:
         bar.set_hatch(hatch_patterns[i % len(hatch_patterns)])
         # Value label on top -- accuracy spreads across policies are small.
         ax.annotate(f"{100 * values[i]:.1f}", (bar.get_x() + bar.get_width() / 2,
-                    values[i]), ha='center', va='bottom', fontsize=11)
+                    values[i]), ha='center', va='bottom', fontsize=8)
 
     ax.set_xlabel('Cache Policy')
     ax.set_ylabel(METRIC_LABELS[args.metric])

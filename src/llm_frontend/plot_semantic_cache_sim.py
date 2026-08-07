@@ -27,6 +27,12 @@ POLICY_TITLES = {
     "semantic_lru":    "Semantic LRU",
     "semantic_lfu":    "Semantic LFU",
 }
+# Journal (single-column body) sizing: the figure is placed at ~6.5in and printed
+# at 100%, so fonts are body-text sized rather than inflated for a two-column
+# shrink, and panels stack one per row.
+FIG_WIDTH = 6.5
+PANEL_HEIGHT = 2.4
+
 POLICY_ORDER = ["semantic_oracle", "semantic_lru", "semantic_lfu"]
 
 
@@ -74,7 +80,7 @@ def _plot_lines(
         marker = THRESHOLD_MARKERS.get(threshold, "o")
         (line,) = ax.plot(
             cache_sizes, values,
-            marker=marker, linewidth=1.8, markersize=6,
+            marker=marker, linewidth=1.6, markersize=5,
             color=color, label=f"≥{threshold:.2f}",
             zorder=3,
         )
@@ -86,9 +92,9 @@ def _plot_lines(
     ax.set_xscale("log")
     ax.set_xticks(cache_sizes)
     ax.xaxis.set_major_formatter(mticker.ScalarFormatter())
-    ax.set_xlabel("Cache Size", fontsize=19, fontweight="bold")
-    ax.set_ylabel(ylabel, fontsize=19, labelpad=8, fontweight="bold")
-    ax.tick_params(axis="both", labelsize=17)
+    ax.set_xlabel("Cache Size", fontsize=11, fontweight="bold")
+    ax.set_ylabel(ylabel, fontsize=11, labelpad=6, fontweight="bold")
+    ax.tick_params(axis="both", labelsize=9)
     ax.yaxis.set_major_formatter(mticker.FuncFormatter(lambda v, _: f"{v:.1f}%"))
     if ylim is not None:
         ax.set_ylim(*ylim)
@@ -113,7 +119,8 @@ def main() -> None:
         "--output",
         type=Path,
         default=Path("semantic_cache_sim_gain.png"),
-        help="Output PNG path.",
+        help="Output base path; one file per policy is written to "
+             "<stem>_<policy><suffix>.",
     )
     args = parser.parse_args()
 
@@ -125,46 +132,41 @@ def main() -> None:
     if not policies:
         raise SystemExit("No semantic policy data found in input file.")
 
-    n_cols = len(policies)
-    fig, axes = plt.subplots(
-        2, n_cols,
-        figsize=(7 * n_cols, 9),
+    for policy in policies:
+        path = args.output.with_name(
+            f"{args.output.stem}_{policy}{args.output.suffix}")
+        _plot_policy(grouped[policy], policy, path)
+
+
+def _plot_policy(data: dict[int, dict[float, _Entry]], policy: str, output: Path) -> None:
+    """One journal-width figure for a single policy: gain over overlap, stacked.
+
+    Each policy gets its own file rather than a column of a wide grid: at a
+    single-column journal width the policies do not fit side by side, and stacking
+    every policy into one figure would run several pages tall.
+    """
+    fig, (ax_gain, ax_ovlp) = plt.subplots(
+        2, 1,
+        figsize=(FIG_WIDTH, 2 * PANEL_HEIGHT),
         sharex=False,
     )
     fig.patch.set_facecolor("white")
+    for ax in (ax_gain, ax_ovlp):
+        ax.set_facecolor("white")
 
-    # axes[row, col]; if n_cols == 1 matplotlib returns 1-D array
-    if n_cols == 1:
-        axes = axes.reshape(2, 1)
-    for row in axes:
-        for ax in row:
-            ax.set_facecolor("white")
-
-    legend_handles = None
-
-    for col, policy in enumerate(policies):
-        data = grouped[policy]
-
-        # ── row 0: gain ──────────────────────────────────────────────
-        ax_gain = axes[0, col]
-        handles = _plot_lines(
-            ax_gain, data, metric="gain",
-            ylabel="Hit-Rate Gain (%)" if col == 0 else "",
-            ylim=None,
-            show_zero_line=True,
-        )
-        ax_gain.set_title(POLICY_TITLES.get(policy, policy), fontsize=20, fontweight="bold", pad=10)
-        if legend_handles is None:
-            legend_handles = handles
-
-        # ── row 1: overlap ───────────────────────────────────────────
-        ax_ovlp = axes[1, col]
-        _plot_lines(
-            ax_ovlp, data, metric="overlap",
-            ylabel="Avg Entity Overlap (%)" if col == 0 else "",
-            ylim=None,
-            show_zero_line=False,
-        )
+    legend_handles = _plot_lines(
+        ax_gain, data, metric="gain",
+        # Stacked panels share no left column, so every row is labelled.
+        ylabel="Hit-Rate Gain (%)",
+        ylim=None,
+        show_zero_line=True,
+    )
+    _plot_lines(
+        ax_ovlp, data, metric="overlap",
+        ylabel="Avg Entity Overlap (%)",
+        ylim=None,
+        show_zero_line=False,
+    )
 
     # shared threshold legend at the top
     thresholds_sorted = sorted(THRESHOLD_COLORS.keys(), reverse=True)
@@ -172,22 +174,24 @@ def main() -> None:
         handles=legend_handles,
         labels=[f"≥{t:.2f}" for t in thresholds_sorted],
         title="Similarity Threshold",
-        title_fontsize=18,
+        title_fontsize=10,
         loc="upper center",
         ncol=len(thresholds_sorted),
-        fontsize=17,
+        fontsize=9,
         framealpha=0.9,
         edgecolor="#cccccc",
-        bbox_to_anchor=(0.5, 1.01),
+        bbox_to_anchor=(0.5, 1.005),
     )
 
     fig.suptitle(
-        "Semantic Cache: Gain over Exact-Match Baseline & Entity Overlap",
-        fontsize=22, fontweight="bold", y=1.06,
+        f"{POLICY_TITLES.get(policy, policy)}: Gain over Exact-Match Baseline "
+        f"& Entity Overlap",
+        fontsize=12, fontweight="bold", y=1.06,
     )
-    fig.tight_layout(pad=2.5, h_pad=7.0)
-    fig.savefig(args.output, dpi=150, bbox_inches="tight", facecolor="white")
-    print(f"Saved: {args.output}")
+    fig.tight_layout(pad=1.6, h_pad=2.6)
+    fig.savefig(output, dpi=300, bbox_inches="tight", facecolor="white")
+    plt.close(fig)
+    print(f"Saved: {output}")
 
 
 if __name__ == "__main__":

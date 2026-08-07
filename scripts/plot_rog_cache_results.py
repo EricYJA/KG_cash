@@ -5,9 +5,14 @@ Each run's summary.json (RoG: summarize_rog_cache.py; ToG: summarize_tog_cache.p
 is a list of per-policy records with: policy, hit (Hits@1), f1, accuracy,
 hit_rate, speedup_x, full_speedup_x. Policies go on the x-axis and each metric
 gets its own panel (small multiples -- never a dual y-axis). One grouped bar per
-run within each policy, styled to match the characterization/ figures (IEEE serif,
+run within each policy, styled to match the characterization/ figures (serif,
 tab10 colours, white bar edges, dashed y-grid, shared bottom legend, PDF). ToG runs
 (--tog-runs) overlay on the same panels as additional bars in each group.
+
+Figures are sized for a single-column *journal* body (FIG_WIDTH-inch text block),
+so panels stack vertically -- one metric per row, never side by side -- and the
+fonts are set for a figure printed at its natural size rather than shrunk into an
+IEEE two-column layout.
 
     # one RoG run
     python scripts/plot_rog_cache_results.py --runs rog_cache_virtuoso_test
@@ -38,10 +43,11 @@ ROG_DIR = REPO_ROOT / "artifacts" / "rog_cache"
 TOG_DIR = REPO_ROOT / "artifacts" / "tog_cache"
 
 # Fixed policy order + short labels (baseline first, then caching policies).
-POLICY_ORDER = ["none", "exact", "semantic_lfu", "semantic_lru", "semantic_oracle"]
+# The exact-match policy is deliberately absent: it is a near-zero-hit-rate
+# degenerate case, so only the semantic policies are plotted.
+POLICY_ORDER = ["none", "semantic_lfu", "semantic_lru", "semantic_oracle"]
 POLICY_LABELS = {
     "none": "None",
-    "exact": "Exact",
     "semantic_lfu": "Sem-LFU",
     "semantic_lru": "Sem-LRU",
     "semantic_oracle": "Sem-Oracle",
@@ -55,12 +61,25 @@ COLORS = ["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd",
 
 ACC_TITLES = {"hit": "Hits@1 (%)", "accuracy": "Accuracy (%)", "f1": "F1 (%)"}
 
+# Journal (single-column body) sizing. FIG_WIDTH is a standard LaTeX article
+# \textwidth, so a figure is placed at 100% and never scaled down -- which is why
+# the fonts below are body-text sized instead of the inflated IEEE ones.
+# Multi-metric figures stack PANEL_HEIGHT-inch rows; drop PANEL_HEIGHT to ~3.0 if
+# the panels need to be shorter still.
+FIG_WIDTH = 6.5
+PANEL_HEIGHT = 2.5
+SOLO_PANEL_HEIGHT = 3.0      # a metric written to its own figure gets more room
+
+# Panels carry no title; the metric goes on the y-axis, where the long panel
+# names don't fit rotated, so they get a shorter form.
+YLABELS = {"Full-System Speedup (x)": "Speedup (x)",
+           "Cache Hit Rate (%)": "Hit Rate (%)"}
+
 # Panels that get the same treatment: 'none' dropped (a trivial floor there --
-# 0% hits / 1x speedup), headroom reserved above the bars, and a bold legend
-# tucked into that whitespace. The accuracy panel keeps 'none' and its "best"
-# legend placement, since there 'none' is a real baseline.
+# 0% hits / 1x speedup) and an explicitly set y-range. The accuracy panel keeps
+# 'none', since there it is a real baseline, and its automatic y-range.
 DROP_NONE_FIELDS = {"hit_rate", "full_speedup_x"}
-LEGEND_ABOVE_FIELDS = {"hit_rate", "full_speedup_x"}
+SET_YLIM_FIELDS = {"hit_rate", "full_speedup_x"}
 
 
 def pretty_label(tag: str) -> str:
@@ -136,8 +155,8 @@ def _panels(accuracy_metric: str) -> list[tuple[str, str, float, float]]:
     """(field, panel title, value scale, baseline) for the three metric panels.
 
     baseline is the value plotted where the metric is undefined for a policy: the
-    uncached policies (None/Exact) have 0% hit rate and 1x speedup -- their floor,
-    not a gap. Accuracy is always present, so its baseline is nan.
+    uncached policy (None) has 0% hit rate and 1x speedup -- its floor, not a gap.
+    Accuracy is always present, so its baseline is nan.
     """
     return [
         (accuracy_metric, ACC_TITLES[accuracy_metric], 1.0, np.nan),
@@ -153,15 +172,15 @@ SLUGS = {"hit": "hits1", "accuracy": "accuracy", "f1": "f1",
 
 def _set_style() -> None:
     plt.rcParams.update({
-        "font.family": "serif",      # Matches IEEE Times/Computer Modern
-        "font.size": 17,             # Enlarged for readability
-        "axes.labelsize": 19,
-        "axes.titlesize": 19,
-        "legend.fontsize": 15,
-        "xtick.labelsize": 15,
-        "ytick.labelsize": 15,
-        "lines.linewidth": 2.0,
-        "lines.markersize": 7,
+        "font.family": "serif",      # Matches the journal body font (Times/CM)
+        "font.size": 10,             # Figure is printed at 100%, so match body text
+        "axes.labelsize": 11,
+        "axes.titlesize": 11,
+        "legend.fontsize": 9,
+        "xtick.labelsize": 9,
+        "ytick.labelsize": 9,
+        "lines.linewidth": 1.6,
+        "lines.markersize": 5,
     })
 
 
@@ -169,18 +188,43 @@ def _policies(runs: dict[str, dict[str, dict]]) -> list[str]:
     return [p for p in POLICY_ORDER if any(p in runs[r] for r in runs)]
 
 
-def _draw_panel(ax, runs, policies, field, title, scale, baseline) -> None:
+def _label_best_per_group(ax, x, per_run_y, width, n) -> None:
+    """Annotate the tallest bar in each policy group with its value.
+
+    Used on the speedup panels: the winning run per policy is the number readers
+    quote, and with several runs per group only that one is worth the ink.
+    """
+    for j, xc in enumerate(x):
+        col = [(ys[j], ri) for ri, ys in enumerate(per_run_y)
+               if isinstance(ys[j], (int, float)) and np.isfinite(ys[j])]
+        if not col:
+            continue
+        best, ri = max(col)
+        offset = (ri - (n - 1) / 2.0) * width
+        ax.annotate(f"{best:.2f}", (xc + offset, best), textcoords="offset points",
+                    xytext=(0, 3), ha="center", va="bottom", fontsize=8,
+                    fontweight="bold", zorder=4)
+
+
+def _draw_panel(ax, runs, policies, field, title, scale, baseline,
+                reserve_legend_headroom: bool = True) -> None:
     """Grouped bar chart for one metric: one bar per run within each policy group.
 
     Styled to match the characterization/ bar figures: colour-per-run, white bar
     edges, a dashed y-grid behind the bars. The Full-System Speedup panel zooms its
     y-axis to start just below the 1x reference (not 0) so per-policy differences --
     which cluster near 1x -- stay legible instead of collapsing onto the floor.
+
+    ``reserve_legend_headroom`` pads the y-axis to leave a band above the bars for
+    an in-axes legend. The stacked figure puts one shared legend above all panels
+    instead, and passes False -- at these panel heights an in-axes legend would
+    cover the bars rather than sit beside them.
     """
     x = np.arange(len(policies))
     n = max(len(runs), 1)
     width = 0.8 / n                       # groups span 0.8 of the unit slot
     all_y: list[float] = []
+    per_run_y: list[list[float]] = []     # [run][policy], for the per-policy best label
     for ri, run_name in enumerate(runs):
         recs = runs[run_name]
         # Every metric is reported for the 1st pass (cold cache) where a per-pass
@@ -190,30 +234,52 @@ def _draw_panel(ax, runs, policies, field, title, scale, baseline) -> None:
         src = pass1 if pass1 is not None else recs
         y = []
         for p in policies:
-            v = src.get(p, {}).get(field)
-            # An undefined metric falls back to the panel baseline (0% hit rate,
-            # 1x speedup) so the uncached policies show their floor, not a gap.
-            y.append(v * scale if isinstance(v, (int, float)) else baseline)
+            record = src.get(p, {})
+            v = record.get(field)
+            if isinstance(v, (int, float)):
+                y.append(v * scale)
+            elif field in record:
+                # Present but null: the metric was computed and is undefined for
+                # this policy (no hits => no speedup to report). That is the
+                # panel baseline -- 0% hit rate, 1x speedup -- a real floor.
+                y.append(baseline)
+            else:
+                # Key absent: never measured. Runs predating the stage-2 timing
+                # sidecar have no end-to-end speedup at all, and drawing them at
+                # the baseline would put an unmeasured run on the chart as a
+                # solid "exactly 1.00x" bar no reader could tell from a result.
+                y.append(np.nan)
         all_y.extend(y)
+        per_run_y.append(y)
         offset = (ri - (n - 1) / 2.0) * width
         ax.bar(x + offset, y, width=width, color=COLORS[ri % len(COLORS)],
                label=pretty_label(run_name), edgecolor="white", linewidth=0.8,
                zorder=3)
 
-    if field in LEGEND_ABOVE_FIELDS:
-        # Reserve headroom above the tallest bar for the legend that sits on top --
-        # more legend rows -> more whitespace. Speedup also zooms around its 1x
-        # reference (bottom just below it); hit rate keeps its real 0 baseline.
-        hi = max(all_y) if all_y else 1.0
-        rows = (len(runs) + 1) // 2                     # 2-column legend
-        bar_frac = max(0.85 - 0.06 * rows, 0.45)        # fraction of axis for bars
+    if field == "full_speedup_x":
+        _label_best_per_group(ax, x, per_run_y, width, n)
+
+    if field in SET_YLIM_FIELDS:
+        # Speedup zooms around its 1x reference (bottom just below it); hit rate
+        # keeps its real 0 baseline.
+        finite = [v for v in all_y if isinstance(v, (int, float)) and np.isfinite(v)]
+        hi = max(finite) if finite else 1.0
         if field == "full_speedup_x":
             ax.axhline(1.0, color="#555555", linewidth=0.9, linestyle="--", zorder=2)  # no-speedup ref
             lo = 0.9
         else:
             lo = 0.0
+        if reserve_legend_headroom:
+            # Headroom for the in-axes legend: more legend rows -> more whitespace.
+            rows = (len(runs) + 1) // 2                 # 2-column legend
+            bar_frac = max(0.85 - 0.06 * rows, 0.45)    # fraction of axis for bars
+        else:
+            # No in-axes legend: just enough clearance for the value labels.
+            bar_frac = 0.90
         ax.set_ylim(lo, lo + (hi - lo) / bar_frac)
-    ax.set_title(title)
+    # No panel title -- the metric names the y-axis instead, so a paper caption
+    # carries the framing and the figure stays all data.
+    ax.set_ylabel(YLABELS.get(title, title))
     ax.set_xlabel("Cache Policy")
     ax.set_xticks(x)
     ax.set_xticklabels([POLICY_LABELS.get(p, p) for p in policies], rotation=30, ha="right")
@@ -221,54 +287,75 @@ def _draw_panel(ax, runs, policies, field, title, scale, baseline) -> None:
     ax.margins(x=0.02)
 
 
-def _add_legend(ax, loc: str = "best") -> None:
-    """Compact, bold, 2-column in-axes legend (no suptitle, no reserved band).
+def _add_figure_legend(fig, src_ax, n_runs: int) -> None:
+    """Shared bold legend above the panels, built from `src_ax`'s handles.
 
-    Drawn inside ``ax`` so it steals no margin; the panels stay the dominant
-    element. The hit-rate and speedup panels pass loc="upper center" to sit it in
-    the whitespace reserved above their bars in _draw_panel.
+    Sits outside the axes so it steals no plotting area from the (short) panels.
+    Up to 4 columns, so ten runs land in three rows rather than a tall block.
+    Used by both layouts: an in-axes legend needs headroom proportional to its own
+    physical height, which at these panel heights means covering the bars.
+
+    The band it occupies has to be reserved by re-running tight_layout with a
+    ``rect`` first -- a figure legend is not laid out by tight_layout, so without
+    this it is drawn straight over the top panel.
     """
-    leg = ax.legend(loc=loc, framealpha=0.9, edgecolor="#cccccc",
-                    fontsize=9, ncol=2, handlelength=1.2, handletextpad=0.5,
-                    labelspacing=0.3, columnspacing=1.0, borderpad=0.4)
+    ncol = min(4, n_runs)
+    rows = -(-n_runs // ncol)                    # ceil
+    reserved_in = 0.17 * rows + 0.20             # legend rows + frame padding
+    top = 1.0 - reserved_in / fig.get_figheight()
+    fig.tight_layout(rect=(0.0, 0.0, 1.0, top))
+
+    handles, labels = src_ax.get_legend_handles_labels()
+    leg = fig.legend(handles, labels, loc="upper center",
+                     bbox_to_anchor=(0.5, 1.0), ncol=ncol,
+                     framealpha=0.9, edgecolor="#cccccc", fontsize=8,
+                     handlelength=1.2, handletextpad=0.5, labelspacing=0.3,
+                     columnspacing=1.0, borderpad=0.4)
     leg.get_frame().set_linewidth(0.8)
     for text in leg.get_texts():
         text.set_fontweight("bold")
 
 
 def make_figure(runs: dict[str, dict[str, dict]], accuracy_metric: str) -> plt.Figure:
-    """All three metrics in one double-column figure."""
+    """All three metrics in one journal-width figure, stacked one panel per row."""
     _set_style()
     policies = _policies(runs)
     panels = _panels(accuracy_metric)
-    fig, axes = plt.subplots(1, len(panels), figsize=(14.0, 5.0))
+    # One metric per row: at a single-column journal width there is no room for
+    # three panels side by side, and stacking keeps each x-axis readable.
+    fig, axes = plt.subplots(len(panels), 1,
+                             figsize=(FIG_WIDTH, PANEL_HEIGHT * len(panels)))
     for ax, (field, title, scale, baseline) in zip(axes, panels):
         panel_policies = [p for p in policies if p != "none"] \
             if field in DROP_NONE_FIELDS else policies
-        _draw_panel(ax, runs, panel_policies, field, title, scale, baseline)
-        # Bold legend in the whitespace above the bars on the hit-rate and
-        # speedup panels; the accuracy panel carries none.
-        if field in LEGEND_ABOVE_FIELDS and len(runs) > 1:
-            _add_legend(ax, loc="upper center")
+        _draw_panel(ax, runs, panel_policies, field, title, scale, baseline,
+                    reserve_legend_headroom=False)
     plt.tight_layout()
+    # One shared legend above the stack rather than a copy inside two panels: every
+    # panel shows the same runs, and at this panel height an in-axes legend covers
+    # the bars. bbox_inches="tight" at save time keeps it from being clipped.
+    if len(runs) > 1:
+        _add_figure_legend(fig, axes[0], len(runs))
     return fig
 
 
 def make_separate(runs: dict[str, dict[str, dict]],
                   accuracy_metric: str) -> list[tuple[str, plt.Figure]]:
-    """One single-column figure per metric; returns [(field, figure), ...]."""
+    """One journal-width figure per metric; returns [(field, figure), ...]."""
     _set_style()
     policies = _policies(runs)
     out: list[tuple[str, plt.Figure]] = []
     for field, title, scale, baseline in _panels(accuracy_metric):
         panel_policies = [p for p in policies if p != "none"] \
             if field in DROP_NONE_FIELDS else policies
-        fig, ax = plt.subplots(figsize=(6.0, 4.5))
-        _draw_panel(ax, runs, panel_policies, field, title, scale, baseline)
-        if len(runs) > 1:
-            loc = "upper center" if field in LEGEND_ABOVE_FIELDS else "best"
-            _add_legend(ax, loc=loc)
+        fig, ax = plt.subplots(figsize=(FIG_WIDTH, SOLO_PANEL_HEIGHT))
+        _draw_panel(ax, runs, panel_policies, field, title, scale, baseline,
+                    reserve_legend_headroom=False)
         plt.tight_layout()
+        # Legend above the axes, as in the stacked figure -- a single panel this
+        # short has no in-axes whitespace big enough to hold it.
+        if len(runs) > 1:
+            _add_figure_legend(fig, ax, len(runs))
         out.append((field, fig))
     return out
 
