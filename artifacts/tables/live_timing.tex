@@ -1,0 +1,83 @@
+\begin{table}[htbp]
+\centering
+\caption{Measured First-Pass Cache Timing by Policy on WebQSP, Gemini (Oxi). ToG times are whole-question seconds (planner + reasoner). $\dagger$ RoG times cover the planner stage only: those run summaries predate the stage-1 + stage-2 join, so they exclude the reasoner and are an upper bound on the cache's full-system effect. Re-run summarize\_rog\_cache.py to record end-to-end times. $N$ is the number of questions the policy actually recorded.}
+\label{tab:live_cache_timing_webqsp_gemini_oxi}
+\begin{tabular}{llrrrrrr}
+\hline
+\textbf{System} & \textbf{Policy} & \textbf{$N$} & \textbf{Hit Rate} & \textbf{Avg Miss (s)} & \textbf{Avg Hit (s)} & \textbf{Saved (s)} & \textbf{Full Speedup} \\
+\hline
+RoG$^{\dagger}$ & Exact Match      & -- & -- & -- & -- & -- & -- \\
+     & Semantic LRU     & 1628 & 7.7\% & 1.36 & 0.09 & 158.07 & 1.08$\times$ \\
+     & Semantic LFU     & 494 & 12.6\% & 1.30 & 0.12 & 72.96 & 1.13$\times$ \\
+     & Semantic Oracle  & 91 & 9.9\% & 1.36 & 0.13 & 11.11 & 1.10$\times$ \\
+\hline
+ToG  & Exact Match      & 1639 & 0.0\% & 2.23 & 0.00 & 0.00 & 1.00$\times$ \\
+     & Semantic LRU     & 1639 & 8.2\% & 3.03 & 0.87 & 292.16 & 1.06$\times$ \\
+     & Semantic LFU     & 1639 & 8.2\% & 2.96 & 0.88 & 280.60 & 1.06$\times$ \\
+     & Semantic Oracle  & 1639 & 7.3\% & 3.00 & 0.86 & 253.77 & 1.05$\times$ \\
+\hline
+\end{tabular}
+\end{table}
+
+\begin{table}[htbp]
+\centering
+\caption{Measured First-Pass Cache Timing by Policy on WebQSP, Gemini (Virt). ToG times are whole-question seconds (planner + reasoner). $\dagger$ RoG times cover the planner stage only: those run summaries predate the stage-1 + stage-2 join, so they exclude the reasoner and are an upper bound on the cache's full-system effect. Re-run summarize\_rog\_cache.py to record end-to-end times. $N$ is the number of questions the policy actually recorded.}
+\label{tab:live_cache_timing_webqsp_gemini_virt}
+\begin{tabular}{llrrrrrr}
+\hline
+\textbf{System} & \textbf{Policy} & \textbf{$N$} & \textbf{Hit Rate} & \textbf{Avg Miss (s)} & \textbf{Avg Hit (s)} & \textbf{Saved (s)} & \textbf{Full Speedup} \\
+\hline
+RoG$^{\dagger}$ & Exact Match      & 1628 & 0.0\% & 0.99 & 0.00 & 0.00 & -- \\
+     & Semantic LRU     & 1628 & 4.3\% & 1.08 & 0.04 & 72.84 & 1.04$\times$ \\
+     & Semantic LFU     & 48 & 6.2\% & 1.14 & 0.05 & 3.27 & 1.06$\times$ \\
+     & Semantic Oracle  & 1628 & 3.5\% & 1.14 & 0.05 & 62.36 & 1.03$\times$ \\
+\hline
+ToG  & Exact Match      & 1639 & 0.0\% & 2.26 & 0.00 & 0.00 & 1.00$\times$ \\
+     & Semantic LRU     & 584 & 13.5\% & 3.27 & 0.85 & 191.14 & 1.01$\times$ \\
+     & Semantic LFU     & 1639 & 8.2\% & 2.96 & 0.87 & 282.42 & 1.06$\times$ \\
+     & Semantic Oracle  & 1639 & 7.3\% & 2.96 & 0.85 & 250.34 & 1.05$\times$ \\
+\hline
+\end{tabular}
+\end{table}
+
+\begin{table}[htbp]
+\centering
+\caption{Measured First-Pass Cache Timing by Policy on WebQSP, Haiku (Oxi). ToG times are whole-question seconds (planner + reasoner). $\dagger$ RoG times cover the planner stage only: those run summaries predate the stage-1 + stage-2 join, so they exclude the reasoner and are an upper bound on the cache's full-system effect. Re-run summarize\_rog\_cache.py to record end-to-end times. $N$ is the number of questions the policy actually recorded.}
+\label{tab:live_cache_timing_webqsp_haiku_oxi}
+\begin{tabular}{llrrrrrr}
+\hline
+\textbf{System} & \textbf{Policy} & \textbf{$N$} & \textbf{Hit Rate} & \textbf{Avg Miss (s)} & \textbf{Avg Hit (s)} & \textbf{Saved (s)} & \textbf{Full Speedup} \\
+\hline
+RoG$^{\dagger}$ & Exact Match      & 721 & 0.0\% & 1.86 & 0.00 & 0.00 & -- \\
+     & Semantic LRU     & -- & -- & -- & -- & -- & -- \\
+     & Semantic LFU     & 1628 & 7.7\% & 1.75 & 0.09 & 206.85 & 1.08$\times$ \\
+     & Semantic Oracle  & 107 & 9.3\% & 1.78 & 0.14 & 16.40 & 1.09$\times$ \\
+\hline
+ToG  & Exact Match      & 1639 & 0.0\% & 6.06 & 0.00 & 0.00 & 1.00$\times$ \\
+     & Semantic LRU     & 1639 & 8.2\% & 5.81 & 1.57 & 571.88 & 1.06$\times$ \\
+     & Semantic LFU     & 1639 & 8.2\% & 5.93 & 1.72 & 567.91 & 1.06$\times$ \\
+     & Semantic Oracle  & 1639 & 7.3\% & 6.73 & 2.09 & 551.98 & 1.05$\times$ \\
+\hline
+\end{tabular}
+\end{table}
+
+\begin{table}[htbp]
+\centering
+\caption{Measured First-Pass Cache Timing by Policy on WebQSP, Haiku (Virt). ToG times are whole-question seconds (planner + reasoner). $\dagger$ RoG times cover the planner stage only: those run summaries predate the stage-1 + stage-2 join, so they exclude the reasoner and are an upper bound on the cache's full-system effect. Re-run summarize\_rog\_cache.py to record end-to-end times. $N$ is the number of questions the policy actually recorded.}
+\label{tab:live_cache_timing_webqsp_haiku_virt}
+\begin{tabular}{llrrrrrr}
+\hline
+\textbf{System} & \textbf{Policy} & \textbf{$N$} & \textbf{Hit Rate} & \textbf{Avg Miss (s)} & \textbf{Avg Hit (s)} & \textbf{Saved (s)} & \textbf{Full Speedup} \\
+\hline
+RoG$^{\dagger}$ & Exact Match      & 730 & 0.0\% & 1.83 & 0.00 & 0.00 & -- \\
+     & Semantic LRU     & 179 & 12.3\% & 1.82 & 0.13 & 37.26 & 1.13$\times$ \\
+     & Semantic LFU     & 1628 & 7.7\% & 1.76 & 0.09 & 208.43 & 1.08$\times$ \\
+     & Semantic Oracle  & 304 & 12.2\% & 1.30 & 0.13 & 43.32 & 1.12$\times$ \\
+\hline
+ToG  & Exact Match      & 1639 & 0.0\% & 5.52 & 0.00 & 0.00 & 1.00$\times$ \\
+     & Semantic LRU     & 1639 & 8.2\% & 5.82 & 1.56 & 575.24 & 1.06$\times$ \\
+     & Semantic LFU     & 1639 & 8.2\% & 5.93 & 1.70 & 571.71 & 1.06$\times$ \\
+     & Semantic Oracle  & 1639 & 7.3\% & 6.84 & 2.01 & 574.45 & 1.05$\times$ \\
+\hline
+\end{tabular}
+\end{table}

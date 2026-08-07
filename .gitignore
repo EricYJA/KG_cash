@@ -26,3 +26,38 @@ src/ToG-cache/Freebase/freebase*
 src/ToG-cache/Freebase/WebQSP_FilterFreebase*
 
 src/ToG-cache/output/ToG_webqsp.jsonl
+
+# --- Experiment results -------------------------------------------------
+# Only the per-run summaries are committed: they are the sole input to every
+# plotting and table script. The bulk run output (predictions, cache blobs,
+# per-policy jsonl) is ~1.6 GB and regenerable. Part of it also embeds ':' in
+# path names (run tags like test[:10]), which makes a Windows checkout fail.
+artifacts/rog_cache/**
+!artifacts/rog_cache/**/
+!artifacts/rog_cache/**/summary.json
+!artifacts/rog_cache/**/summary.csv
+
+artifacts/tog_cache/**
+!artifacts/tog_cache/**/
+!artifacts/tog_cache/**/summary.json
+
+src/ToG-cache/output/compare_caches/
+src/ToG-cache/output/compare_results/**
+!src/ToG-cache/output/compare_results/**/
+!src/ToG-cache/output/compare_results/**/summary.json
+
+# Raw ToG/RoG baseline + capture dumps (inputs are the traces, already tracked)
+src/ToG-cache/output/ToG_capture_webqsp.jsonl
+src/ToG-cache/output/ToG_webqsp_baseline_*.jsonl
+src/ToG-cache/output/qald_smoke_capture.jsonl
+src/ToG-cache/output/qald_wiki_capture_jsonl
+src/ToG-cache/output/small_semantic_cache
+src/ToG-2/output/
+
+# Nested reference clone (own .git; also contains ':' in result paths)
+ref_KG_projects/
+
+# Per-run LLM request debris
+**/tamu_last_request*.json
+**/google_last_request*.json
+**/replay_*_last_request.sh

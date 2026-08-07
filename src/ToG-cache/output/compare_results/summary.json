@@ -1,0 +1,47 @@
+{
+  "args": {
+    "dataset": "webqsp",
+    "test_limit": 5,
+    "vendor": "tamu",
+    "depth": 3,
+    "width": 3,
+    "similarity_threshold": 0.9,
+    "loop": 2,
+    "cache_dir": "/home/stanic/KG_cash/src/ToG-cache/output/compare_caches",
+    "results_dir": "/home/stanic/KG_cash/src/ToG-cache/output/compare_results"
+  },
+  "rows": [
+    {
+      "config": "baseline_main",
+      "exact_match": 1.0,
+      "right": 5,
+      "error": 0,
+      "records": 5,
+      "output": "/home/stanic/KG_cash/src/ToG-cache/output/compare_results/baseline_main.jsonl"
+    },
+    {
+      "config": "cache_main",
+      "exact_match": 1.0,
+      "right": 5,
+      "error": 0,
+      "records": 5,
+      "output": "/home/stanic/KG_cash/src/ToG-cache/output/compare_results/cache_main.jsonl"
+    },
+    {
+      "config": "baseline_loop",
+      "exact_match": 1.0,
+      "right": 10,
+      "error": 0,
+      "records": 10,
+      "output": "/home/stanic/KG_cash/src/ToG-cache/output/compare_results/baseline_loop.jsonl"
+    },
+    {
+      "config": "cache_loop",
+      "exact_match": 0.9,
+      "right": 9,
+      "error": 1,
+      "records": 10,
+      "output": "/home/stanic/KG_cash/src/ToG-cache/output/compare_results/cache_loop.jsonl"
+    }
+  ]
+}

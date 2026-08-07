@@ -1,0 +1,24 @@
+\begin{table}[htbp]
+\centering
+\caption{Simulated KG Time and Speedup by Cache Policy (sequential access, cache capacity 1000). Times are seconds of KG time over the whole trace; LLM time is unaffected by the cache and is excluded.}
+\label{tab:kg_timing_sequential_1000}
+\begin{tabular}{llrrrrr}
+\hline
+\textbf{Dataset} & \textbf{Policy} & \textbf{Hit Rate} & \textbf{KG (no cache)} & \textbf{KG (cached)} & \textbf{Saved} & \textbf{KG Speedup} \\
+\hline
+WebQSP   & LRU      & 34.6\% & 57.0 & 42.3 & 14.7 & 1.35$\times$ \\
+         & LFU      & 34.8\% & 57.0 & 42.3 & 14.7 & 1.35$\times$ \\
+         & FIFO     & 34.1\% & 57.0 & 43.6 & 13.4 & 1.31$\times$ \\
+         & Random   & 33.7\% & 57.0 & 43.4 & 13.6 & 1.31$\times$ \\
+         & Belady (MIN) & 37.1\% & 57.0 & 38.7 & 18.3 & 1.47$\times$ \\
+         & Oracle (preload) & 54.4\% & 57.0 & 27.5 & 29.6 & 2.08$\times$ \\
+\hline
+CWQ      & LRU      & 37.2\% & 57.6 & 31.2 & 26.4 & 1.85$\times$ \\
+         & LFU      & 38.6\% & 57.6 & 30.2 & 27.5 & 1.91$\times$ \\
+         & FIFO     & 35.2\% & 57.6 & 33.8 & 23.8 & 1.70$\times$ \\
+         & Random   & 35.9\% & 57.6 & 32.9 & 24.7 & 1.75$\times$ \\
+         & Belady (MIN) & 41.5\% & 57.6 & 27.6 & 30.0 & 2.09$\times$ \\
+         & Oracle (preload) & 62.3\% & 57.6 & 16.1 & 41.5 & 3.57$\times$ \\
+\hline
+\end{tabular}
+\end{table}

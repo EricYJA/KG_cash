@@ -1,0 +1,2457 @@
+{
+  "metadata": {
+    "cache_sizes": [
+      10,
+      50,
+      100,
+      200,
+      400
+    ],
+    "policies": [
+      "exact",
+      "semantic_lru",
+      "semantic_lfu",
+      "semantic_fifo",
+      "semantic_random",
+      "semantic_belady",
+      "semantic_oracle"
+    ],
+    "shuffle_seed": 0,
+    "random_seed": 0,
+    "similarity_threshold": 0.9,
+    "embedder_model": "all-MiniLM-L6-v2",
+    "hit_cost_ms": 0,
+    "question_limit": 400,
+    "access_patterns": [
+      "sequential",
+      "question_shuffled"
+    ],
+    "shuffled_semantics": "Questions are replayed in a shuffled order; each question keeps its own measured stage-1/stage-2 cost.",
+    "stage_keys": {
+      "cached": "planner",
+      "uncached": "reasoner"
+    },
+    "stage_labels": {
+      "cached": "Planner",
+      "uncached": "Reasoner"
+    },
+    "source": "simulate_rog_cache_timing.py"
+  },
+  "datasets": {
+    "RoG-webqsp": {
+      "run_dir": "artifacts/rog_cache/rog_cache_virtuoso_new",
+      "policy_tag": "none",
+      "stage1_metrics": "artifacts/rog_cache/rog_cache_virtuoso_new/gen_rule_path/none/RoG-webqsp/RoG/test/predictions_3_False.jsonl.metrics.jsonl",
+      "stage2_metrics": "artifacts/rog_cache/rog_cache_virtuoso_new/KGQA/none/RoG-webqsp/RoG/test/_out_gen_rule_path_none_RoG-webqsp_RoG_test_predictions_3_False_jsonl/predictions.jsonl.metrics.jsonl",
+      "questions_dropped": 0,
+      "timing_available": true,
+      "request_count": 400,
+      "time_breakdown_ms": {
+        "planner": 691116,
+        "reasoner": 542348,
+        "other": 0,
+        "total": 1233464
+      },
+      "sequential": [
+        {
+          "policy": "exact",
+          "cache_size": 10,
+          "requests": 400,
+          "hits": 0,
+          "misses": 400,
+          "hit_rate": 0.0,
+          "time_breakdown_ms": {
+            "planner_base": 691116,
+            "planner_simulated": 691116,
+            "reasoner": 542348,
+            "other": 0,
+            "total_base": 1233464,
+            "total_simulated": 1233464,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "semantic_lru",
+          "cache_size": 10,
+          "requests": 400,
+          "hits": 0,
+          "misses": 400,
+          "hit_rate": 0.0,
+          "time_breakdown_ms": {
+            "planner_base": 691116,
+            "planner_simulated": 691116,
+            "reasoner": 542348,
+            "other": 0,
+            "total_base": 1233464,
+            "total_simulated": 1233464,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "semantic_lfu",
+          "cache_size": 10,
+          "requests": 400,
+          "hits": 0,
+          "misses": 400,
+          "hit_rate": 0.0,
+          "time_breakdown_ms": {
+            "planner_base": 691116,
+            "planner_simulated": 691116,
+            "reasoner": 542348,
+            "other": 0,
+            "total_base": 1233464,
+            "total_simulated": 1233464,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "semantic_fifo",
+          "cache_size": 10,
+          "requests": 400,
+          "hits": 0,
+          "misses": 400,
+          "hit_rate": 0.0,
+          "time_breakdown_ms": {
+            "planner_base": 691116,
+            "planner_simulated": 691116,
+            "reasoner": 542348,
+            "other": 0,
+            "total_base": 1233464,
+            "total_simulated": 1233464,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "semantic_random",
+          "cache_size": 10,
+          "requests": 400,
+          "hits": 0,
+          "misses": 400,
+          "hit_rate": 0.0,
+          "time_breakdown_ms": {
+            "planner_base": 691116,
+            "planner_simulated": 691116,
+            "reasoner": 542348,
+            "other": 0,
+            "total_base": 1233464,
+            "total_simulated": 1233464,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "semantic_belady",
+          "cache_size": 10,
+          "requests": 400,
+          "hits": 9,
+          "misses": 391,
+          "hit_rate": 0.0225,
+          "time_breakdown_ms": {
+            "planner_base": 691116,
+            "planner_simulated": 677524,
+            "reasoner": 542348,
+            "other": 0,
+            "total_base": 1233464,
+            "total_simulated": 1219872,
+            "saved": 13592
+          }
+        },
+        {
+          "policy": "semantic_oracle",
+          "cache_size": 10,
+          "requests": 400,
+          "hits": 0,
+          "misses": 400,
+          "hit_rate": 0.0,
+          "time_breakdown_ms": {
+            "planner_base": 691116,
+            "planner_simulated": 691116,
+            "reasoner": 542348,
+            "other": 0,
+            "total_base": 1233464,
+            "total_simulated": 1233464,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "exact",
+          "cache_size": 50,
+          "requests": 400,
+          "hits": 0,
+          "misses": 400,
+          "hit_rate": 0.0,
+          "time_breakdown_ms": {
+            "planner_base": 691116,
+            "planner_simulated": 691116,
+            "reasoner": 542348,
+            "other": 0,
+            "total_base": 1233464,
+            "total_simulated": 1233464,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "semantic_lru",
+          "cache_size": 50,
+          "requests": 400,
+          "hits": 3,
+          "misses": 397,
+          "hit_rate": 0.0075,
+          "time_breakdown_ms": {
+            "planner_base": 691116,
+            "planner_simulated": 686067,
+            "reasoner": 542348,
+            "other": 0,
+            "total_base": 1233464,
+            "total_simulated": 1228415,
+            "saved": 5049
+          }
+        },
+        {
+          "policy": "semantic_lfu",
+          "cache_size": 50,
+          "requests": 400,
+          "hits": 3,
+          "misses": 397,
+          "hit_rate": 0.0075,
+          "time_breakdown_ms": {
+            "planner_base": 691116,
+            "planner_simulated": 686067,
+            "reasoner": 542348,
+            "other": 0,
+            "total_base": 1233464,
+            "total_simulated": 1228415,
+            "saved": 5049
+          }
+        },
+        {
+          "policy": "semantic_fifo",
+          "cache_size": 50,
+          "requests": 400,
+          "hits": 3,
+          "misses": 397,
+          "hit_rate": 0.0075,
+          "time_breakdown_ms": {
+            "planner_base": 691116,
+            "planner_simulated": 686067,
+            "reasoner": 542348,
+            "other": 0,
+            "total_base": 1233464,
+            "total_simulated": 1228415,
+            "saved": 5049
+          }
+        },
+        {
+          "policy": "semantic_random",
+          "cache_size": 50,
+          "requests": 400,
+          "hits": 1,
+          "misses": 399,
+          "hit_rate": 0.0025,
+          "time_breakdown_ms": {
+            "planner_base": 691116,
+            "planner_simulated": 689490,
+            "reasoner": 542348,
+            "other": 0,
+            "total_base": 1233464,
+            "total_simulated": 1231838,
+            "saved": 1626
+          }
+        },
+        {
+          "policy": "semantic_belady",
+          "cache_size": 50,
+          "requests": 400,
+          "hits": 9,
+          "misses": 391,
+          "hit_rate": 0.0225,
+          "time_breakdown_ms": {
+            "planner_base": 691116,
+            "planner_simulated": 677524,
+            "reasoner": 542348,
+            "other": 0,
+            "total_base": 1233464,
+            "total_simulated": 1219872,
+            "saved": 13592
+          }
+        },
+        {
+          "policy": "semantic_oracle",
+          "cache_size": 50,
+          "requests": 400,
+          "hits": 3,
+          "misses": 397,
+          "hit_rate": 0.0075,
+          "time_breakdown_ms": {
+            "planner_base": 691116,
+            "planner_simulated": 686067,
+            "reasoner": 542348,
+            "other": 0,
+            "total_base": 1233464,
+            "total_simulated": 1228415,
+            "saved": 5049
+          }
+        },
+        {
+          "policy": "exact",
+          "cache_size": 100,
+          "requests": 400,
+          "hits": 0,
+          "misses": 400,
+          "hit_rate": 0.0,
+          "time_breakdown_ms": {
+            "planner_base": 691116,
+            "planner_simulated": 691116,
+            "reasoner": 542348,
+            "other": 0,
+            "total_base": 1233464,
+            "total_simulated": 1233464,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "semantic_lru",
+          "cache_size": 100,
+          "requests": 400,
+          "hits": 5,
+          "misses": 395,
+          "hit_rate": 0.0125,
+          "time_breakdown_ms": {
+            "planner_base": 691116,
+            "planner_simulated": 683004,
+            "reasoner": 542348,
+            "other": 0,
+            "total_base": 1233464,
+            "total_simulated": 1225352,
+            "saved": 8112
+          }
+        },
+        {
+          "policy": "semantic_lfu",
+          "cache_size": 100,
+          "requests": 400,
+          "hits": 5,
+          "misses": 395,
+          "hit_rate": 0.0125,
+          "time_breakdown_ms": {
+            "planner_base": 691116,
+            "planner_simulated": 683004,
+            "reasoner": 542348,
+            "other": 0,
+            "total_base": 1233464,
+            "total_simulated": 1225352,
+            "saved": 8112
+          }
+        },
+        {
+          "policy": "semantic_fifo",
+          "cache_size": 100,
+          "requests": 400,
+          "hits": 5,
+          "misses": 395,
+          "hit_rate": 0.0125,
+          "time_breakdown_ms": {
+            "planner_base": 691116,
+            "planner_simulated": 683004,
+            "reasoner": 542348,
+            "other": 0,
+            "total_base": 1233464,
+            "total_simulated": 1225352,
+            "saved": 8112
+          }
+        },
+        {
+          "policy": "semantic_random",
+          "cache_size": 100,
+          "requests": 400,
+          "hits": 3,
+          "misses": 397,
+          "hit_rate": 0.0075,
+          "time_breakdown_ms": {
+            "planner_base": 691116,
+            "planner_simulated": 686424,
+            "reasoner": 542348,
+            "other": 0,
+            "total_base": 1233464,
+            "total_simulated": 1228772,
+            "saved": 4692
+          }
+        },
+        {
+          "policy": "semantic_belady",
+          "cache_size": 100,
+          "requests": 400,
+          "hits": 9,
+          "misses": 391,
+          "hit_rate": 0.0225,
+          "time_breakdown_ms": {
+            "planner_base": 691116,
+            "planner_simulated": 677524,
+            "reasoner": 542348,
+            "other": 0,
+            "total_base": 1233464,
+            "total_simulated": 1219872,
+            "saved": 13592
+          }
+        },
+        {
+          "policy": "semantic_oracle",
+          "cache_size": 100,
+          "requests": 400,
+          "hits": 5,
+          "misses": 395,
+          "hit_rate": 0.0125,
+          "time_breakdown_ms": {
+            "planner_base": 691116,
+            "planner_simulated": 683004,
+            "reasoner": 542348,
+            "other": 0,
+            "total_base": 1233464,
+            "total_simulated": 1225352,
+            "saved": 8112
+          }
+        },
+        {
+          "policy": "exact",
+          "cache_size": 200,
+          "requests": 400,
+          "hits": 0,
+          "misses": 400,
+          "hit_rate": 0.0,
+          "time_breakdown_ms": {
+            "planner_base": 691116,
+            "planner_simulated": 691116,
+            "reasoner": 542348,
+            "other": 0,
+            "total_base": 1233464,
+            "total_simulated": 1233464,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "semantic_lru",
+          "cache_size": 200,
+          "requests": 400,
+          "hits": 8,
+          "misses": 392,
+          "hit_rate": 0.02,
+          "time_breakdown_ms": {
+            "planner_base": 691116,
+            "planner_simulated": 678930,
+            "reasoner": 542348,
+            "other": 0,
+            "total_base": 1233464,
+            "total_simulated": 1221278,
+            "saved": 12186
+          }
+        },
+        {
+          "policy": "semantic_lfu",
+          "cache_size": 200,
+          "requests": 400,
+          "hits": 8,
+          "misses": 392,
+          "hit_rate": 0.02,
+          "time_breakdown_ms": {
+            "planner_base": 691116,
+            "planner_simulated": 678930,
+            "reasoner": 542348,
+            "other": 0,
+            "total_base": 1233464,
+            "total_simulated": 1221278,
+            "saved": 12186
+          }
+        },
+        {
+          "policy": "semantic_fifo",
+          "cache_size": 200,
+          "requests": 400,
+          "hits": 8,
+          "misses": 392,
+          "hit_rate": 0.02,
+          "time_breakdown_ms": {
+            "planner_base": 691116,
+            "planner_simulated": 678930,
+            "reasoner": 542348,
+            "other": 0,
+            "total_base": 1233464,
+            "total_simulated": 1221278,
+            "saved": 12186
+          }
+        },
+        {
+          "policy": "semantic_random",
+          "cache_size": 200,
+          "requests": 400,
+          "hits": 8,
+          "misses": 392,
+          "hit_rate": 0.02,
+          "time_breakdown_ms": {
+            "planner_base": 691116,
+            "planner_simulated": 678819,
+            "reasoner": 542348,
+            "other": 0,
+            "total_base": 1233464,
+            "total_simulated": 1221167,
+            "saved": 12297
+          }
+        },
+        {
+          "policy": "semantic_belady",
+          "cache_size": 200,
+          "requests": 400,
+          "hits": 9,
+          "misses": 391,
+          "hit_rate": 0.0225,
+          "time_breakdown_ms": {
+            "planner_base": 691116,
+            "planner_simulated": 677524,
+            "reasoner": 542348,
+            "other": 0,
+            "total_base": 1233464,
+            "total_simulated": 1219872,
+            "saved": 13592
+          }
+        },
+        {
+          "policy": "semantic_oracle",
+          "cache_size": 200,
+          "requests": 400,
+          "hits": 6,
+          "misses": 394,
+          "hit_rate": 0.015,
+          "time_breakdown_ms": {
+            "planner_base": 691116,
+            "planner_simulated": 681509,
+            "reasoner": 542348,
+            "other": 0,
+            "total_base": 1233464,
+            "total_simulated": 1223857,
+            "saved": 9607
+          }
+        },
+        {
+          "policy": "exact",
+          "cache_size": 400,
+          "requests": 400,
+          "hits": 0,
+          "misses": 400,
+          "hit_rate": 0.0,
+          "time_breakdown_ms": {
+            "planner_base": 691116,
+            "planner_simulated": 691116,
+            "reasoner": 542348,
+            "other": 0,
+            "total_base": 1233464,
+            "total_simulated": 1233464,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "semantic_lru",
+          "cache_size": 400,
+          "requests": 400,
+          "hits": 9,
+          "misses": 391,
+          "hit_rate": 0.0225,
+          "time_breakdown_ms": {
+            "planner_base": 691116,
+            "planner_simulated": 677524,
+            "reasoner": 542348,
+            "other": 0,
+            "total_base": 1233464,
+            "total_simulated": 1219872,
+            "saved": 13592
+          }
+        },
+        {
+          "policy": "semantic_lfu",
+          "cache_size": 400,
+          "requests": 400,
+          "hits": 9,
+          "misses": 391,
+          "hit_rate": 0.0225,
+          "time_breakdown_ms": {
+            "planner_base": 691116,
+            "planner_simulated": 677524,
+            "reasoner": 542348,
+            "other": 0,
+            "total_base": 1233464,
+            "total_simulated": 1219872,
+            "saved": 13592
+          }
+        },
+        {
+          "policy": "semantic_fifo",
+          "cache_size": 400,
+          "requests": 400,
+          "hits": 9,
+          "misses": 391,
+          "hit_rate": 0.0225,
+          "time_breakdown_ms": {
+            "planner_base": 691116,
+            "planner_simulated": 677524,
+            "reasoner": 542348,
+            "other": 0,
+            "total_base": 1233464,
+            "total_simulated": 1219872,
+            "saved": 13592
+          }
+        },
+        {
+          "policy": "semantic_random",
+          "cache_size": 400,
+          "requests": 400,
+          "hits": 9,
+          "misses": 391,
+          "hit_rate": 0.0225,
+          "time_breakdown_ms": {
+            "planner_base": 691116,
+            "planner_simulated": 677524,
+            "reasoner": 542348,
+            "other": 0,
+            "total_base": 1233464,
+            "total_simulated": 1219872,
+            "saved": 13592
+          }
+        },
+        {
+          "policy": "semantic_belady",
+          "cache_size": 400,
+          "requests": 400,
+          "hits": 9,
+          "misses": 391,
+          "hit_rate": 0.0225,
+          "time_breakdown_ms": {
+            "planner_base": 691116,
+            "planner_simulated": 677524,
+            "reasoner": 542348,
+            "other": 0,
+            "total_base": 1233464,
+            "total_simulated": 1219872,
+            "saved": 13592
+          }
+        },
+        {
+          "policy": "semantic_oracle",
+          "cache_size": 400,
+          "requests": 400,
+          "hits": 7,
+          "misses": 393,
+          "hit_rate": 0.0175,
+          "time_breakdown_ms": {
+            "planner_base": 691116,
+            "planner_simulated": 680103,
+            "reasoner": 542348,
+            "other": 0,
+            "total_base": 1233464,
+            "total_simulated": 1222451,
+            "saved": 11013
+          }
+        }
+      ],
+      "shuffled": [
+        {
+          "policy": "exact",
+          "cache_size": 10,
+          "requests": 400,
+          "hits": 0,
+          "misses": 400,
+          "hit_rate": 0.0,
+          "time_breakdown_ms": {
+            "planner_base": 691116,
+            "planner_simulated": 691116,
+            "reasoner": 542348,
+            "other": 0,
+            "total_base": 1233464,
+            "total_simulated": 1233464,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "semantic_lru",
+          "cache_size": 10,
+          "requests": 400,
+          "hits": 0,
+          "misses": 400,
+          "hit_rate": 0.0,
+          "time_breakdown_ms": {
+            "planner_base": 691116,
+            "planner_simulated": 691116,
+            "reasoner": 542348,
+            "other": 0,
+            "total_base": 1233464,
+            "total_simulated": 1233464,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "semantic_lfu",
+          "cache_size": 10,
+          "requests": 400,
+          "hits": 0,
+          "misses": 400,
+          "hit_rate": 0.0,
+          "time_breakdown_ms": {
+            "planner_base": 691116,
+            "planner_simulated": 691116,
+            "reasoner": 542348,
+            "other": 0,
+            "total_base": 1233464,
+            "total_simulated": 1233464,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "semantic_fifo",
+          "cache_size": 10,
+          "requests": 400,
+          "hits": 0,
+          "misses": 400,
+          "hit_rate": 0.0,
+          "time_breakdown_ms": {
+            "planner_base": 691116,
+            "planner_simulated": 691116,
+            "reasoner": 542348,
+            "other": 0,
+            "total_base": 1233464,
+            "total_simulated": 1233464,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "semantic_random",
+          "cache_size": 10,
+          "requests": 400,
+          "hits": 0,
+          "misses": 400,
+          "hit_rate": 0.0,
+          "time_breakdown_ms": {
+            "planner_base": 691116,
+            "planner_simulated": 691116,
+            "reasoner": 542348,
+            "other": 0,
+            "total_base": 1233464,
+            "total_simulated": 1233464,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "semantic_belady",
+          "cache_size": 10,
+          "requests": 400,
+          "hits": 9,
+          "misses": 391,
+          "hit_rate": 0.0225,
+          "time_breakdown_ms": {
+            "planner_base": 691116,
+            "planner_simulated": 677280,
+            "reasoner": 542348,
+            "other": 0,
+            "total_base": 1233464,
+            "total_simulated": 1219628,
+            "saved": 13836
+          }
+        },
+        {
+          "policy": "semantic_oracle",
+          "cache_size": 10,
+          "requests": 400,
+          "hits": 0,
+          "misses": 400,
+          "hit_rate": 0.0,
+          "time_breakdown_ms": {
+            "planner_base": 691116,
+            "planner_simulated": 691116,
+            "reasoner": 542348,
+            "other": 0,
+            "total_base": 1233464,
+            "total_simulated": 1233464,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "exact",
+          "cache_size": 50,
+          "requests": 400,
+          "hits": 0,
+          "misses": 400,
+          "hit_rate": 0.0,
+          "time_breakdown_ms": {
+            "planner_base": 691116,
+            "planner_simulated": 691116,
+            "reasoner": 542348,
+            "other": 0,
+            "total_base": 1233464,
+            "total_simulated": 1233464,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "semantic_lru",
+          "cache_size": 50,
+          "requests": 400,
+          "hits": 1,
+          "misses": 399,
+          "hit_rate": 0.0025,
+          "time_breakdown_ms": {
+            "planner_base": 691116,
+            "planner_simulated": 689821,
+            "reasoner": 542348,
+            "other": 0,
+            "total_base": 1233464,
+            "total_simulated": 1232169,
+            "saved": 1295
+          }
+        },
+        {
+          "policy": "semantic_lfu",
+          "cache_size": 50,
+          "requests": 400,
+          "hits": 1,
+          "misses": 399,
+          "hit_rate": 0.0025,
+          "time_breakdown_ms": {
+            "planner_base": 691116,
+            "planner_simulated": 689821,
+            "reasoner": 542348,
+            "other": 0,
+            "total_base": 1233464,
+            "total_simulated": 1232169,
+            "saved": 1295
+          }
+        },
+        {
+          "policy": "semantic_fifo",
+          "cache_size": 50,
+          "requests": 400,
+          "hits": 1,
+          "misses": 399,
+          "hit_rate": 0.0025,
+          "time_breakdown_ms": {
+            "planner_base": 691116,
+            "planner_simulated": 689821,
+            "reasoner": 542348,
+            "other": 0,
+            "total_base": 1233464,
+            "total_simulated": 1232169,
+            "saved": 1295
+          }
+        },
+        {
+          "policy": "semantic_random",
+          "cache_size": 50,
+          "requests": 400,
+          "hits": 2,
+          "misses": 398,
+          "hit_rate": 0.005,
+          "time_breakdown_ms": {
+            "planner_base": 691116,
+            "planner_simulated": 687873,
+            "reasoner": 542348,
+            "other": 0,
+            "total_base": 1233464,
+            "total_simulated": 1230221,
+            "saved": 3243
+          }
+        },
+        {
+          "policy": "semantic_belady",
+          "cache_size": 50,
+          "requests": 400,
+          "hits": 9,
+          "misses": 391,
+          "hit_rate": 0.0225,
+          "time_breakdown_ms": {
+            "planner_base": 691116,
+            "planner_simulated": 677280,
+            "reasoner": 542348,
+            "other": 0,
+            "total_base": 1233464,
+            "total_simulated": 1219628,
+            "saved": 13836
+          }
+        },
+        {
+          "policy": "semantic_oracle",
+          "cache_size": 50,
+          "requests": 400,
+          "hits": 0,
+          "misses": 400,
+          "hit_rate": 0.0,
+          "time_breakdown_ms": {
+            "planner_base": 691116,
+            "planner_simulated": 691116,
+            "reasoner": 542348,
+            "other": 0,
+            "total_base": 1233464,
+            "total_simulated": 1233464,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "exact",
+          "cache_size": 100,
+          "requests": 400,
+          "hits": 0,
+          "misses": 400,
+          "hit_rate": 0.0,
+          "time_breakdown_ms": {
+            "planner_base": 691116,
+            "planner_simulated": 691116,
+            "reasoner": 542348,
+            "other": 0,
+            "total_base": 1233464,
+            "total_simulated": 1233464,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "semantic_lru",
+          "cache_size": 100,
+          "requests": 400,
+          "hits": 4,
+          "misses": 396,
+          "hit_rate": 0.01,
+          "time_breakdown_ms": {
+            "planner_base": 691116,
+            "planner_simulated": 685609,
+            "reasoner": 542348,
+            "other": 0,
+            "total_base": 1233464,
+            "total_simulated": 1227957,
+            "saved": 5507
+          }
+        },
+        {
+          "policy": "semantic_lfu",
+          "cache_size": 100,
+          "requests": 400,
+          "hits": 4,
+          "misses": 396,
+          "hit_rate": 0.01,
+          "time_breakdown_ms": {
+            "planner_base": 691116,
+            "planner_simulated": 685609,
+            "reasoner": 542348,
+            "other": 0,
+            "total_base": 1233464,
+            "total_simulated": 1227957,
+            "saved": 5507
+          }
+        },
+        {
+          "policy": "semantic_fifo",
+          "cache_size": 100,
+          "requests": 400,
+          "hits": 4,
+          "misses": 396,
+          "hit_rate": 0.01,
+          "time_breakdown_ms": {
+            "planner_base": 691116,
+            "planner_simulated": 685609,
+            "reasoner": 542348,
+            "other": 0,
+            "total_base": 1233464,
+            "total_simulated": 1227957,
+            "saved": 5507
+          }
+        },
+        {
+          "policy": "semantic_random",
+          "cache_size": 100,
+          "requests": 400,
+          "hits": 4,
+          "misses": 396,
+          "hit_rate": 0.01,
+          "time_breakdown_ms": {
+            "planner_base": 691116,
+            "planner_simulated": 684852,
+            "reasoner": 542348,
+            "other": 0,
+            "total_base": 1233464,
+            "total_simulated": 1227200,
+            "saved": 6264
+          }
+        },
+        {
+          "policy": "semantic_belady",
+          "cache_size": 100,
+          "requests": 400,
+          "hits": 9,
+          "misses": 391,
+          "hit_rate": 0.0225,
+          "time_breakdown_ms": {
+            "planner_base": 691116,
+            "planner_simulated": 677280,
+            "reasoner": 542348,
+            "other": 0,
+            "total_base": 1233464,
+            "total_simulated": 1219628,
+            "saved": 13836
+          }
+        },
+        {
+          "policy": "semantic_oracle",
+          "cache_size": 100,
+          "requests": 400,
+          "hits": 3,
+          "misses": 397,
+          "hit_rate": 0.0075,
+          "time_breakdown_ms": {
+            "planner_base": 691116,
+            "planner_simulated": 686904,
+            "reasoner": 542348,
+            "other": 0,
+            "total_base": 1233464,
+            "total_simulated": 1229252,
+            "saved": 4212
+          }
+        },
+        {
+          "policy": "exact",
+          "cache_size": 200,
+          "requests": 400,
+          "hits": 0,
+          "misses": 400,
+          "hit_rate": 0.0,
+          "time_breakdown_ms": {
+            "planner_base": 691116,
+            "planner_simulated": 691116,
+            "reasoner": 542348,
+            "other": 0,
+            "total_base": 1233464,
+            "total_simulated": 1233464,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "semantic_lru",
+          "cache_size": 200,
+          "requests": 400,
+          "hits": 7,
+          "misses": 393,
+          "hit_rate": 0.0175,
+          "time_breakdown_ms": {
+            "planner_base": 691116,
+            "planner_simulated": 680472,
+            "reasoner": 542348,
+            "other": 0,
+            "total_base": 1233464,
+            "total_simulated": 1222820,
+            "saved": 10644
+          }
+        },
+        {
+          "policy": "semantic_lfu",
+          "cache_size": 200,
+          "requests": 400,
+          "hits": 7,
+          "misses": 393,
+          "hit_rate": 0.0175,
+          "time_breakdown_ms": {
+            "planner_base": 691116,
+            "planner_simulated": 680472,
+            "reasoner": 542348,
+            "other": 0,
+            "total_base": 1233464,
+            "total_simulated": 1222820,
+            "saved": 10644
+          }
+        },
+        {
+          "policy": "semantic_fifo",
+          "cache_size": 200,
+          "requests": 400,
+          "hits": 7,
+          "misses": 393,
+          "hit_rate": 0.0175,
+          "time_breakdown_ms": {
+            "planner_base": 691116,
+            "planner_simulated": 680472,
+            "reasoner": 542348,
+            "other": 0,
+            "total_base": 1233464,
+            "total_simulated": 1222820,
+            "saved": 10644
+          }
+        },
+        {
+          "policy": "semantic_random",
+          "cache_size": 200,
+          "requests": 400,
+          "hits": 8,
+          "misses": 392,
+          "hit_rate": 0.02,
+          "time_breakdown_ms": {
+            "planner_base": 691116,
+            "planner_simulated": 678703,
+            "reasoner": 542348,
+            "other": 0,
+            "total_base": 1233464,
+            "total_simulated": 1221051,
+            "saved": 12413
+          }
+        },
+        {
+          "policy": "semantic_belady",
+          "cache_size": 200,
+          "requests": 400,
+          "hits": 9,
+          "misses": 391,
+          "hit_rate": 0.0225,
+          "time_breakdown_ms": {
+            "planner_base": 691116,
+            "planner_simulated": 677280,
+            "reasoner": 542348,
+            "other": 0,
+            "total_base": 1233464,
+            "total_simulated": 1219628,
+            "saved": 13836
+          }
+        },
+        {
+          "policy": "semantic_oracle",
+          "cache_size": 200,
+          "requests": 400,
+          "hits": 5,
+          "misses": 395,
+          "hit_rate": 0.0125,
+          "time_breakdown_ms": {
+            "planner_base": 691116,
+            "planner_simulated": 683677,
+            "reasoner": 542348,
+            "other": 0,
+            "total_base": 1233464,
+            "total_simulated": 1226025,
+            "saved": 7439
+          }
+        },
+        {
+          "policy": "exact",
+          "cache_size": 400,
+          "requests": 400,
+          "hits": 0,
+          "misses": 400,
+          "hit_rate": 0.0,
+          "time_breakdown_ms": {
+            "planner_base": 691116,
+            "planner_simulated": 691116,
+            "reasoner": 542348,
+            "other": 0,
+            "total_base": 1233464,
+            "total_simulated": 1233464,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "semantic_lru",
+          "cache_size": 400,
+          "requests": 400,
+          "hits": 9,
+          "misses": 391,
+          "hit_rate": 0.0225,
+          "time_breakdown_ms": {
+            "planner_base": 691116,
+            "planner_simulated": 677280,
+            "reasoner": 542348,
+            "other": 0,
+            "total_base": 1233464,
+            "total_simulated": 1219628,
+            "saved": 13836
+          }
+        },
+        {
+          "policy": "semantic_lfu",
+          "cache_size": 400,
+          "requests": 400,
+          "hits": 9,
+          "misses": 391,
+          "hit_rate": 0.0225,
+          "time_breakdown_ms": {
+            "planner_base": 691116,
+            "planner_simulated": 677280,
+            "reasoner": 542348,
+            "other": 0,
+            "total_base": 1233464,
+            "total_simulated": 1219628,
+            "saved": 13836
+          }
+        },
+        {
+          "policy": "semantic_fifo",
+          "cache_size": 400,
+          "requests": 400,
+          "hits": 9,
+          "misses": 391,
+          "hit_rate": 0.0225,
+          "time_breakdown_ms": {
+            "planner_base": 691116,
+            "planner_simulated": 677280,
+            "reasoner": 542348,
+            "other": 0,
+            "total_base": 1233464,
+            "total_simulated": 1219628,
+            "saved": 13836
+          }
+        },
+        {
+          "policy": "semantic_random",
+          "cache_size": 400,
+          "requests": 400,
+          "hits": 9,
+          "misses": 391,
+          "hit_rate": 0.0225,
+          "time_breakdown_ms": {
+            "planner_base": 691116,
+            "planner_simulated": 677280,
+            "reasoner": 542348,
+            "other": 0,
+            "total_base": 1233464,
+            "total_simulated": 1219628,
+            "saved": 13836
+          }
+        },
+        {
+          "policy": "semantic_belady",
+          "cache_size": 400,
+          "requests": 400,
+          "hits": 9,
+          "misses": 391,
+          "hit_rate": 0.0225,
+          "time_breakdown_ms": {
+            "planner_base": 691116,
+            "planner_simulated": 677280,
+            "reasoner": 542348,
+            "other": 0,
+            "total_base": 1233464,
+            "total_simulated": 1219628,
+            "saved": 13836
+          }
+        },
+        {
+          "policy": "semantic_oracle",
+          "cache_size": 400,
+          "requests": 400,
+          "hits": 7,
+          "misses": 393,
+          "hit_rate": 0.0175,
+          "time_breakdown_ms": {
+            "planner_base": 691116,
+            "planner_simulated": 680485,
+            "reasoner": 542348,
+            "other": 0,
+            "total_base": 1233464,
+            "total_simulated": 1222833,
+            "saved": 10631
+          }
+        }
+      ]
+    },
+    "RoG-cwq": {
+      "source": "rmanluo/RoG-cwq[test]",
+      "timing_available": false,
+      "questions_dropped": 0,
+      "request_count": 400,
+      "time_breakdown_ms": {
+        "planner": 0,
+        "reasoner": 0,
+        "other": 0,
+        "total": 0
+      },
+      "sequential": [
+        {
+          "policy": "exact",
+          "cache_size": 10,
+          "requests": 400,
+          "hits": 0,
+          "misses": 400,
+          "hit_rate": 0.0,
+          "time_breakdown_ms": {
+            "planner_base": 0,
+            "planner_simulated": 0,
+            "reasoner": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "semantic_lru",
+          "cache_size": 10,
+          "requests": 400,
+          "hits": 4,
+          "misses": 396,
+          "hit_rate": 0.01,
+          "time_breakdown_ms": {
+            "planner_base": 0,
+            "planner_simulated": 0,
+            "reasoner": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "semantic_lfu",
+          "cache_size": 10,
+          "requests": 400,
+          "hits": 3,
+          "misses": 397,
+          "hit_rate": 0.0075,
+          "time_breakdown_ms": {
+            "planner_base": 0,
+            "planner_simulated": 0,
+            "reasoner": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "semantic_fifo",
+          "cache_size": 10,
+          "requests": 400,
+          "hits": 4,
+          "misses": 396,
+          "hit_rate": 0.01,
+          "time_breakdown_ms": {
+            "planner_base": 0,
+            "planner_simulated": 0,
+            "reasoner": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "semantic_random",
+          "cache_size": 10,
+          "requests": 400,
+          "hits": 2,
+          "misses": 398,
+          "hit_rate": 0.005,
+          "time_breakdown_ms": {
+            "planner_base": 0,
+            "planner_simulated": 0,
+            "reasoner": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "semantic_belady",
+          "cache_size": 10,
+          "requests": 400,
+          "hits": 24,
+          "misses": 376,
+          "hit_rate": 0.06,
+          "time_breakdown_ms": {
+            "planner_base": 0,
+            "planner_simulated": 0,
+            "reasoner": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "semantic_oracle",
+          "cache_size": 10,
+          "requests": 400,
+          "hits": 4,
+          "misses": 396,
+          "hit_rate": 0.01,
+          "time_breakdown_ms": {
+            "planner_base": 0,
+            "planner_simulated": 0,
+            "reasoner": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "exact",
+          "cache_size": 50,
+          "requests": 400,
+          "hits": 0,
+          "misses": 400,
+          "hit_rate": 0.0,
+          "time_breakdown_ms": {
+            "planner_base": 0,
+            "planner_simulated": 0,
+            "reasoner": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "semantic_lru",
+          "cache_size": 50,
+          "requests": 400,
+          "hits": 11,
+          "misses": 389,
+          "hit_rate": 0.0275,
+          "time_breakdown_ms": {
+            "planner_base": 0,
+            "planner_simulated": 0,
+            "reasoner": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "semantic_lfu",
+          "cache_size": 50,
+          "requests": 400,
+          "hits": 11,
+          "misses": 389,
+          "hit_rate": 0.0275,
+          "time_breakdown_ms": {
+            "planner_base": 0,
+            "planner_simulated": 0,
+            "reasoner": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "semantic_fifo",
+          "cache_size": 50,
+          "requests": 400,
+          "hits": 11,
+          "misses": 389,
+          "hit_rate": 0.0275,
+          "time_breakdown_ms": {
+            "planner_base": 0,
+            "planner_simulated": 0,
+            "reasoner": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "semantic_random",
+          "cache_size": 50,
+          "requests": 400,
+          "hits": 11,
+          "misses": 389,
+          "hit_rate": 0.0275,
+          "time_breakdown_ms": {
+            "planner_base": 0,
+            "planner_simulated": 0,
+            "reasoner": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "semantic_belady",
+          "cache_size": 50,
+          "requests": 400,
+          "hits": 25,
+          "misses": 375,
+          "hit_rate": 0.0625,
+          "time_breakdown_ms": {
+            "planner_base": 0,
+            "planner_simulated": 0,
+            "reasoner": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "semantic_oracle",
+          "cache_size": 50,
+          "requests": 400,
+          "hits": 10,
+          "misses": 390,
+          "hit_rate": 0.025,
+          "time_breakdown_ms": {
+            "planner_base": 0,
+            "planner_simulated": 0,
+            "reasoner": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "exact",
+          "cache_size": 100,
+          "requests": 400,
+          "hits": 0,
+          "misses": 400,
+          "hit_rate": 0.0,
+          "time_breakdown_ms": {
+            "planner_base": 0,
+            "planner_simulated": 0,
+            "reasoner": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "semantic_lru",
+          "cache_size": 100,
+          "requests": 400,
+          "hits": 14,
+          "misses": 386,
+          "hit_rate": 0.035,
+          "time_breakdown_ms": {
+            "planner_base": 0,
+            "planner_simulated": 0,
+            "reasoner": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "semantic_lfu",
+          "cache_size": 100,
+          "requests": 400,
+          "hits": 14,
+          "misses": 386,
+          "hit_rate": 0.035,
+          "time_breakdown_ms": {
+            "planner_base": 0,
+            "planner_simulated": 0,
+            "reasoner": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "semantic_fifo",
+          "cache_size": 100,
+          "requests": 400,
+          "hits": 14,
+          "misses": 386,
+          "hit_rate": 0.035,
+          "time_breakdown_ms": {
+            "planner_base": 0,
+            "planner_simulated": 0,
+            "reasoner": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "semantic_random",
+          "cache_size": 100,
+          "requests": 400,
+          "hits": 14,
+          "misses": 386,
+          "hit_rate": 0.035,
+          "time_breakdown_ms": {
+            "planner_base": 0,
+            "planner_simulated": 0,
+            "reasoner": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "semantic_belady",
+          "cache_size": 100,
+          "requests": 400,
+          "hits": 25,
+          "misses": 375,
+          "hit_rate": 0.0625,
+          "time_breakdown_ms": {
+            "planner_base": 0,
+            "planner_simulated": 0,
+            "reasoner": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "semantic_oracle",
+          "cache_size": 100,
+          "requests": 400,
+          "hits": 13,
+          "misses": 387,
+          "hit_rate": 0.0325,
+          "time_breakdown_ms": {
+            "planner_base": 0,
+            "planner_simulated": 0,
+            "reasoner": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "exact",
+          "cache_size": 200,
+          "requests": 400,
+          "hits": 0,
+          "misses": 400,
+          "hit_rate": 0.0,
+          "time_breakdown_ms": {
+            "planner_base": 0,
+            "planner_simulated": 0,
+            "reasoner": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "semantic_lru",
+          "cache_size": 200,
+          "requests": 400,
+          "hits": 22,
+          "misses": 378,
+          "hit_rate": 0.055,
+          "time_breakdown_ms": {
+            "planner_base": 0,
+            "planner_simulated": 0,
+            "reasoner": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "semantic_lfu",
+          "cache_size": 200,
+          "requests": 400,
+          "hits": 23,
+          "misses": 377,
+          "hit_rate": 0.0575,
+          "time_breakdown_ms": {
+            "planner_base": 0,
+            "planner_simulated": 0,
+            "reasoner": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "semantic_fifo",
+          "cache_size": 200,
+          "requests": 400,
+          "hits": 22,
+          "misses": 378,
+          "hit_rate": 0.055,
+          "time_breakdown_ms": {
+            "planner_base": 0,
+            "planner_simulated": 0,
+            "reasoner": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "semantic_random",
+          "cache_size": 200,
+          "requests": 400,
+          "hits": 22,
+          "misses": 378,
+          "hit_rate": 0.055,
+          "time_breakdown_ms": {
+            "planner_base": 0,
+            "planner_simulated": 0,
+            "reasoner": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "semantic_belady",
+          "cache_size": 200,
+          "requests": 400,
+          "hits": 25,
+          "misses": 375,
+          "hit_rate": 0.0625,
+          "time_breakdown_ms": {
+            "planner_base": 0,
+            "planner_simulated": 0,
+            "reasoner": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "semantic_oracle",
+          "cache_size": 200,
+          "requests": 400,
+          "hits": 21,
+          "misses": 379,
+          "hit_rate": 0.0525,
+          "time_breakdown_ms": {
+            "planner_base": 0,
+            "planner_simulated": 0,
+            "reasoner": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "exact",
+          "cache_size": 400,
+          "requests": 400,
+          "hits": 0,
+          "misses": 400,
+          "hit_rate": 0.0,
+          "time_breakdown_ms": {
+            "planner_base": 0,
+            "planner_simulated": 0,
+            "reasoner": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "semantic_lru",
+          "cache_size": 400,
+          "requests": 400,
+          "hits": 25,
+          "misses": 375,
+          "hit_rate": 0.0625,
+          "time_breakdown_ms": {
+            "planner_base": 0,
+            "planner_simulated": 0,
+            "reasoner": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "semantic_lfu",
+          "cache_size": 400,
+          "requests": 400,
+          "hits": 25,
+          "misses": 375,
+          "hit_rate": 0.0625,
+          "time_breakdown_ms": {
+            "planner_base": 0,
+            "planner_simulated": 0,
+            "reasoner": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "semantic_fifo",
+          "cache_size": 400,
+          "requests": 400,
+          "hits": 25,
+          "misses": 375,
+          "hit_rate": 0.0625,
+          "time_breakdown_ms": {
+            "planner_base": 0,
+            "planner_simulated": 0,
+            "reasoner": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "semantic_random",
+          "cache_size": 400,
+          "requests": 400,
+          "hits": 25,
+          "misses": 375,
+          "hit_rate": 0.0625,
+          "time_breakdown_ms": {
+            "planner_base": 0,
+            "planner_simulated": 0,
+            "reasoner": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "semantic_belady",
+          "cache_size": 400,
+          "requests": 400,
+          "hits": 25,
+          "misses": 375,
+          "hit_rate": 0.0625,
+          "time_breakdown_ms": {
+            "planner_base": 0,
+            "planner_simulated": 0,
+            "reasoner": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "semantic_oracle",
+          "cache_size": 400,
+          "requests": 400,
+          "hits": 24,
+          "misses": 376,
+          "hit_rate": 0.06,
+          "time_breakdown_ms": {
+            "planner_base": 0,
+            "planner_simulated": 0,
+            "reasoner": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        }
+      ],
+      "shuffled": [
+        {
+          "policy": "exact",
+          "cache_size": 10,
+          "requests": 400,
+          "hits": 0,
+          "misses": 400,
+          "hit_rate": 0.0,
+          "time_breakdown_ms": {
+            "planner_base": 0,
+            "planner_simulated": 0,
+            "reasoner": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "semantic_lru",
+          "cache_size": 10,
+          "requests": 400,
+          "hits": 1,
+          "misses": 399,
+          "hit_rate": 0.0025,
+          "time_breakdown_ms": {
+            "planner_base": 0,
+            "planner_simulated": 0,
+            "reasoner": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "semantic_lfu",
+          "cache_size": 10,
+          "requests": 400,
+          "hits": 1,
+          "misses": 399,
+          "hit_rate": 0.0025,
+          "time_breakdown_ms": {
+            "planner_base": 0,
+            "planner_simulated": 0,
+            "reasoner": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "semantic_fifo",
+          "cache_size": 10,
+          "requests": 400,
+          "hits": 1,
+          "misses": 399,
+          "hit_rate": 0.0025,
+          "time_breakdown_ms": {
+            "planner_base": 0,
+            "planner_simulated": 0,
+            "reasoner": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "semantic_random",
+          "cache_size": 10,
+          "requests": 400,
+          "hits": 1,
+          "misses": 399,
+          "hit_rate": 0.0025,
+          "time_breakdown_ms": {
+            "planner_base": 0,
+            "planner_simulated": 0,
+            "reasoner": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "semantic_belady",
+          "cache_size": 10,
+          "requests": 400,
+          "hits": 21,
+          "misses": 379,
+          "hit_rate": 0.0525,
+          "time_breakdown_ms": {
+            "planner_base": 0,
+            "planner_simulated": 0,
+            "reasoner": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "semantic_oracle",
+          "cache_size": 10,
+          "requests": 400,
+          "hits": 1,
+          "misses": 399,
+          "hit_rate": 0.0025,
+          "time_breakdown_ms": {
+            "planner_base": 0,
+            "planner_simulated": 0,
+            "reasoner": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "exact",
+          "cache_size": 50,
+          "requests": 400,
+          "hits": 0,
+          "misses": 400,
+          "hit_rate": 0.0,
+          "time_breakdown_ms": {
+            "planner_base": 0,
+            "planner_simulated": 0,
+            "reasoner": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "semantic_lru",
+          "cache_size": 50,
+          "requests": 400,
+          "hits": 7,
+          "misses": 393,
+          "hit_rate": 0.0175,
+          "time_breakdown_ms": {
+            "planner_base": 0,
+            "planner_simulated": 0,
+            "reasoner": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "semantic_lfu",
+          "cache_size": 50,
+          "requests": 400,
+          "hits": 7,
+          "misses": 393,
+          "hit_rate": 0.0175,
+          "time_breakdown_ms": {
+            "planner_base": 0,
+            "planner_simulated": 0,
+            "reasoner": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "semantic_fifo",
+          "cache_size": 50,
+          "requests": 400,
+          "hits": 7,
+          "misses": 393,
+          "hit_rate": 0.0175,
+          "time_breakdown_ms": {
+            "planner_base": 0,
+            "planner_simulated": 0,
+            "reasoner": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "semantic_random",
+          "cache_size": 50,
+          "requests": 400,
+          "hits": 6,
+          "misses": 394,
+          "hit_rate": 0.015,
+          "time_breakdown_ms": {
+            "planner_base": 0,
+            "planner_simulated": 0,
+            "reasoner": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "semantic_belady",
+          "cache_size": 50,
+          "requests": 400,
+          "hits": 25,
+          "misses": 375,
+          "hit_rate": 0.0625,
+          "time_breakdown_ms": {
+            "planner_base": 0,
+            "planner_simulated": 0,
+            "reasoner": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "semantic_oracle",
+          "cache_size": 50,
+          "requests": 400,
+          "hits": 6,
+          "misses": 394,
+          "hit_rate": 0.015,
+          "time_breakdown_ms": {
+            "planner_base": 0,
+            "planner_simulated": 0,
+            "reasoner": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "exact",
+          "cache_size": 100,
+          "requests": 400,
+          "hits": 0,
+          "misses": 400,
+          "hit_rate": 0.0,
+          "time_breakdown_ms": {
+            "planner_base": 0,
+            "planner_simulated": 0,
+            "reasoner": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "semantic_lru",
+          "cache_size": 100,
+          "requests": 400,
+          "hits": 11,
+          "misses": 389,
+          "hit_rate": 0.0275,
+          "time_breakdown_ms": {
+            "planner_base": 0,
+            "planner_simulated": 0,
+            "reasoner": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "semantic_lfu",
+          "cache_size": 100,
+          "requests": 400,
+          "hits": 9,
+          "misses": 391,
+          "hit_rate": 0.0225,
+          "time_breakdown_ms": {
+            "planner_base": 0,
+            "planner_simulated": 0,
+            "reasoner": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "semantic_fifo",
+          "cache_size": 100,
+          "requests": 400,
+          "hits": 11,
+          "misses": 389,
+          "hit_rate": 0.0275,
+          "time_breakdown_ms": {
+            "planner_base": 0,
+            "planner_simulated": 0,
+            "reasoner": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "semantic_random",
+          "cache_size": 100,
+          "requests": 400,
+          "hits": 10,
+          "misses": 390,
+          "hit_rate": 0.025,
+          "time_breakdown_ms": {
+            "planner_base": 0,
+            "planner_simulated": 0,
+            "reasoner": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "semantic_belady",
+          "cache_size": 100,
+          "requests": 400,
+          "hits": 25,
+          "misses": 375,
+          "hit_rate": 0.0625,
+          "time_breakdown_ms": {
+            "planner_base": 0,
+            "planner_simulated": 0,
+            "reasoner": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "semantic_oracle",
+          "cache_size": 100,
+          "requests": 400,
+          "hits": 10,
+          "misses": 390,
+          "hit_rate": 0.025,
+          "time_breakdown_ms": {
+            "planner_base": 0,
+            "planner_simulated": 0,
+            "reasoner": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "exact",
+          "cache_size": 200,
+          "requests": 400,
+          "hits": 0,
+          "misses": 400,
+          "hit_rate": 0.0,
+          "time_breakdown_ms": {
+            "planner_base": 0,
+            "planner_simulated": 0,
+            "reasoner": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "semantic_lru",
+          "cache_size": 200,
+          "requests": 400,
+          "hits": 23,
+          "misses": 377,
+          "hit_rate": 0.0575,
+          "time_breakdown_ms": {
+            "planner_base": 0,
+            "planner_simulated": 0,
+            "reasoner": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "semantic_lfu",
+          "cache_size": 200,
+          "requests": 400,
+          "hits": 23,
+          "misses": 377,
+          "hit_rate": 0.0575,
+          "time_breakdown_ms": {
+            "planner_base": 0,
+            "planner_simulated": 0,
+            "reasoner": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "semantic_fifo",
+          "cache_size": 200,
+          "requests": 400,
+          "hits": 22,
+          "misses": 378,
+          "hit_rate": 0.055,
+          "time_breakdown_ms": {
+            "planner_base": 0,
+            "planner_simulated": 0,
+            "reasoner": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "semantic_random",
+          "cache_size": 200,
+          "requests": 400,
+          "hits": 19,
+          "misses": 381,
+          "hit_rate": 0.0475,
+          "time_breakdown_ms": {
+            "planner_base": 0,
+            "planner_simulated": 0,
+            "reasoner": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "semantic_belady",
+          "cache_size": 200,
+          "requests": 400,
+          "hits": 25,
+          "misses": 375,
+          "hit_rate": 0.0625,
+          "time_breakdown_ms": {
+            "planner_base": 0,
+            "planner_simulated": 0,
+            "reasoner": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "semantic_oracle",
+          "cache_size": 200,
+          "requests": 400,
+          "hits": 22,
+          "misses": 378,
+          "hit_rate": 0.055,
+          "time_breakdown_ms": {
+            "planner_base": 0,
+            "planner_simulated": 0,
+            "reasoner": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "exact",
+          "cache_size": 400,
+          "requests": 400,
+          "hits": 0,
+          "misses": 400,
+          "hit_rate": 0.0,
+          "time_breakdown_ms": {
+            "planner_base": 0,
+            "planner_simulated": 0,
+            "reasoner": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "semantic_lru",
+          "cache_size": 400,
+          "requests": 400,
+          "hits": 25,
+          "misses": 375,
+          "hit_rate": 0.0625,
+          "time_breakdown_ms": {
+            "planner_base": 0,
+            "planner_simulated": 0,
+            "reasoner": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "semantic_lfu",
+          "cache_size": 400,
+          "requests": 400,
+          "hits": 25,
+          "misses": 375,
+          "hit_rate": 0.0625,
+          "time_breakdown_ms": {
+            "planner_base": 0,
+            "planner_simulated": 0,
+            "reasoner": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "semantic_fifo",
+          "cache_size": 400,
+          "requests": 400,
+          "hits": 25,
+          "misses": 375,
+          "hit_rate": 0.0625,
+          "time_breakdown_ms": {
+            "planner_base": 0,
+            "planner_simulated": 0,
+            "reasoner": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "semantic_random",
+          "cache_size": 400,
+          "requests": 400,
+          "hits": 25,
+          "misses": 375,
+          "hit_rate": 0.0625,
+          "time_breakdown_ms": {
+            "planner_base": 0,
+            "planner_simulated": 0,
+            "reasoner": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "semantic_belady",
+          "cache_size": 400,
+          "requests": 400,
+          "hits": 25,
+          "misses": 375,
+          "hit_rate": 0.0625,
+          "time_breakdown_ms": {
+            "planner_base": 0,
+            "planner_simulated": 0,
+            "reasoner": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        },
+        {
+          "policy": "semantic_oracle",
+          "cache_size": 400,
+          "requests": 400,
+          "hits": 24,
+          "misses": 376,
+          "hit_rate": 0.06,
+          "time_breakdown_ms": {
+            "planner_base": 0,
+            "planner_simulated": 0,
+            "reasoner": 0,
+            "other": 0,
+            "total_base": 0,
+            "total_simulated": 0,
+            "saved": 0
+          }
+        }
+      ]
+    }
+  }
+}

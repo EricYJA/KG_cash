@@ -1,0 +1,20 @@
+\begin{table}[htbp]
+\centering
+\caption{Measured First-Pass Semantic Cache Hit Rate by Policy and Configuration on WebQSP (live runs)}
+\label{tab:live_cache_hits_webqsp}
+\begin{tabular}{llrrrr}
+\hline
+\textbf{System} & \textbf{Policy} & \textbf{Gemini (Oxi)} & \textbf{Gemini (Virt)} & \textbf{Haiku (Oxi)} & \textbf{Haiku (Virt)} \\
+\hline
+RoG  & Exact Match      & 0.0\% & 0.0\% & 0.0\% & 0.0\% \\
+     & Semantic LRU     & 7.7\% & 4.3\% & 0.0\% & 12.3\% \\
+     & Semantic LFU     & 12.6\% & 6.2\% & 7.7\% & 7.7\% \\
+     & Semantic Oracle  & 9.9\% & 3.5\% & 9.3\% & 12.2\% \\
+\hline
+ToG  & Exact Match      & 0.0\% & 0.0\% & 0.0\% & 0.0\% \\
+     & Semantic LRU     & 8.2\% & 13.5\% & 8.2\% & 8.2\% \\
+     & Semantic LFU     & 8.2\% & 8.2\% & 8.2\% & 8.2\% \\
+     & Semantic Oracle  & 7.3\% & 7.3\% & 7.3\% & 7.3\% \\
+\hline
+\end{tabular}
+\end{table}
