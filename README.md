@@ -1,266 +1,147 @@
-# KG Cash
+# KG_cash
 
-This repo contains a local ToG-based knowledge graph QA pipeline under
-`src/ToG-cache`. It is based on the upstream ToG project, with local changes for
-cached Freebase/WebQSP runs, small test runs, configurable output paths, and
-JSONL evaluation.
+**Question caching for LLM-guided knowledge graph question answering.**
+
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
+
+KGQA systems like [RoG](https://github.com/RManLuo/reasoning-on-graphs) and
+[ToG](https://github.com/GasolSun36/ToG) answer a question by making repeated
+LLM calls to plan a traversal over a knowledge graph. Those planning calls
+dominate latency, and across a benchmark many questions plan *almost the same
+traversal*. This repository measures how much of that work a cache can remove —
+and whether removing it costs any accuracy.
+
+The cache sits in front of the **planning stage only**. The reasoning stage
+always runs against the live KG, so any change in Hits@1 or F1 is caused by
+reusing a planned path and nothing else.
+
+```
+  RoG    question ──▶ [ planner: LLM → relation paths ] ──▶ [ reasoner: paths + KG → answer ] ──▶ score
+                          ▲ cached                              always runs
+
+  ToG    question ──▶ [ iterative traverse: LLM + SPARQL, per loop ] ──▶ answer ──▶ score
+                          ▲ cached (question-chain)
+```
+
+## Key findings
+
+![RoG cache results on WebQSP](artifacts/plots/rog_cache_results.png)
+
+**Exact-match caching is worthless here.** Across every system, backend, and
+model we tested, exact string matching on the question produced a **0.0% hit
+rate** — benchmark questions are rarely repeated verbatim. Semantic matching on
+question embeddings is what makes a cache viable at all.
+
+**Semantic caching hits, and accuracy holds.** On RoG / WebQSP test
+(n=1628, Claude Haiku 4.5, Virtuoso):
+
+| Policy            | Hit rate | Accuracy | F1    |
+| ----------------- | -------: | -------: | ----: |
+| None (baseline)   |     0.0% |    49.67 | 50.40 |
+| Exact match       |     0.0% |    49.60 | 49.78 |
+| Semantic LFU      |     7.7% |    49.83 | 49.83 |
+| Semantic LRU      |     7.7% |    48.72 | 49.17 |
+| Semantic Oracle   |     6.8% |    50.03 | 50.48 |
+
+Accuracy stays within ~1 point of the uncached baseline in every configuration,
+so the hits are genuinely reusable plans rather than degraded answers.
+
+**End-to-end speedup is modest; the headroom is in the KG, not the planner.**
+Live full-system speedup lands at 1.06×–1.13×. Simulation over captured traces
+shows where the remaining time actually is — caching *KG* results at capacity
+1000 gives:
+
+| Dataset | Policy       | Hit rate | KG speedup |
+| ------- | ------------ | -------: | ---------: |
+| WebQSP  | LRU          |    34.6% |      1.35× |
+| WebQSP  | Belady (MIN) |    37.1% |      1.47× |
+| CWQ     | LFU          |    38.6% |      1.91× |
+| CWQ     | Belady (MIN) |    41.5% |      2.09× |
+
+Belady is the offline optimum, so those columns bound what any online policy
+can reach.
+
+**Similarity threshold and cache size both matter.** At a 0.99 threshold the
+semantic cache degenerates to exact match and gains nothing. Loosening it to
+0.80 buys ~5% hit-rate gain over the exact-match baseline, and the gain grows
+with cache size up to ~500 entries before flattening. Across the whole range we
+swept (0.80–0.95), entity overlap between the incoming question and the cached
+hit stays above ~95%, so we see no sign of the cache serving plans for
+unrelated questions — the failure mode a looser threshold would be expected to
+introduce.
+
+![Semantic LRU gain vs. cache size and threshold](artifacts/figures/semantic_cache_sim_gain_semantic_lru.png)
+
+Full figure set in [`artifacts/figures/`](artifacts/figures/), LaTeX tables in
+[`artifacts/tables/`](artifacts/tables/).
+
+## Repository layout
+
+| Path                  | Contents                                                                |
+| --------------------- | ----------------------------------------------------------------------- |
+| `scripts/`            | Experiment runners, simulators, and table/plot generators — start here   |
+| `src/RoG-cache/`      | RoG planner/reasoner API, question cache, cache simulators               |
+| `src/ToG-cache/`      | ToG runtime (fork), Freebase/WebQSP resources, evaluator                 |
+| `src/ToG-2/`          | ToG-2 runtime, Wikidata capture/replay clients                           |
+| `src/ToG-1/`          | Reference copy of upstream ToG                                           |
+| `characterization/`   | Semantic-overlap and entity-reuse characterization study                 |
+| `artifacts/`          | Run summaries, figures, and generated tables                             |
+| `datasets/`           | WebQSP, CWQ, and Freebase subsets                                        |
+| `docker/`             | Virtuoso, Oxigraph, and RoG server images                                |
+
+Two SPARQL backends serve the same Freebase KG and are interchangeable via
+`SPARQL_ENDPOINT` or `--engine`: **Virtuoso** (`:8890`) and **Oxigraph**
+(`:7878`).
+
+## Quickstart
+
+Requires Docker with the NVIDIA runtime (for the RoG model server).
+
+```bash
+# 0. Configure credentials — see .env.example for every supported variable
+cp .env.example .env      # then set LLM_API_KEY, and HF_TOKEN for RoG runs
+
+# 1. Bring up a SPARQL backend (and the RoG server, if running RoG live)
+docker compose up -d virtuoso        # or: oxigraph
+docker compose up -d rog             # GPU; first start pulls the model
+
+# 2. Run a cache experiment across all policies
+python scripts/run_rog_cache_experiment.py \
+  --dataset RoG-webqsp \
+  --vendor tamu \
+  --policies none,exact,semantic_lru,semantic_lfu,semantic_oracle \
+  --threshold 0.9 \
+  --capacity 4096 \
+  --run-tag my_run
+
+# 3. Summarize
+python scripts/summarize_tog_cache.py
+```
+
+Results land in `artifacts/rog_cache/<run-tag>/summary.{json,csv}`. Only these
+summaries are committed — the bulk prediction and cache output is regenerable
+and gitignored.
+
+The ToG equivalent is `scripts/run_tog_cache_experiment.py`, and
+`scripts/run_tog_cache_sim.py` / `run_rog_cache_sim.py` replay captured traces
+through cache policies without spending API calls.
+
+For manual (non-Docker) installation, Freebase loading, and running the ToG
+runtime directly, see **[docs/SETUP.md](docs/SETUP.md)**.
 
 ## Credit
 
-This work builds on the ToG implementation from:
+This work builds on prior KGQA research; see [NOTICE](NOTICE) for the full
+attribution list.
 
-- [GasolSun36/ToG](https://github.com/GasolSun36/ToG)
+- **ToG** — [GasolSun36/ToG](https://github.com/GasolSun36/ToG)
+- **ToG-2** — [DataArcTech/ToG-2](https://github.com/DataArcTech/ToG-2)
+- **RoG** — [RManLuo/reasoning-on-graphs](https://github.com/RManLuo/reasoning-on-graphs)
 
-Please refer to the upstream repository for the original ToG code, paper
-context, and citation information.
+Please refer to the upstream repositories for the original implementations,
+paper context, and citation information.
 
-## Repository Layout
+## License
 
-- `src/ToG-cache/`: runnable ToG code and local Freebase/WebQSP resources.
-- `src/ToG-cache/ToG/`: main ToG runtime.
-- `src/ToG-cache/eval/`: exact-match evaluator.
-- `src/ToG-cache/output/`: default output directory for generated predictions.
-- `src/ToG-cache/Freebase/WebQSP_FilterFreebase`: filtered Freebase triples used by the current WebQSP setup.
-
-## Setup
-
-### 1. Check The Freebase Data File
-
-The current setup expects the filtered Freebase file to exist here:
-
-```bash
-ls -lh KG_cash/src/ToG-cache/Freebase/WebQSP_FilterFreebase
-```
-
-If this file is missing, create or restore it before loading Virtuoso. The
-runtime queries the local Virtuoso SPARQL endpoint, not the raw file directly.
-
-### 2. Create The Python Environment
-
-Create and activate a conda environment:
-
-```bash
-conda create -n kg_cache python=3.10 -y
-conda activate kg_cache
-```
-
-Install ToG dependencies:
-
-```bash
-cd KG_cash/src/ToG-cache
-pip install -r requirements.txt
-pip install "openai==0.28.1"
-```
-
-The `openai==0.28.1` pin is intentional because this ToG code uses the older
-`openai.ChatCompletion.create(...)` API.
-
-### 3. Install And Start Virtuoso
-
-Install the open-source Virtuoso package:
-
-```bash
-sudo apt update
-sudo apt install virtuoso-opensource-7 -y
-```
-
-Start the service:
-
-```bash
-sudo systemctl start virtuoso-opensource-7
-sudo systemctl status virtuoso-opensource-7
-```
-
-The ToG Freebase client is configured to query:
-
-```text
-http://localhost:8890/sparql
-```
-
-That setting is in `src/ToG-cache/ToG/freebase_func.py`.
-
-### 4. Allow Virtuoso To Read The Freebase Directory
-
-Virtuoso only loads files from allowed directories. Edit the Virtuoso config and
-add the project Freebase directory to `DirsAllowed`.
-
-Common config location:
-
-```bash
-sudo nano /etc/virtuoso-opensource-7/virtuoso.ini
-```
-
-Look for `DirsAllowed` and include:
-
-```text
-<your_path>/KG_cash/src/ToG-cache/Freebase
-```
-
-Then restart Virtuoso:
-
-```bash
-sudo systemctl restart virtuoso-opensource-7
-```
-
-### 5. Load Freebase Into Virtuoso
-
-Open the Virtuoso SQL shell:
-
-```bash
-isql-vt 1111 dba dba
-```
-
-If your install uses a different binary name, try:
-
-```bash
-isql 1111 dba dba
-```
-
-Inside the `SQL>` prompt, run:
-
-```bash
-SQL> ld_dir('<your_path>/KG_cash/src/ToG-cache/Freebase', 'WebQSP_FilterFreebase', 'http://freebase.com');
-SQL> rdf_loader_run();
-```
-
-Expected output is similar to:
-
-```bash
-SQL> ld_dir('<your_path>/KG_cash/src/ToG-cache/Freebase', 'WebQSP_FilterFreebase', 'http://freebase.com');
-Done. -- 1 msec.
-
-SQL> rdf_loader_run();
-Done. -- 84972 msec.
-```
-
-Exit the SQL shell:
-
-```bash
-SQL> exit;
-```
-
-### 6. Verify The SPARQL Endpoint
-
-Run a small query:
-
-```bash
-curl -G "http://localhost:8890/sparql" \
-  --data-urlencode "query=PREFIX ns: <http://rdf.freebase.com/ns/> SELECT ?p ?o WHERE { ns:m.02mjmr ?p ?o } LIMIT 5" \
-  --data-urlencode "format=json"
-```
-
-If the data is loaded correctly, the JSON response should contain 5 bindings.
-
-## Run ToG
-
-Run from the ToG source directory:
-
-```bash
-cd KG_cash/src/ToG-cache/ToG
-```
-
-Small WebQSP smoke test:
-
-```bash
-python main_freebase.py \
-  --dataset webqsp \
-  --test-limit 10 \
-  --max_length 256 \
-  --width 3 \
-  --depth 3 \
-  --remove_unnecessary_rel True \
-  --LLM_type gpt-4o \
-  --opeani_api_keys <your-api-key> \
-  --num_retain_entity 5 \
-  --prune_tools llm
-```
-
-Notes:
-
-- The API key flag is intentionally spelled `--opeani_api_keys` because that is
-  the flag name used by the ToG code.
-- `main_freebase.py` does not expose temperature flags; the request uses the
-  model/provider default temperature behavior.
-- `--test-limit 10` runs the first 10 samples, or the full dataset if it has
-  fewer than 10 samples.
-- Output is appended, not overwritten.
-- By default, predictions are written to:
-
-```bash
-KG_cash/src/ToG-cache/output/ToG_webqsp.jsonl
-```
-
-To force a clean run, remove the previous output first:
-
-```bash
-rm -f KG_cash/src/ToG-cache/output/ToG_webqsp.jsonl
-```
-
-## Evaluate
-
-The main ToG run creates prediction files. It does not print accuracy. Use the
-evaluator separately.
-
-The evaluator accepts both `.json` and `.jsonl` output files:
-
-```bash
-cd KG_cash/src/ToG-cache/eval
-
-python eval.py \
-  --dataset webqsp \
-  --output_file ../output/ToG_webqsp.jsonl \
-  --constraints_refuse True
-```
-
-Expected console output:
-
-```text
-Exact Match: <score>
-right: <num_right>, error: <num_error>
-```
-
-It also writes a summary file in the eval directory:
-
-```text
-KG_cash/src/ToG-cache/eval/ToG_webqsp_results.json
-```
-
-## Useful Checks
-
-Count output rows:
-
-```bash
-python -c "import json; p='KG_cash/src/ToG-cache/output/ToG_webqsp.jsonl'; print(sum(1 for line in open(p) if line.strip()))"
-```
-
-Check unique output questions:
-
-```bash
-python -c "import json; p='KG_cash/src/ToG-cache/output/ToG_webqsp.jsonl'; rows=[json.loads(l) for l in open(p) if l.strip()]; print(len(rows), len({r['question'] for r in rows}))"
-```
-
-Compile-check the edited Python files:
-
-```bash
-cd KG_cash
-python -m py_compile \
-  src/ToG-cache/ToG/main_freebase.py \
-  src/ToG-cache/ToG/utils.py \
-  src/ToG-cache/ToG/freebase_func.py \
-  src/ToG-cache/eval/eval.py \
-  src/ToG-cache/eval/utils.py
-```
-
-## Stop Virtuoso
-
-When finished:
-
-```bash
-sudo systemctl stop virtuoso-opensource-7
-```
-
-To start it again later:
-
-```bash
-sudo systemctl start virtuoso-opensource-7
-```
+Apache License 2.0 — see [LICENSE](LICENSE). Vendored upstream components
+retain their own license terms; see [NOTICE](NOTICE).

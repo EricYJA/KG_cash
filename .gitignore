@@ -18,6 +18,8 @@ venv
 .env_oxi
 .env_oxi_gemini
 .env_oxi_gpt
+# ...but the checked-in template must survive the .env* rule above.
+!.env.example
 characterization/data
 api_key.sh
 

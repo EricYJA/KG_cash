@@ -1,0 +1,38 @@
+KG_cash
+Copyright 2026 The KG_cash authors
+
+This product includes software developed as part of the following third-party
+research projects. Each vendored subtree remains subject to its own license
+terms, which take precedence over the top-level Apache-2.0 license for the
+files in that subtree.
+
+--------------------------------------------------------------------------------
+
+ToG-2 — src/ToG-2/
+    Upstream: https://github.com/DataArcTech/ToG-2
+    License:  Apache License 2.0 (see src/ToG-2/LICENSE)
+
+ToG — src/ToG-1/, src/ToG-cache/
+    Upstream: https://github.com/GasolSun36/ToG
+    src/ToG-1/ is a reference copy of the upstream release.
+    src/ToG-cache/ is a fork with local modifications for cached
+    Freebase/WebQSP runs, configurable output paths, and JSONL evaluation.
+
+RoG (Reasoning on Graphs) — src/RoG-cache/
+    Upstream: https://github.com/RManLuo/reasoning-on-graphs
+    src/RoG-cache/ contains a caching layer and API wrappers built around the
+    upstream RoG planner/reasoner pipeline.
+
+--------------------------------------------------------------------------------
+
+Datasets distributed under datasets/ are the property of their respective
+creators and are subject to their original terms:
+
+WebQSP (WebQuestionsSP) — datasets/WebQSP/
+    Microsoft Research.
+
+ComplexWebQuestions (CWQ) — datasets/complex-web-questions-dataset/
+    Tel-Aviv University NLP.
+
+Freebase subsets — datasets/Freebase/, src/ToG-cache/Freebase/
+    Derived from the Freebase data dumps.
