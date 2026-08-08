@@ -101,11 +101,17 @@ Requires Docker with the NVIDIA runtime (for the RoG model server).
 # 0. Configure credentials — see .env.example for every supported variable
 cp .env.example .env      # then set LLM_API_KEY, and HF_TOKEN for RoG runs
 
-# 1. Bring up a SPARQL backend (and the RoG server, if running RoG live)
+# 1. Fetch the RoG submodule and apply the local patches it needs.
+#    The patches add the --load_in_8bit / --load_in_4bit flags the runners
+#    pass; without them RoG rejects the flag and no experiment will start.
+git submodule update --init ref_KG_projects/RoG
+git -C ref_KG_projects/RoG apply ../../docker/rog/rog-local.patch
+
+# 2. Bring up a SPARQL backend (and the RoG server, if running RoG live)
 docker compose up -d virtuoso        # or: oxigraph
 docker compose up -d rog             # GPU; first start pulls the model
 
-# 2. Run a cache experiment across all policies
+# 3. Run a cache experiment across all policies
 python scripts/run_rog_cache_experiment.py \
   --dataset RoG-webqsp \
   --vendor tamu \
@@ -114,7 +120,7 @@ python scripts/run_rog_cache_experiment.py \
   --capacity 4096 \
   --run-tag my_run
 
-# 3. Summarize
+# 4. Summarize
 python scripts/summarize_tog_cache.py
 ```
 

@@ -10,3 +10,6 @@
 [submodule "datasets/ToG"]
 	path = datasets/ToG
 	url = https://github.com/DataArcTech/ToG.git
+[submodule "ref_KG_projects/RoG"]
+	path = ref_KG_projects/RoG
+	url = https://github.com/RManLuo/reasoning-on-graphs.git
