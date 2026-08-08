@@ -25,7 +25,7 @@ reusing a planned path and nothing else.
 
 ## Key findings
 
-![RoG cache results on WebQSP](artifacts/plots/rog_cache_results.png)
+![RoG cache results on WebQSP](artifacts/plots/rog_cache_results_speedup.pdf)
 
 **Exact-match caching is worthless here.** Across every system, backend, and
 model we tested, exact string matching on the question produced a **0.0% hit
@@ -69,8 +69,6 @@ swept (0.80–0.95), entity overlap between the incoming question and the cached
 hit stays above ~95%, so we see no sign of the cache serving plans for
 unrelated questions — the failure mode a looser threshold would be expected to
 introduce.
-
-![Semantic LRU gain vs. cache size and threshold](artifacts/figures/semantic_cache_sim_gain_semantic_lru.png)
 
 Full figure set in [`artifacts/figures/`](artifacts/figures/), LaTeX tables in
 [`artifacts/tables/`](artifacts/tables/).
