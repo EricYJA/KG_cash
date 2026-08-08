@@ -68,12 +68,4 @@ Notes:
   named graph but also searches all graphs by default, so both backends answer
   the same queries identically.)
 
-## Smoke test
 
-`scripts/smoke_test_backend_swap.py` dumps whatever is currently loaded in
-Virtuoso, loads it into Oxigraph, runs the `freebase_func.py` query shapes
-against both endpoints, and diffs the results:
-
-```bash
-PYTHONPATH=src python scripts/smoke_test_backend_swap.py
-```

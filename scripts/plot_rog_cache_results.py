@@ -1,18 +1,4 @@
-#!/usr/bin/env python3
 """Plot RoG (and ToG) cache-experiment results from summary.json files.
-
-Each run's summary.json (RoG: summarize_rog_cache.py; ToG: summarize_tog_cache.py)
-is a list of per-policy records with: policy, hit (Hits@1), f1, accuracy,
-hit_rate, speedup_x, full_speedup_x. Policies go on the x-axis and each metric
-gets its own panel (small multiples -- never a dual y-axis). One grouped bar per
-run within each policy, styled to match the characterization/ figures (serif,
-tab10 colours, white bar edges, dashed y-grid, shared bottom legend, PDF). ToG runs
-(--tog-runs) overlay on the same panels as additional bars in each group.
-
-Figures are sized for a single-column *journal* body (FIG_WIDTH-inch text block),
-so panels stack vertically -- one metric per row, never side by side -- and the
-fonts are set for a figure printed at its natural size rather than shrunk into an
-IEEE two-column layout.
 
     # one RoG run
     python scripts/plot_rog_cache_results.py --runs rog_cache_virtuoso_test
@@ -53,49 +39,121 @@ POLICY_LABELS = {
     "semantic_oracle": "Sem-Oracle",
 }
 
-# characterization/ house style: full tab10 (10 entries) so overlaying RoG+ToG
-# across both backends -- up to 10 runs, e.g. --all -- never wraps two runs onto
-# the same colour.
-COLORS = ["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd",
-          "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22", "#17becf"]
+# A run varies along three independent factors (model x paradigm x backend), so
+# each gets its own visual channel instead of one flat colour per run: readers can
+# then compare "all Gemini" or "all ToG" without decoding the legend entry by entry.
+#   hue   -> model    (tab10 blue/orange/green, a colourblind-safe set)
+#   shade -> backend  (Oxigraph = light tint, Virtuoso = full-strength)
+#   hatch -> paradigm (RoG = solid, ToG = diagonal)
+MODEL_COLORS = {"Gemini": "#1f77b4", "Haiku": "#ff7f0e", "GPT": "#2ca02c"}
+FALLBACK_COLOR = "#7f7f7f"
+PARADIGM_HATCH = {"RoG": "", "ToG": "//"}
+# Tint fraction for the light (Oxigraph) shade: blend this much white into the hue.
+LIGHT_BLEND = 0.55
+# Hatches are drawn in the edge colour, so bars get a dark outline rather than the
+# house white one -- a white hatch is invisible on the light backend shade.
+EDGE_COLOR = "#404040"
 
 ACC_TITLES = {"hit": "Hits@1 (%)", "accuracy": "Accuracy (%)", "f1": "F1 (%)"}
 
-# Journal (single-column body) sizing. FIG_WIDTH is a standard LaTeX article
-# \textwidth, so a figure is placed at 100% and never scaled down -- which is why
-# the fonts below are body-text sized instead of the inflated IEEE ones.
-# Multi-metric figures stack PANEL_HEIGHT-inch rows; drop PANEL_HEIGHT to ~3.0 if
-# the panels need to be shorter still.
 FIG_WIDTH = 6.5
 PANEL_HEIGHT = 2.5
-SOLO_PANEL_HEIGHT = 3.0      # a metric written to its own figure gets more room
+SOLO_PANEL_HEIGHT = 3.0  # a metric written to its own figure gets more room
 
-# Panels carry no title; the metric goes on the y-axis, where the long panel
-# names don't fit rotated, so they get a shorter form.
-YLABELS = {"Full-System Speedup (x)": "Speedup (x)",
+# The speedup panel plots two series on one axis rather than a single value: the
+# per-hit ratio and the whole-workload one it implies. Drawn by _draw_speedup_pair.
+#
+#   per hit        speedup_x = avg_miss_s / avg_hit_s -- conditional on a hit, i.e.
+#                  how much cheaper a cache-served question is than a cold one
+#   whole workload 1 / ((1 - h) + h/speedup_x) -- the same measurement amortized
+#                  over every question, recomputed per record by _amdahl_speedup
+#
+# Neither number can be read without the other, which is why they share a panel and
+# why there is no way to plot one alone: the per-hit figure on its own looks like a
+# system result, and the amortized one on its own looks like no result.
+#
+# The amortized value is recomputed rather than read from the stored full_speedup_x
+# because only the recomputation is right on every row. The two are algebraically
+# identical (they agree to <=0.005 wherever the stored row is self-consistent), but
+# the recomputation is derived from two fields that always share one denominator.
+# That matters for the ToG per-pass summaries this script plots by default (see
+# _pass1_records): summarize_tog_cache.py divides those by the *whole run's* avg
+# miss, not the pass's own, so their stored full_speedup_x can be off by ~0.1 --
+# e.g. gemini_tog_cache_virtuoso_test_pass1/semantic_lru reads 1.01 stored against
+# 1.11 recomputed. Amdahl's h is the right accelerated fraction here because the
+# questions that hit cost 0.91-1.02x the run average in the uncached baseline.
+PAIR_FIELD = "speedup_pair"
+
+YLABELS = {"Speedup (x)": "Speedup",
            "Cache Hit Rate (%)": "Hit Rate (%)"}
 
-# Panels that get the same treatment: 'none' dropped (a trivial floor there --
-# 0% hits / 1x speedup) and an explicitly set y-range. The accuracy panel keeps
-# 'none', since there it is a real baseline, and its automatic y-range.
-DROP_NONE_FIELDS = {"hit_rate", "full_speedup_x"}
-SET_YLIM_FIELDS = {"hit_rate", "full_speedup_x"}
+DROP_NONE_FIELDS = {"hit_rate", PAIR_FIELD}
+SET_YLIM_FIELDS = {"hit_rate"}
+
+PAIR_DARKEN = 0.45
+PAIR_WIDTH_FRAC = 0.52
+
+PAIR_BAR_BASE = 0.0
+
+PAIR_REFERENCE = 1.0
+
+PAIR_MAX_LABELED_HITS = 4
+
+AXES_WIDTH_FRAC = 0.85
+PAIR_LABEL_SIZE = 7.0
+PAIR_LABEL_MIN_SIZE = 5.0
+PAIR_LABEL_CHARS = 4
+PAIR_LABEL_ASPECT = 0.62
+PAIR_LABEL_CAP = 1.35
 
 
-def pretty_label(tag: str) -> str:
-    """Compact legend label distinguishing paradigm, model, and backend.
+def parse_tag(tag: str) -> tuple[str, str, str | None]:
+    """(paradigm, model, backend) decoded from a run tag.
 
-    paradigm: *tog* -> "ToG", else "RoG"; model: gemini* -> "Gemini", else "Haiku";
-    backend: *virtuoso* -> "Virt", *oxi* -> "Oxi". e.g. "RoG Gemini (Oxi)".
+    paradigm: *tog* -> "ToG", else "RoG"; model: *gemini* -> "Gemini", *gpt* ->
+    "GPT", else "Haiku"; backend: *virtuoso* -> "Virt", *oxi* -> "Oxi", else None.
     """
     t = tag.lower()
     paradigm = "ToG" if "tog" in t else "RoG"
-    model = "Gemini" if "gemini" in t else "Haiku"
+    model = "Gemini" if "gemini" in t else "GPT" if "gpt" in t else "Haiku"
     backend = "Virt" if "virtuoso" in t else "Oxi" if "oxi" in t else None
+    return paradigm, model, backend
+
+
+def pretty_label(tag: str) -> str:
+    """Compact legend label, e.g. "RoG Gemini (Oxi)"."""
+    paradigm, model, backend = parse_tag(tag)
     label = f"{paradigm} {model}"
     if backend:
         label += f" ({backend})"
     return label
+
+
+def _tint(hex_color: str, amount: float) -> str:
+    """Blend `hex_color` `amount` of the way toward white (0 = unchanged, 1 = white)."""
+    r, g, b = (int(hex_color[i:i + 2], 16) for i in (1, 3, 5))
+    mix = tuple(int(round(c + (255 - c) * amount)) for c in (r, g, b))
+    return "#%02x%02x%02x" % mix
+
+
+def _darken(hex_color: str, amount: float) -> str:
+    """Blend `hex_color` `amount` of the way toward black (0 = unchanged, 1 = black)."""
+    r, g, b = (int(hex_color[i:i + 2], 16) for i in (1, 3, 5))
+    mix = tuple(int(round(c * (1.0 - amount))) for c in (r, g, b))
+    return "#%02x%02x%02x" % mix
+
+
+def bar_style(tag: str) -> dict:
+    """Bar kwargs for a run: hue by model, shade by backend, hatch by paradigm.
+
+    Runs with an unrecognised backend get the full-strength hue, so a tag without a
+    backend marker is never mistaken for the light (Oxigraph) member of a pair.
+    """
+    paradigm, model, backend = parse_tag(tag)
+    color = MODEL_COLORS.get(model, FALLBACK_COLOR)
+    if backend == "Oxi":
+        color = _tint(color, LIGHT_BLEND)
+    return {"color": color, "hatch": PARADIGM_HATCH.get(paradigm, "")}
 
 
 # Per-pass ToG summaries (…_pass1/…_pass2) are the loop-split plots' input, not
@@ -136,10 +194,6 @@ def load_run(path: Path) -> dict[str, dict]:
     return {r["policy"]: r for r in records}
 
 
-# Every panel reports 1st-pass (cold-cache) numbers: a run's whole-run summary
-# aggregates every loop pass, and the warm passes (~100% hit) inflate hit rate,
-# speedup, and accuracy. For runs with a per-pass ToG summary we read pass 1
-# instead; single-pass runs (all RoG) already are pass 1 and fall through unchanged.
 _PASS1_CACHE: dict[str, dict[str, dict] | None] = {}
 
 
@@ -161,19 +215,50 @@ def _panels(accuracy_metric: str) -> list[tuple[str, str, float, float]]:
     return [
         (accuracy_metric, ACC_TITLES[accuracy_metric], 1.0, np.nan),
         ("hit_rate", "Cache Hit Rate (%)", 100.0, 0.0),
-        ("full_speedup_x", "Full-System Speedup (x)", 1.0, 1.0),
+        (PAIR_FIELD, "Speedup (x)", 1.0, 1.0),
     ]
 
 
 # Short filename slug per metric, used when writing one PDF per panel.
 SLUGS = {"hit": "hits1", "accuracy": "accuracy", "f1": "f1",
-         "hit_rate": "hit_rate", "full_speedup_x": "speedup"}
+         "hit_rate": "hit_rate", "speedup_pair": "speedup"}
+
+
+def _amdahl_speedup(record: dict, baseline: float) -> float:
+    """Amdahl's law over one record: 1 / ((1 - h) + h / s).
+
+    The cache accelerates only the fraction `h` of questions it serves, each by
+    `s = speedup_x`; the remaining (1 - h) run at full cost. Returns `baseline`
+    (1x) where the cache served nothing, and nan where the row never measured the
+    inputs -- an unmeasured run must not appear as a solid "exactly 1.00x" bar.
+    """
+    h = record.get("hit_rate")
+    s = record.get("speedup_x")
+    if h is None or "speedup_x" not in record:
+        return np.nan  # never measured
+    if not h:
+        return baseline  # no hits => nothing accelerated
+    if not isinstance(s, (int, float)) or s <= 0:
+        return np.nan  # hits but no usable per-hit speedup
+    return 1.0 / ((1.0 - h) + h / s)
+
+
+def _per_hit_speedup(record: dict, baseline: float) -> float:
+    """avg_miss_s / avg_hit_s as the summarizer stored it, with the same floors."""
+    s = record.get("speedup_x")
+    if "speedup_x" not in record:
+        return np.nan  # never measured
+    if s is None:
+        return baseline  # measured, undefined (no hits to time)
+    if not isinstance(s, (int, float)) or s <= 0:
+        return np.nan
+    return float(s)
 
 
 def _set_style() -> None:
     plt.rcParams.update({
-        "font.family": "serif",      # Matches the journal body font (Times/CM)
-        "font.size": 10,             # Figure is printed at 100%, so match body text
+        "font.family": "serif",  # Matches the journal body font (Times/CM)
+        "font.size": 10,  # Figure is printed at 100%, so match body text
         "axes.labelsize": 11,
         "axes.titlesize": 11,
         "legend.fontsize": 9,
@@ -181,6 +266,11 @@ def _set_style() -> None:
         "ytick.labelsize": 9,
         "lines.linewidth": 1.6,
         "lines.markersize": 5,
+        # Only the axis lines the data needs: the ticks carry the scale, so the
+        # top/right box is ink that frames nothing.
+        "axes.spines.top": False,
+        "axes.spines.right": False,
+        "hatch.linewidth": 0.6,  # thin enough not to muddy the fill colour
     })
 
 
@@ -206,106 +296,184 @@ def _label_best_per_group(ax, x, per_run_y, width, n) -> None:
                     fontweight="bold", zorder=4)
 
 
+def _records_for(runs, run_name):
+    """The per-policy records a panel should read for `run_name`.
+
+    Every metric is reported for the 1st pass (cold cache) where a per-pass summary
+    exists, so warm passes don't inflate hit rate / speedup / accuracy. Single-pass
+    runs (all RoG) have no _pass1 summary and use the whole run.
+    """
+    pass1 = _pass1_records(run_name)
+    return pass1 if pass1 is not None else runs[run_name]
+
+
+def _draw_speedup_pair(ax, runs, policies, x, width, n, all_y: list[float]) -> None:
+    """Per-hit and whole-workload speedup on one axis, two bars per run.
+
+    These are the same measurement asked two different questions, and the paper's
+    result is the *gap* between them: a cache hit answers a question ~2-3.7x faster,
+    but the cache only serves ~7-8% of questions, so the workload as a whole moves
+    ~1.04-1.06x. Plotted apart, each number invites the wrong reading -- the per-hit
+    figure looks like a system result, the amortized one looks like no result.
+    Plotted together against the 1x rule, the small bar in front of the large one
+    *is* the finding: per-hit cost is not the bottleneck, coverage is.
+    """
+    rotation, fontsize = _pair_label_layout(n, len(policies))
+    label_every_hit = len(runs) <= PAIR_MAX_LABELED_HITS
+    per_run_hits: list[list[float]] = []  # [run][policy], for the per-group best
+    for ri, run_name in enumerate(runs):
+        src = _records_for(runs, run_name)
+        offset = (ri - (n - 1) / 2.0) * width
+        style = bar_style(run_name)
+        per_hit, full = [], []
+        for p in policies:
+            record = src.get(p, {})
+            per_hit.append(_per_hit_speedup(record, PAIR_REFERENCE))
+            full.append(_amdahl_speedup(record, PAIR_REFERENCE))
+        ax.bar(x + offset, per_hit, bottom=PAIR_BAR_BASE,
+               width=width, label=pretty_label(run_name), edgecolor=EDGE_COLOR,
+               linewidth=0.6, zorder=3, **style)
+        ax.bar(x + offset, full, bottom=PAIR_BAR_BASE,
+               width=width * PAIR_WIDTH_FRAC, color=_darken(style["color"], PAIR_DARKEN),
+               edgecolor=EDGE_COLOR, linewidth=0.6, zorder=4)
+        _label_pair(ax, x + offset, per_hit, full, rotation, fontsize,
+                    label_per_hit=label_every_hit)
+        per_run_hits.append(per_hit)
+        all_y.extend(v for v in per_hit if isinstance(v, (int, float)) and np.isfinite(v))
+
+    if not label_every_hit:
+        # Too many runs to number every per-hit bar, but the tallest one in each
+        # policy group is the figure's headline number, so it still gets its value.
+        _label_best_per_group(ax, x, per_run_hits, width, n)
+
+
+def _pair_label_layout(n_runs: int, n_policies: int) -> tuple[float, float]:
+    """(rotation, fontsize) that keeps a whole-workload label inside its bar slot.
+
+    Horizontal while the slot is wide enough to hold the digits; past that the label
+    is turned on its side, where its footprint is the line height rather than the
+    string length -- roughly a third as wide -- and shrunk further only if even that
+    does not fit. Suppressing the label instead is not an option: it is the only
+    place the whole-workload number appears.
+    """
+    slot_in = (FIG_WIDTH * AXES_WIDTH_FRAC) / max(n_policies, 1) * (0.8 / max(n_runs, 1))
+    if slot_in >= PAIR_LABEL_CHARS * PAIR_LABEL_ASPECT * PAIR_LABEL_SIZE / 72.0:
+        return 0.0, PAIR_LABEL_SIZE
+    return 90.0, max(min(PAIR_LABEL_SIZE, slot_in * 72.0 / PAIR_LABEL_CAP),
+                     PAIR_LABEL_MIN_SIZE)
+
+
+def _label_pair(ax, xs, per_hit, full, rotation: float, fontsize: float,
+                label_per_hit: bool) -> None:
+    """Value labels: above the tall bar, and on top of the inset one.
+
+    The whole-workload label needs an opaque backing because it lands inside the
+    per-hit bar's fill, which may be any of the run hues; rotated, it reads bottom-up
+    out of the sliver it belongs to.
+    """
+    for xc, hv, fv in zip(xs, per_hit, full):
+        if label_per_hit and isinstance(hv, (int, float)) and np.isfinite(hv):
+            ax.annotate(f"{hv:.2f}", (xc, hv), textcoords="offset points",
+                        xytext=(0, 3), ha="center", va="bottom",
+                        fontsize=PAIR_LABEL_SIZE, fontweight="bold", zorder=6)
+        if isinstance(fv, (int, float)) and np.isfinite(fv):
+            ax.annotate(f"{fv:.2f}", (xc, fv), textcoords="offset points",
+                        xytext=(0, 2), ha="center", va="bottom", rotation=rotation,
+                        rotation_mode="anchor", fontsize=fontsize,
+                        fontweight="bold", zorder=6,
+                        bbox={"boxstyle": "round,pad=0.12", "fc": "white",
+                              "ec": "none", "alpha": 0.9})
+
+
 def _draw_panel(ax, runs, policies, field, title, scale, baseline,
                 reserve_legend_headroom: bool = True) -> None:
     """Grouped bar chart for one metric: one bar per run within each policy group.
-
-    Styled to match the characterization/ bar figures: colour-per-run, white bar
-    edges, a dashed y-grid behind the bars. The Full-System Speedup panel zooms its
-    y-axis to start just below the 1x reference (not 0) so per-policy differences --
-    which cluster near 1x -- stay legible instead of collapsing onto the floor.
-
-    ``reserve_legend_headroom`` pads the y-axis to leave a band above the bars for
-    an in-axes legend. The stacked figure puts one shared legend above all panels
-    instead, and passes False -- at these panel heights an in-axes legend would
-    cover the bars rather than sit beside them.
-    """
+"""
     x = np.arange(len(policies))
     n = max(len(runs), 1)
-    width = 0.8 / n                       # groups span 0.8 of the unit slot
+    width = 0.8 / n
     all_y: list[float] = []
-    per_run_y: list[list[float]] = []     # [run][policy], for the per-policy best label
-    for ri, run_name in enumerate(runs):
-        recs = runs[run_name]
-        # Every metric is reported for the 1st pass (cold cache) where a per-pass
-        # summary exists, so warm passes don't inflate hit rate / speedup / accuracy.
-        # Single-pass runs (all RoG) have no _pass1 summary and use the whole run.
-        pass1 = _pass1_records(run_name)
-        src = pass1 if pass1 is not None else recs
-        y = []
-        for p in policies:
-            record = src.get(p, {})
-            v = record.get(field)
-            if isinstance(v, (int, float)):
-                y.append(v * scale)
-            elif field in record:
-                # Present but null: the metric was computed and is undefined for
-                # this policy (no hits => no speedup to report). That is the
-                # panel baseline -- 0% hit rate, 1x speedup -- a real floor.
-                y.append(baseline)
-            else:
-                # Key absent: never measured. Runs predating the stage-2 timing
-                # sidecar have no end-to-end speedup at all, and drawing them at
-                # the baseline would put an unmeasured run on the chart as a
-                # solid "exactly 1.00x" bar no reader could tell from a result.
-                y.append(np.nan)
-        all_y.extend(y)
-        per_run_y.append(y)
-        offset = (ri - (n - 1) / 2.0) * width
-        ax.bar(x + offset, y, width=width, color=COLORS[ri % len(COLORS)],
-               label=pretty_label(run_name), edgecolor="white", linewidth=0.8,
-               zorder=3)
 
-    if field == "full_speedup_x":
-        _label_best_per_group(ax, x, per_run_y, width, n)
+    if field == PAIR_FIELD:
+        _draw_speedup_pair(ax, runs, policies, x, width, n, all_y)
+    else:
+        for ri, run_name in enumerate(runs):
+            src = _records_for(runs, run_name)
+            y = []
+            for p in policies:
+                record = src.get(p, {})
+                v = record.get(field)
+                if isinstance(v, (int, float)):
+                    y.append(v * scale)
+                elif field in record:
 
-    if field in SET_YLIM_FIELDS:
-        # Speedup zooms around its 1x reference (bottom just below it); hit rate
-        # keeps its real 0 baseline.
-        finite = [v for v in all_y if isinstance(v, (int, float)) and np.isfinite(v)]
+                    y.append(baseline)
+                else:
+
+                    y.append(np.nan)
+            all_y.extend(y)
+            offset = (ri - (n - 1) / 2.0) * width
+            ax.bar(x + offset, y, width=width, label=pretty_label(run_name),
+                   edgecolor=EDGE_COLOR, linewidth=0.6, zorder=3,
+                   **bar_style(run_name))
+
+    finite = [v for v in all_y if isinstance(v, (int, float)) and np.isfinite(v)]
+    if field == PAIR_FIELD:
+        # Full 0-based bars, with the 1x rule carrying the "no change" reference the
+        # floor would otherwise have marked. Top is the per-hit series' own range
+        # (2-4x), left with headroom for the value labels.
+        top = max(finite) if finite else PAIR_REFERENCE
+        ax.set_ylim(PAIR_BAR_BASE, top / 0.82)
+        ax.axhline(PAIR_REFERENCE, color="#555555", linewidth=0.9, linestyle=":",
+                   zorder=5)
+    elif field in SET_YLIM_FIELDS:
+        # Hit rate keeps its real 0 baseline and auto-scales its top.
         hi = max(finite) if finite else 1.0
-        if field == "full_speedup_x":
-            ax.axhline(1.0, color="#555555", linewidth=0.9, linestyle="--", zorder=2)  # no-speedup ref
-            lo = 0.9
-        else:
-            lo = 0.0
         if reserve_legend_headroom:
             # Headroom for the in-axes legend: more legend rows -> more whitespace.
-            rows = (len(runs) + 1) // 2                 # 2-column legend
-            bar_frac = max(0.85 - 0.06 * rows, 0.45)    # fraction of axis for bars
+            rows = (len(runs) + 1) // 2  # 2-column legend
+            bar_frac = max(0.85 - 0.06 * rows, 0.45)  # fraction of axis for bars
         else:
             # No in-axes legend: just enough clearance for the value labels.
             bar_frac = 0.90
-        ax.set_ylim(lo, lo + (hi - lo) / bar_frac)
+        ax.set_ylim(0.0, hi / bar_frac)
     # No panel title -- the metric names the y-axis instead, so a paper caption
     # carries the framing and the figure stays all data.
     ax.set_ylabel(YLABELS.get(title, title))
     ax.set_xlabel("Cache Policy")
     ax.set_xticks(x)
-    ax.set_xticklabels([POLICY_LABELS.get(p, p) for p in policies], rotation=30, ha="right")
+    # Labels are short enough to sit horizontal at this width -- rotating them only
+    # costs the reader a head tilt.
+    ax.set_xticklabels([POLICY_LABELS.get(p, p) for p in policies])
     ax.grid(True, axis="y", linestyle="--", alpha=0.5, zorder=0)
     ax.margins(x=0.02)
 
 
-def _add_figure_legend(fig, src_ax, n_runs: int) -> None:
+def _pair_proxies() -> list:
+    """Two neutral swatches naming the series the combined speedup panel draws.
+    """
+    from matplotlib.patches import Patch
+    return [Patch(facecolor="#b0b0b0", edgecolor=EDGE_COLOR, linewidth=0.6,
+                  label="Per hit"),
+            Patch(facecolor=_darken("#b0b0b0", PAIR_DARKEN), edgecolor=EDGE_COLOR,
+                  linewidth=0.6, label="Whole workload")]
+
+
+def _add_figure_legend(fig, src_ax, n_runs: int, extra: list | None = None) -> None:
     """Shared bold legend above the panels, built from `src_ax`'s handles.
 
-    Sits outside the axes so it steals no plotting area from the (short) panels.
-    Up to 4 columns, so ten runs land in three rows rather than a tall block.
-    Used by both layouts: an in-axes legend needs headroom proportional to its own
-    physical height, which at these panel heights means covering the bars.
-
-    The band it occupies has to be reserved by re-running tight_layout with a
-    ``rect`` first -- a figure legend is not laid out by tight_layout, so without
-    this it is drawn straight over the top panel.
     """
-    ncol = min(4, n_runs)
-    rows = -(-n_runs // ncol)                    # ceil
-    reserved_in = 0.17 * rows + 0.20             # legend rows + frame padding
+    n_entries = n_runs + len(extra or [])
+    ncol = min(4, n_entries)
+    rows = -(-n_entries // ncol)  # ceil
+    reserved_in = 0.17 * rows + 0.20  # legend rows + frame padding
     top = 1.0 - reserved_in / fig.get_figheight()
     fig.tight_layout(rect=(0.0, 0.0, 1.0, top))
 
     handles, labels = src_ax.get_legend_handles_labels()
+    for patch in extra or []:
+        handles.append(patch)
+        labels.append(patch.get_label())
     leg = fig.legend(handles, labels, loc="upper center",
                      bbox_to_anchor=(0.5, 1.0), ncol=ncol,
                      framealpha=0.9, edgecolor="#cccccc", fontsize=8,
@@ -316,13 +484,13 @@ def _add_figure_legend(fig, src_ax, n_runs: int) -> None:
         text.set_fontweight("bold")
 
 
-def make_figure(runs: dict[str, dict[str, dict]], accuracy_metric: str) -> plt.Figure:
+def make_figure(runs: dict[str, dict[str, dict]], accuracy_metric: str,
+                ) -> plt.Figure:
     """All three metrics in one journal-width figure, stacked one panel per row."""
     _set_style()
     policies = _policies(runs)
     panels = _panels(accuracy_metric)
-    # One metric per row: at a single-column journal width there is no room for
-    # three panels side by side, and stacking keeps each x-axis readable.
+
     fig, axes = plt.subplots(len(panels), 1,
                              figsize=(FIG_WIDTH, PANEL_HEIGHT * len(panels)))
     for ax, (field, title, scale, baseline) in zip(axes, panels):
@@ -331,16 +499,15 @@ def make_figure(runs: dict[str, dict[str, dict]], accuracy_metric: str) -> plt.F
         _draw_panel(ax, runs, panel_policies, field, title, scale, baseline,
                     reserve_legend_headroom=False)
     plt.tight_layout()
-    # One shared legend above the stack rather than a copy inside two panels: every
-    # panel shows the same runs, and at this panel height an in-axes legend covers
-    # the bars. bbox_inches="tight" at save time keeps it from being clipped.
-    if len(runs) > 1:
-        _add_figure_legend(fig, axes[0], len(runs))
+
+    extra = _pair_proxies() if any(f == PAIR_FIELD for f, *_ in panels) else None
+    if len(runs) > 1 or extra:
+        _add_figure_legend(fig, axes[0], len(runs), extra)
     return fig
 
 
-def make_separate(runs: dict[str, dict[str, dict]],
-                  accuracy_metric: str) -> list[tuple[str, plt.Figure]]:
+def make_separate(runs: dict[str, dict[str, dict]], accuracy_metric: str,
+                  ) -> list[tuple[str, plt.Figure]]:
     """One journal-width figure per metric; returns [(field, figure), ...]."""
     _set_style()
     policies = _policies(runs)
@@ -352,10 +519,11 @@ def make_separate(runs: dict[str, dict[str, dict]],
         _draw_panel(ax, runs, panel_policies, field, title, scale, baseline,
                     reserve_legend_headroom=False)
         plt.tight_layout()
-        # Legend above the axes, as in the stacked figure -- a single panel this
-        # short has no in-axes whitespace big enough to hold it.
-        if len(runs) > 1:
-            _add_figure_legend(fig, ax, len(runs))
+
+
+        extra = _pair_proxies() if field == PAIR_FIELD else None
+        if len(runs) > 1 or extra:
+            _add_figure_legend(fig, ax, len(runs), extra)
         out.append((field, fig))
     return out
 
