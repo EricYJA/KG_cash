@@ -1,0 +1,1871 @@
+/home/ccyuan/Project/KG_cash/datasets/complex-web-questions-dataset/ComplexWebQuestions_train.json: +10,215 entities
+/home/ccyuan/Project/KG_cash/datasets/complex-web-questions-dataset/ComplexWebQuestions_dev.json: +845 entities
+/home/ccyuan/Project/KG_cash/datasets/complex-web-questions-dataset/ComplexWebQuestions_test.json: +780 entities
+total CWQ entities: 11,840
+read=1,000,000 kept=52,644
+read=2,000,000 kept=88,134
+read=3,000,000 kept=111,096
+read=4,000,000 kept=125,174
+read=5,000,000 kept=156,318
+read=6,000,000 kept=193,061
+read=7,000,000 kept=242,140
+read=8,000,000 kept=268,579
+read=9,000,000 kept=279,585
+read=10,000,000 kept=328,148
+read=11,000,000 kept=354,216
+read=12,000,000 kept=389,583
+read=13,000,000 kept=412,221
+read=14,000,000 kept=428,797
+read=15,000,000 kept=481,190
+read=16,000,000 kept=512,264
+read=17,000,000 kept=543,206
+read=18,000,000 kept=556,118
+read=19,000,000 kept=573,103
+read=20,000,000 kept=624,415
+read=21,000,000 kept=658,195
+read=22,000,000 kept=683,840
+read=23,000,000 kept=697,259
+read=24,000,000 kept=739,042
+read=25,000,000 kept=768,915
+read=26,000,000 kept=801,994
+read=27,000,000 kept=831,190
+read=28,000,000 kept=841,806
+read=29,000,000 kept=892,191
+read=30,000,000 kept=918,559
+read=31,000,000 kept=953,004
+read=32,000,000 kept=995,561
+read=33,000,000 kept=1,009,629
+read=34,000,000 kept=1,062,310
+read=35,000,000 kept=1,094,842
+read=36,000,000 kept=1,108,583
+read=37,000,000 kept=1,128,385
+read=38,000,000 kept=1,141,115
+read=39,000,000 kept=1,193,998
+read=40,000,000 kept=1,233,155
+read=41,000,000 kept=1,268,355
+read=42,000,000 kept=1,283,514
+read=43,000,000 kept=1,305,543
+read=44,000,000 kept=1,351,088
+read=45,000,000 kept=1,387,268
+read=46,000,000 kept=1,407,472
+read=47,000,000 kept=1,421,580
+read=48,000,000 kept=1,464,524
+read=49,000,000 kept=1,502,193
+read=50,000,000 kept=1,535,307
+read=51,000,000 kept=1,560,945
+read=52,000,000 kept=1,570,920
+read=53,000,000 kept=1,621,855
+read=54,000,000 kept=1,652,524
+read=55,000,000 kept=1,686,926
+read=56,000,000 kept=1,704,149
+read=57,000,000 kept=1,718,600
+read=58,000,000 kept=1,770,854
+read=59,000,000 kept=1,804,876
+read=60,000,000 kept=1,828,226
+read=61,000,000 kept=1,842,730
+read=62,000,000 kept=1,875,331
+read=63,000,000 kept=1,912,576
+read=64,000,000 kept=1,988,006
+read=65,000,000 kept=2,014,821
+read=66,000,000 kept=2,026,294
+read=67,000,000 kept=2,074,606
+read=68,000,000 kept=2,102,285
+read=69,000,000 kept=2,155,678
+read=70,000,000 kept=2,192,940
+read=71,000,000 kept=2,204,987
+read=72,000,000 kept=2,256,850
+read=73,000,000 kept=2,284,646
+read=74,000,000 kept=2,318,201
+read=75,000,000 kept=2,331,077
+read=76,000,000 kept=2,349,127
+read=77,000,000 kept=2,401,698
+read=78,000,000 kept=3,045,816
+read=79,000,000 kept=3,078,069
+read=80,000,000 kept=3,104,493
+read=81,000,000 kept=3,116,790
+read=82,000,000 kept=3,168,638
+read=83,000,000 kept=3,193,638
+read=84,000,000 kept=3,232,950
+read=85,000,000 kept=3,251,330
+read=86,000,000 kept=3,268,258
+read=87,000,000 kept=3,320,074
+read=88,000,000 kept=3,352,241
+read=89,000,000 kept=3,377,357
+read=90,000,000 kept=3,391,495
+read=91,000,000 kept=3,427,272
+read=92,000,000 kept=3,469,804
+read=93,000,000 kept=3,515,956
+read=94,000,000 kept=3,539,192
+read=95,000,000 kept=3,551,666
+read=96,000,000 kept=3,600,748
+read=97,000,000 kept=3,628,297
+read=98,000,000 kept=3,659,912
+read=99,000,000 kept=3,680,693
+read=100,000,000 kept=3,692,709
+read=101,000,000 kept=3,745,287
+read=102,000,000 kept=3,782,734
+read=103,000,000 kept=3,812,664
+read=104,000,000 kept=3,825,602
+read=105,000,000 kept=3,844,780
+read=106,000,000 kept=3,902,270
+read=107,000,000 kept=3,957,062
+read=108,000,000 kept=3,978,475
+read=109,000,000 kept=3,991,935
+read=110,000,000 kept=4,033,575
+read=111,000,000 kept=4,064,153
+read=112,000,000 kept=4,118,557
+read=113,000,000 kept=4,142,023
+read=114,000,000 kept=4,152,165
+read=115,000,000 kept=4,203,456
+read=116,000,000 kept=4,229,174
+read=117,000,000 kept=4,306,544
+read=118,000,000 kept=4,326,449
+read=119,000,000 kept=4,339,012
+read=120,000,000 kept=4,392,376
+read=121,000,000 kept=4,426,613
+read=122,000,000 kept=4,454,276
+read=123,000,000 kept=4,469,530
+read=124,000,000 kept=4,488,236
+read=125,000,000 kept=4,537,040
+read=126,000,000 kept=4,667,176
+read=127,000,000 kept=4,687,532
+read=128,000,000 kept=4,705,833
+read=129,000,000 kept=4,737,172
+read=130,000,000 kept=4,781,206
+read=131,000,000 kept=4,814,933
+read=132,000,000 kept=4,847,645
+read=133,000,000 kept=4,858,913
+read=134,000,000 kept=4,907,501
+read=135,000,000 kept=4,943,376
+read=136,000,000 kept=4,977,466
+read=137,000,000 kept=5,000,249
+read=138,000,000 kept=5,012,566
+read=139,000,000 kept=5,064,689
+read=140,000,000 kept=5,094,283
+read=141,000,000 kept=5,125,666
+read=142,000,000 kept=5,142,776
+read=143,000,000 kept=5,164,139
+read=144,000,000 kept=5,210,756
+read=145,000,000 kept=5,283,231
+read=146,000,000 kept=5,305,197
+read=147,000,000 kept=5,319,276
+read=148,000,000 kept=5,362,158
+read=149,000,000 kept=5,406,939
+read=150,000,000 kept=5,440,942
+read=151,000,000 kept=5,468,460
+read=152,000,000 kept=5,480,964
+read=153,000,000 kept=5,532,586
+read=154,000,000 kept=5,566,695
+read=155,000,000 kept=5,598,340
+read=156,000,000 kept=5,615,076
+read=157,000,000 kept=5,629,824
+read=158,000,000 kept=5,683,191
+read=159,000,000 kept=5,717,737
+read=160,000,000 kept=5,738,632
+read=161,000,000 kept=5,754,963
+read=162,000,000 kept=5,782,864
+read=163,000,000 kept=5,825,841
+read=164,000,000 kept=5,901,527
+read=165,000,000 kept=5,923,543
+read=166,000,000 kept=5,935,560
+read=167,000,000 kept=5,983,980
+read=168,000,000 kept=6,030,535
+read=169,000,000 kept=6,062,003
+read=170,000,000 kept=6,081,981
+read=171,000,000 kept=6,094,306
+read=172,000,000 kept=6,146,779
+read=173,000,000 kept=6,194,649
+read=174,000,000 kept=6,224,040
+read=175,000,000 kept=6,237,042
+read=176,000,000 kept=6,256,140
+read=177,000,000 kept=6,319,313
+read=178,000,000 kept=6,363,858
+read=179,000,000 kept=6,387,926
+read=180,000,000 kept=6,402,669
+read=181,000,000 kept=6,451,246
+read=182,000,000 kept=6,488,928
+read=183,000,000 kept=6,522,807
+read=184,000,000 kept=6,546,072
+read=185,000,000 kept=6,556,855
+read=186,000,000 kept=6,608,590
+read=187,000,000 kept=6,635,474
+read=188,000,000 kept=6,666,995
+read=189,000,000 kept=6,681,199
+read=190,000,000 kept=6,698,702
+read=191,000,000 kept=6,751,079
+read=192,000,000 kept=6,789,280
+read=193,000,000 kept=6,816,657
+read=194,000,000 kept=6,875,948
+read=195,000,000 kept=6,912,983
+read=196,000,000 kept=6,946,315
+read=197,000,000 kept=6,986,805
+read=198,000,000 kept=7,021,877
+read=199,000,000 kept=7,032,532
+read=200,000,000 kept=7,084,215
+read=201,000,000 kept=7,107,945
+read=202,000,000 kept=7,151,988
+read=203,000,000 kept=7,168,712
+read=204,000,000 kept=7,183,837
+read=205,000,000 kept=7,237,741
+read=206,000,000 kept=7,271,784
+read=207,000,000 kept=7,304,368
+read=208,000,000 kept=7,317,950
+read=209,000,000 kept=7,349,343
+read=210,000,000 kept=7,392,042
+read=211,000,000 kept=7,402,070
+read=212,000,000 kept=7,439,027
+read=213,000,000 kept=7,460,188
+read=214,000,000 kept=7,471,818
+read=215,000,000 kept=7,523,790
+read=216,000,000 kept=7,550,429
+read=217,000,000 kept=7,580,394
+read=218,000,000 kept=7,593,083
+read=219,000,000 kept=7,611,458
+read=220,000,000 kept=7,663,696
+read=221,000,000 kept=7,689,849
+read=222,000,000 kept=7,722,494
+read=223,000,000 kept=7,738,891
+read=224,000,000 kept=7,760,037
+read=225,000,000 kept=7,806,433
+read=226,000,000 kept=7,840,498
+read=227,000,000 kept=7,860,122
+read=228,000,000 kept=7,875,288
+read=229,000,000 kept=7,898,768
+read=230,000,000 kept=7,943,533
+read=231,000,000 kept=7,983,383
+read=232,000,000 kept=8,063,922
+read=233,000,000 kept=8,077,617
+read=234,000,000 kept=8,123,174
+read=235,000,000 kept=8,155,964
+read=236,000,000 kept=8,186,691
+read=237,000,000 kept=8,211,474
+read=238,000,000 kept=8,221,708
+read=239,000,000 kept=8,273,080
+read=240,000,000 kept=8,302,806
+read=241,000,000 kept=8,335,187
+read=242,000,000 kept=8,349,968
+read=243,000,000 kept=8,366,021
+read=244,000,000 kept=8,417,362
+read=245,000,000 kept=8,451,269
+read=246,000,000 kept=8,486,831
+read=247,000,000 kept=8,501,233
+read=248,000,000 kept=8,535,323
+read=249,000,000 kept=8,567,107
+read=250,000,000 kept=8,567,107
+read=251,000,000 kept=8,567,107
+read=252,000,000 kept=8,567,109
+read=253,000,000 kept=8,587,343
+read=254,000,000 kept=8,618,525
+read=255,000,000 kept=8,640,845
+read=256,000,000 kept=8,653,165
+read=257,000,000 kept=8,706,118
+read=258,000,000 kept=8,732,414
+read=259,000,000 kept=8,757,792
+read=260,000,000 kept=8,778,841
+read=261,000,000 kept=8,791,334
+read=262,000,000 kept=8,842,998
+read=263,000,000 kept=8,868,965
+read=264,000,000 kept=8,957,843
+read=265,000,000 kept=8,971,015
+read=266,000,000 kept=8,987,939
+read=267,000,000 kept=9,038,946
+read=268,000,000 kept=9,107,340
+read=269,000,000 kept=9,132,385
+read=270,000,000 kept=9,149,482
+read=271,000,000 kept=9,187,244
+read=272,000,000 kept=9,225,528
+read=273,000,000 kept=9,258,038
+read=274,000,000 kept=9,281,803
+read=275,000,000 kept=9,292,497
+read=276,000,000 kept=9,342,750
+read=277,000,000 kept=9,366,767
+read=278,000,000 kept=9,387,362
+read=279,000,000 kept=9,387,365
+read=280,000,000 kept=9,387,367
+read=281,000,000 kept=9,422,285
+read=282,000,000 kept=9,436,095
+read=283,000,000 kept=9,463,727
+read=284,000,000 kept=9,505,923
+read=285,000,000 kept=9,551,339
+read=286,000,000 kept=9,573,158
+read=287,000,000 kept=9,585,614
+read=288,000,000 kept=9,633,380
+read=289,000,000 kept=9,668,932
+read=290,000,000 kept=9,711,504
+read=291,000,000 kept=9,734,688
+read=292,000,000 kept=9,745,176
+read=293,000,000 kept=9,796,617
+read=294,000,000 kept=9,824,680
+read=295,000,000 kept=9,855,889
+read=296,000,000 kept=9,869,429
+read=297,000,000 kept=9,886,584
+read=298,000,000 kept=9,936,849
+read=299,000,000 kept=9,982,245
+read=300,000,000 kept=10,002,418
+read=301,000,000 kept=10,015,806
+read=302,000,000 kept=10,055,750
+read=303,000,000 kept=10,090,389
+read=304,000,000 kept=10,124,386
+read=305,000,000 kept=10,150,338
+read=306,000,000 kept=10,161,161
+read=307,000,000 kept=10,212,666
+read=308,000,000 kept=10,238,819
+read=309,000,000 kept=10,270,967
+read=310,000,000 kept=10,286,872
+read=311,000,000 kept=10,299,036
+read=312,000,000 kept=10,352,275
+read=313,000,000 kept=10,531,960
+read=314,000,000 kept=10,574,812
+read=315,000,000 kept=10,597,840
+read=316,000,000 kept=10,609,121
+read=317,000,000 kept=10,660,696
+read=318,000,000 kept=10,686,613
+read=319,000,000 kept=10,731,764
+read=320,000,000 kept=10,744,425
+read=321,000,000 kept=10,763,951
+read=322,000,000 kept=10,814,553
+read=323,000,000 kept=10,854,982
+read=324,000,000 kept=10,876,649
+read=325,000,000 kept=10,890,669
+read=326,000,000 kept=10,927,488
+read=327,000,000 kept=10,960,973
+read=328,000,000 kept=10,993,657
+read=329,000,000 kept=11,019,770
+read=330,000,000 kept=11,029,913
+read=331,000,000 kept=11,081,074
+read=332,000,000 kept=11,108,885
+read=333,000,000 kept=11,145,008
+read=334,000,000 kept=11,172,235
+read=335,000,000 kept=11,186,557
+read=336,000,000 kept=11,239,548
+read=337,000,000 kept=11,280,779
+read=338,000,000 kept=11,305,585
+read=339,000,000 kept=11,319,290
+read=340,000,000 kept=11,350,559
+read=341,000,000 kept=11,387,005
+read=342,000,000 kept=11,540,981
+read=343,000,000 kept=11,562,485
+read=344,000,000 kept=11,575,963
+read=345,000,000 kept=11,622,460
+read=346,000,000 kept=11,675,842
+read=347,000,000 kept=11,707,782
+read=348,000,000 kept=11,731,813
+read=349,000,000 kept=11,743,531
+read=350,000,000 kept=11,794,927
+read=351,000,000 kept=11,820,380
+read=352,000,000 kept=11,851,125
+read=353,000,000 kept=11,866,676
+read=354,000,000 kept=11,884,620
+read=355,000,000 kept=11,935,945
+read=356,000,000 kept=11,978,698
+read=357,000,000 kept=11,999,321
+read=358,000,000 kept=12,014,624
+read=359,000,000 kept=12,051,601
+read=360,000,000 kept=12,085,298
+read=361,000,000 kept=12,118,661
+read=362,000,000 kept=12,141,732
+read=363,000,000 kept=12,152,371
+read=364,000,000 kept=12,202,932
+read=365,000,000 kept=12,230,112
+read=366,000,000 kept=12,262,954
+read=367,000,000 kept=12,278,020
+read=368,000,000 kept=12,297,380
+read=369,000,000 kept=12,349,154
+read=370,000,000 kept=12,390,546
+read=371,000,000 kept=12,417,988
+read=372,000,000 kept=12,432,436
+read=373,000,000 kept=12,461,839
+read=374,000,000 kept=12,503,413
+read=375,000,000 kept=12,538,184
+read=376,000,000 kept=12,560,548
+read=377,000,000 kept=12,572,990
+read=378,000,000 kept=12,622,513
+read=379,000,000 kept=12,654,661
+read=380,000,000 kept=12,690,255
+read=381,000,000 kept=12,711,331
+read=382,000,000 kept=12,725,816
+read=383,000,000 kept=12,778,280
+read=384,000,000 kept=12,807,367
+read=385,000,000 kept=12,837,319
+read=386,000,000 kept=12,850,783
+read=387,000,000 kept=12,872,541
+read=388,000,000 kept=12,920,508
+read=389,000,000 kept=12,954,554
+read=390,000,000 kept=12,975,082
+read=391,000,000 kept=12,991,437
+read=392,000,000 kept=13,035,551
+read=393,000,000 kept=13,062,195
+read=394,000,000 kept=13,089,433
+read=395,000,000 kept=13,107,626
+read=396,000,000 kept=13,122,506
+read=397,000,000 kept=13,165,836
+read=398,000,000 kept=13,199,045
+read=399,000,000 kept=13,232,756
+read=400,000,000 kept=13,255,498
+read=401,000,000 kept=13,266,421
+read=402,000,000 kept=13,317,437
+read=403,000,000 kept=13,344,316
+read=404,000,000 kept=13,380,466
+read=405,000,000 kept=13,399,988
+read=406,000,000 kept=13,416,092
+read=407,000,000 kept=13,467,165
+read=408,000,000 kept=13,518,974
+read=409,000,000 kept=13,540,111
+read=410,000,000 kept=13,553,710
+read=411,000,000 kept=13,589,199
+read=412,000,000 kept=13,624,570
+read=413,000,000 kept=13,658,011
+read=414,000,000 kept=13,680,843
+read=415,000,000 kept=13,690,963
+read=416,000,000 kept=13,742,246
+read=417,000,000 kept=13,766,464
+read=418,000,000 kept=13,804,845
+read=419,000,000 kept=13,822,340
+read=420,000,000 kept=13,836,006
+read=421,000,000 kept=13,888,472
+read=422,000,000 kept=14,004,073
+read=423,000,000 kept=14,047,407
+read=424,000,000 kept=14,060,789
+read=425,000,000 kept=14,078,176
+read=426,000,000 kept=14,128,222
+read=427,000,000 kept=14,164,684
+read=428,000,000 kept=14,185,508
+read=429,000,000 kept=14,200,278
+read=430,000,000 kept=14,239,830
+read=431,000,000 kept=14,269,445
+read=432,000,000 kept=14,309,396
+read=433,000,000 kept=14,333,732
+read=434,000,000 kept=14,343,784
+read=435,000,000 kept=14,394,902
+read=436,000,000 kept=14,414,302
+read=437,000,000 kept=14,458,852
+read=438,000,000 kept=14,480,399
+read=439,000,000 kept=14,492,048
+read=440,000,000 kept=14,544,052
+read=441,000,000 kept=14,569,580
+read=442,000,000 kept=14,619,608
+read=443,000,000 kept=14,633,103
+read=444,000,000 kept=14,650,863
+read=445,000,000 kept=14,700,872
+read=446,000,000 kept=14,746,052
+read=447,000,000 kept=14,765,845
+read=448,000,000 kept=14,779,803
+read=449,000,000 kept=14,822,737
+read=450,000,000 kept=14,854,957
+read=451,000,000 kept=14,902,131
+read=452,000,000 kept=14,925,437
+read=453,000,000 kept=14,936,733
+read=454,000,000 kept=14,988,566
+read=455,000,000 kept=15,018,868
+read=456,000,000 kept=15,049,319
+read=457,000,000 kept=15,062,792
+read=458,000,000 kept=15,080,281
+read=459,000,000 kept=15,131,586
+read=460,000,000 kept=15,163,926
+read=461,000,000 kept=15,184,652
+read=462,000,000 kept=15,198,312
+read=463,000,000 kept=15,235,606
+read=464,000,000 kept=15,266,623
+read=465,000,000 kept=15,302,155
+read=466,000,000 kept=15,325,231
+read=467,000,000 kept=15,334,864
+read=468,000,000 kept=15,385,707
+read=469,000,000 kept=15,419,043
+read=470,000,000 kept=15,441,278
+read=471,000,000 kept=15,472,810
+read=472,000,000 kept=15,483,634
+read=473,000,000 kept=15,535,310
+read=474,000,000 kept=15,565,715
+read=475,000,000 kept=15,611,320
+read=476,000,000 kept=15,632,172
+read=477,000,000 kept=15,644,058
+read=478,000,000 kept=15,696,047
+read=479,000,000 kept=15,728,080
+read=480,000,000 kept=15,758,005
+read=481,000,000 kept=15,770,957
+read=482,000,000 kept=15,790,912
+read=483,000,000 kept=15,838,449
+read=484,000,000 kept=15,873,605
+read=485,000,000 kept=15,895,910
+read=486,000,000 kept=15,908,445
+read=487,000,000 kept=15,956,425
+read=488,000,000 kept=15,981,469
+read=489,000,000 kept=16,013,350
+read=490,000,000 kept=16,045,671
+read=491,000,000 kept=16,056,537
+read=492,000,000 kept=16,108,461
+read=493,000,000 kept=16,133,011
+read=494,000,000 kept=16,180,028
+read=495,000,000 kept=16,193,587
+read=496,000,000 kept=16,210,861
+read=497,000,000 kept=16,262,023
+read=498,000,000 kept=16,302,705
+read=499,000,000 kept=16,325,816
+read=500,000,000 kept=16,339,891
+read=501,000,000 kept=16,373,045
+read=502,000,000 kept=16,410,019
+read=503,000,000 kept=16,442,388
+read=504,000,000 kept=16,464,311
+read=505,000,000 kept=16,477,635
+read=506,000,000 kept=16,514,650
+read=507,000,000 kept=16,547,154
+read=508,000,000 kept=16,637,289
+read=509,000,000 kept=16,665,914
+read=510,000,000 kept=16,682,510
+read=511,000,000 kept=16,732,676
+read=512,000,000 kept=16,756,924
+read=513,000,000 kept=16,791,658
+read=514,000,000 kept=16,808,448
+read=515,000,000 kept=16,819,822
+read=516,000,000 kept=16,869,200
+read=517,000,000 kept=16,894,967
+read=518,000,000 kept=16,937,871
+read=519,000,000 kept=16,957,211
+read=520,000,000 kept=16,969,372
+read=521,000,000 kept=17,021,686
+read=522,000,000 kept=17,148,929
+read=523,000,000 kept=17,186,346
+read=524,000,000 kept=17,204,801
+read=525,000,000 kept=17,227,878
+read=526,000,000 kept=17,279,289
+read=527,000,000 kept=17,400,045
+read=528,000,000 kept=17,425,061
+read=529,000,000 kept=17,438,304
+read=530,000,000 kept=17,466,567
+read=531,000,000 kept=17,506,968
+read=532,000,000 kept=17,541,932
+read=533,000,000 kept=17,564,121
+read=534,000,000 kept=17,576,762
+read=535,000,000 kept=17,625,465
+read=536,000,000 kept=17,657,406
+read=537,000,000 kept=17,702,976
+read=538,000,000 kept=17,723,765
+read=539,000,000 kept=17,735,622
+read=540,000,000 kept=17,787,789
+read=541,000,000 kept=17,813,405
+read=542,000,000 kept=17,851,001
+read=543,000,000 kept=17,863,377
+read=544,000,000 kept=17,881,414
+read=545,000,000 kept=17,934,527
+read=546,000,000 kept=17,970,064
+read=547,000,000 kept=17,991,513
+read=548,000,000 kept=18,004,712
+read=549,000,000 kept=18,049,677
+read=550,000,000 kept=18,079,145
+read=551,000,000 kept=18,111,382
+read=552,000,000 kept=18,186,595
+read=553,000,000 kept=18,196,456
+read=554,000,000 kept=18,248,163
+read=555,000,000 kept=18,284,814
+read=556,000,000 kept=18,317,345
+read=557,000,000 kept=18,331,605
+read=558,000,000 kept=18,349,015
+read=559,000,000 kept=18,400,939
+read=560,000,000 kept=18,447,296
+read=561,000,000 kept=18,482,741
+read=562,000,000 kept=18,495,835
+read=563,000,000 kept=18,524,402
+read=564,000,000 kept=18,563,884
+read=565,000,000 kept=18,605,301
+read=566,000,000 kept=18,627,516
+read=567,000,000 kept=18,638,960
+read=568,000,000 kept=18,687,859
+read=569,000,000 kept=18,713,825
+read=570,000,000 kept=18,747,179
+read=571,000,000 kept=18,767,938
+read=572,000,000 kept=18,779,955
+read=573,000,000 kept=18,832,103
+read=574,000,000 kept=18,863,471
+read=575,000,000 kept=18,887,579
+read=576,000,000 kept=18,905,446
+read=577,000,000 kept=18,919,668
+read=578,000,000 kept=18,972,660
+read=579,000,000 kept=19,004,957
+read=580,000,000 kept=19,032,604
+read=581,000,000 kept=19,046,447
+read=582,000,000 kept=19,075,644
+read=583,000,000 kept=19,115,166
+read=584,000,000 kept=19,149,590
+read=585,000,000 kept=19,173,064
+read=586,000,000 kept=19,184,503
+read=587,000,000 kept=19,234,134
+read=588,000,000 kept=19,261,515
+read=589,000,000 kept=19,294,186
+read=590,000,000 kept=19,322,486
+read=591,000,000 kept=19,334,868
+read=592,000,000 kept=19,388,020
+read=593,000,000 kept=19,419,175
+read=594,000,000 kept=19,450,059
+read=595,000,000 kept=19,464,594
+read=596,000,000 kept=19,486,658
+read=597,000,000 kept=19,531,761
+read=598,000,000 kept=19,568,432
+read=599,000,000 kept=19,591,135
+read=600,000,000 kept=19,603,360
+read=601,000,000 kept=19,650,741
+read=602,000,000 kept=19,684,971
+read=603,000,000 kept=19,728,117
+read=604,000,000 kept=19,752,387
+read=605,000,000 kept=19,763,817
+read=606,000,000 kept=19,816,250
+read=607,000,000 kept=19,844,623
+read=608,000,000 kept=19,945,743
+read=609,000,000 kept=19,958,953
+read=610,000,000 kept=19,976,476
+read=611,000,000 kept=20,027,793
+read=612,000,000 kept=20,067,567
+read=613,000,000 kept=20,093,744
+read=614,000,000 kept=20,107,050
+read=615,000,000 kept=20,143,618
+read=616,000,000 kept=20,195,225
+read=617,000,000 kept=20,232,363
+read=618,000,000 kept=20,255,640
+read=619,000,000 kept=20,265,961
+read=620,000,000 kept=20,316,578
+read=621,000,000 kept=20,350,578
+read=622,000,000 kept=20,387,269
+read=623,000,000 kept=20,405,893
+read=624,000,000 kept=20,418,715
+read=625,000,000 kept=20,472,074
+read=626,000,000 kept=20,513,995
+read=627,000,000 kept=20,557,772
+read=628,000,000 kept=20,571,304
+read=629,000,000 kept=20,597,509
+read=630,000,000 kept=20,638,636
+read=631,000,000 kept=20,680,271
+read=632,000,000 kept=20,704,047
+read=633,000,000 kept=20,717,181
+read=634,000,000 kept=20,765,378
+read=635,000,000 kept=20,786,506
+read=636,000,000 kept=20,821,251
+read=637,000,000 kept=20,845,281
+read=638,000,000 kept=20,868,885
+read=639,000,000 kept=20,917,255
+read=640,000,000 kept=21,008,654
+read=641,000,000 kept=21,042,368
+read=642,000,000 kept=21,074,440
+read=643,000,000 kept=21,085,311
+read=644,000,000 kept=21,137,110
+read=645,000,000 kept=21,162,411
+read=646,000,000 kept=21,201,896
+read=647,000,000 kept=21,214,718
+read=648,000,000 kept=21,232,035
+read=649,000,000 kept=21,282,774
+read=650,000,000 kept=21,317,738
+read=651,000,000 kept=21,337,687
+read=652,000,000 kept=21,357,733
+read=653,000,000 kept=21,403,977
+read=654,000,000 kept=21,456,211
+read=655,000,000 kept=21,489,553
+read=656,000,000 kept=21,518,322
+read=657,000,000 kept=21,528,517
+read=658,000,000 kept=21,580,268
+read=659,000,000 kept=21,606,610
+read=660,000,000 kept=21,639,073
+read=661,000,000 kept=21,656,512
+read=662,000,000 kept=21,671,027
+read=663,000,000 kept=21,723,635
+read=664,000,000 kept=21,757,630
+read=665,000,000 kept=21,788,694
+read=666,000,000 kept=21,803,149
+read=667,000,000 kept=21,832,796
+read=668,000,000 kept=21,870,597
+read=669,000,000 kept=21,905,402
+read=670,000,000 kept=21,929,679
+read=671,000,000 kept=21,941,052
+read=672,000,000 kept=21,989,545
+read=673,000,000 kept=22,013,923
+read=674,000,000 kept=22,050,002
+read=675,000,000 kept=22,069,741
+read=676,000,000 kept=22,082,939
+read=677,000,000 kept=22,136,206
+read=678,000,000 kept=22,162,297
+read=679,000,000 kept=22,190,204
+read=680,000,000 kept=22,203,533
+read=681,000,000 kept=22,224,999
+read=682,000,000 kept=22,273,390
+read=683,000,000 kept=22,323,238
+read=684,000,000 kept=22,359,944
+read=685,000,000 kept=22,374,169
+read=686,000,000 kept=22,416,898
+read=687,000,000 kept=22,450,132
+read=688,000,000 kept=22,481,952
+read=689,000,000 kept=22,501,382
+read=690,000,000 kept=22,512,220
+read=691,000,000 kept=22,562,779
+read=692,000,000 kept=22,588,776
+read=693,000,000 kept=22,620,559
+read=694,000,000 kept=22,637,485
+read=695,000,000 kept=22,651,569
+read=696,000,000 kept=22,704,133
+read=697,000,000 kept=23,179,023
+read=698,000,000 kept=23,221,722
+read=699,000,000 kept=23,244,231
+read=700,000,000 kept=23,256,098
+read=701,000,000 kept=23,307,934
+read=702,000,000 kept=23,340,631
+read=703,000,000 kept=23,373,518
+read=704,000,000 kept=23,388,318
+read=705,000,000 kept=23,405,634
+read=706,000,000 kept=23,456,590
+read=707,000,000 kept=23,489,172
+read=708,000,000 kept=23,511,560
+read=709,000,000 kept=23,525,498
+read=710,000,000 kept=23,565,717
+read=711,000,000 kept=23,598,484
+read=712,000,000 kept=23,634,240
+read=713,000,000 kept=23,657,773
+read=714,000,000 kept=23,667,746
+read=715,000,000 kept=23,718,422
+read=716,000,000 kept=23,739,549
+read=717,000,000 kept=23,770,902
+read=718,000,000 kept=23,791,147
+read=719,000,000 kept=23,802,775
+read=720,000,000 kept=23,855,591
+read=721,000,000 kept=23,883,710
+read=722,000,000 kept=23,914,161
+read=723,000,000 kept=23,928,915
+read=724,000,000 kept=23,948,510
+read=725,000,000 kept=23,998,971
+read=726,000,000 kept=24,130,955
+read=727,000,000 kept=24,151,896
+read=728,000,000 kept=24,165,121
+read=729,000,000 kept=24,199,937
+read=730,000,000 kept=24,241,309
+read=731,000,000 kept=24,277,643
+read=732,000,000 kept=24,301,401
+read=733,000,000 kept=24,311,438
+read=734,000,000 kept=24,362,357
+read=735,000,000 kept=24,389,487
+read=736,000,000 kept=24,437,998
+read=737,000,000 kept=24,455,445
+read=738,000,000 kept=24,468,912
+read=739,000,000 kept=24,521,810
+read=740,000,000 kept=24,552,294
+read=741,000,000 kept=24,576,067
+read=742,000,000 kept=24,589,878
+read=743,000,000 kept=24,620,166
+read=744,000,000 kept=24,657,831
+read=745,000,000 kept=24,692,976
+read=746,000,000 kept=24,715,900
+read=747,000,000 kept=24,727,240
+read=748,000,000 kept=24,777,005
+read=749,000,000 kept=24,818,761
+read=750,000,000 kept=24,858,358
+read=751,000,000 kept=24,880,973
+read=752,000,000 kept=24,893,508
+read=753,000,000 kept=24,945,901
+read=754,000,000 kept=24,971,378
+read=755,000,000 kept=25,001,478
+read=756,000,000 kept=25,013,859
+read=757,000,000 kept=25,033,417
+read=758,000,000 kept=25,081,130
+read=759,000,000 kept=25,136,882
+read=760,000,000 kept=25,163,038
+read=761,000,000 kept=25,178,310
+read=762,000,000 kept=25,223,574
+read=763,000,000 kept=25,253,896
+read=764,000,000 kept=25,286,339
+read=765,000,000 kept=25,316,108
+read=766,000,000 kept=25,326,886
+read=767,000,000 kept=25,378,090
+read=768,000,000 kept=25,403,499
+read=769,000,000 kept=25,454,649
+read=770,000,000 kept=25,468,833
+read=771,000,000 kept=25,485,558
+read=772,000,000 kept=25,537,333
+read=773,000,000 kept=25,572,963
+read=774,000,000 kept=25,608,839
+read=775,000,000 kept=25,623,734
+read=776,000,000 kept=25,654,946
+read=777,000,000 kept=25,693,123
+read=778,000,000 kept=25,727,540
+read=779,000,000 kept=25,750,108
+read=780,000,000 kept=25,761,815
+read=781,000,000 kept=25,811,893
+read=782,000,000 kept=25,927,939
+read=783,000,000 kept=26,002,196
+read=784,000,000 kept=26,022,505
+read=785,000,000 kept=26,032,246
+read=786,000,000 kept=26,083,834
+read=787,000,000 kept=26,121,684
+read=788,000,000 kept=26,154,399
+read=789,000,000 kept=26,171,386
+read=790,000,000 kept=26,185,433
+read=791,000,000 kept=26,238,028
+read=792,000,000 kept=26,265,705
+read=793,000,000 kept=26,289,946
+read=794,000,000 kept=26,305,242
+read=795,000,000 kept=26,336,334
+read=796,000,000 kept=26,382,294
+read=797,000,000 kept=26,422,423
+read=798,000,000 kept=26,444,903
+read=799,000,000 kept=26,456,324
+read=800,000,000 kept=26,504,331
+read=801,000,000 kept=26,527,752
+read=802,000,000 kept=26,558,658
+read=803,000,000 kept=26,579,246
+read=804,000,000 kept=26,591,014
+read=805,000,000 kept=26,642,800
+read=806,000,000 kept=26,669,807
+read=807,000,000 kept=26,700,395
+read=808,000,000 kept=26,713,261
+read=809,000,000 kept=26,733,395
+read=810,000,000 kept=26,782,106
+read=811,000,000 kept=26,829,627
+read=812,000,000 kept=26,850,888
+read=813,000,000 kept=26,864,343
+read=814,000,000 kept=26,908,884
+read=815,000,000 kept=26,941,906
+read=816,000,000 kept=26,979,133
+read=817,000,000 kept=27,003,296
+read=818,000,000 kept=27,029,537
+read=819,000,000 kept=27,080,849
+read=820,000,000 kept=27,110,455
+read=821,000,000 kept=27,142,386
+read=822,000,000 kept=27,156,820
+read=823,000,000 kept=27,173,491
+read=824,000,000 kept=27,224,760
+read=825,000,000 kept=27,257,679
+read=826,000,000 kept=27,442,227
+read=827,000,000 kept=27,456,771
+read=828,000,000 kept=27,479,045
+read=829,000,000 kept=27,523,548
+read=830,000,000 kept=27,722,670
+read=831,000,000 kept=27,745,759
+read=832,000,000 kept=27,760,591
+read=833,000,000 kept=27,787,512
+read=834,000,000 kept=27,833,045
+read=835,000,000 kept=27,871,452
+read=836,000,000 kept=27,895,687
+read=837,000,000 kept=27,908,700
+read=838,000,000 kept=27,957,447
+read=839,000,000 kept=27,982,407
+read=840,000,000 kept=28,025,118
+read=841,000,000 kept=28,045,024
+read=842,000,000 kept=28,057,427
+read=843,000,000 kept=28,110,255
+read=844,000,000 kept=28,165,703
+read=845,000,000 kept=28,196,469
+read=846,000,000 kept=28,210,691
+read=847,000,000 kept=28,232,218
+read=848,000,000 kept=28,278,254
+read=849,000,000 kept=28,312,001
+read=850,000,000 kept=28,335,182
+read=851,000,000 kept=28,347,473
+read=852,000,000 kept=28,395,997
+read=853,000,000 kept=28,425,655
+read=854,000,000 kept=28,457,871
+read=855,000,000 kept=28,479,990
+read=856,000,000 kept=28,492,086
+read=857,000,000 kept=28,543,737
+read=858,000,000 kept=28,589,662
+read=859,000,000 kept=28,619,434
+read=860,000,000 kept=28,632,515
+read=861,000,000 kept=28,650,967
+read=862,000,000 kept=28,700,852
+read=863,000,000 kept=28,742,926
+read=864,000,000 kept=28,764,178
+read=865,000,000 kept=28,795,300
+read=866,000,000 kept=28,818,700
+read=867,000,000 kept=28,862,233
+read=868,000,000 kept=28,898,182
+read=869,000,000 kept=28,926,450
+read=870,000,000 kept=28,939,513
+read=871,000,000 kept=28,987,744
+read=872,000,000 kept=29,014,734
+read=873,000,000 kept=29,047,245
+read=874,000,000 kept=29,114,029
+read=875,000,000 kept=29,125,781
+read=876,000,000 kept=29,176,909
+read=877,000,000 kept=29,203,072
+read=878,000,000 kept=29,234,856
+read=879,000,000 kept=29,251,213
+read=880,000,000 kept=29,268,526
+read=881,000,000 kept=29,319,672
+read=882,000,000 kept=29,388,624
+read=883,000,000 kept=29,409,235
+read=884,000,000 kept=29,424,710
+read=885,000,000 kept=29,461,684
+read=886,000,000 kept=29,516,009
+read=887,000,000 kept=29,546,434
+read=888,000,000 kept=29,569,124
+read=889,000,000 kept=29,580,407
+read=890,000,000 kept=29,629,691
+read=891,000,000 kept=29,658,085
+read=892,000,000 kept=29,704,285
+read=893,000,000 kept=29,741,597
+read=894,000,000 kept=29,753,734
+read=895,000,000 kept=29,806,296
+read=896,000,000 kept=29,877,182
+read=897,000,000 kept=29,919,041
+read=898,000,000 kept=29,934,760
+read=899,000,000 kept=29,952,519
+read=900,000,000 kept=30,002,769
+read=901,000,000 kept=30,039,039
+read=902,000,000 kept=30,060,374
+read=903,000,000 kept=30,073,493
+read=904,000,000 kept=30,110,006
+read=905,000,000 kept=30,148,512
+read=906,000,000 kept=30,183,611
+read=907,000,000 kept=30,207,044
+read=908,000,000 kept=30,218,783
+read=909,000,000 kept=30,270,163
+read=910,000,000 kept=30,325,259
+read=911,000,000 kept=30,357,890
+read=912,000,000 kept=30,375,547
+read=913,000,000 kept=30,389,841
+read=914,000,000 kept=30,442,371
+read=915,000,000 kept=30,474,897
+read=916,000,000 kept=30,501,121
+read=917,000,000 kept=30,516,150
+read=918,000,000 kept=30,545,219
+read=919,000,000 kept=30,586,213
+read=920,000,000 kept=30,623,063
+read=921,000,000 kept=30,646,040
+read=922,000,000 kept=30,657,844
+read=923,000,000 kept=30,706,649
+read=924,000,000 kept=30,757,683
+read=925,000,000 kept=30,818,702
+read=926,000,000 kept=30,840,157
+read=927,000,000 kept=30,851,791
+read=928,000,000 kept=30,904,331
+read=929,000,000 kept=30,932,045
+read=930,000,000 kept=30,978,118
+read=931,000,000 kept=30,991,275
+read=932,000,000 kept=31,009,388
+read=933,000,000 kept=31,082,322
+read=934,000,000 kept=31,174,871
+read=935,000,000 kept=31,196,632
+read=936,000,000 kept=31,211,658
+read=937,000,000 kept=31,246,030
+read=938,000,000 kept=31,280,058
+read=939,000,000 kept=31,313,343
+read=940,000,000 kept=31,343,309
+read=941,000,000 kept=31,353,207
+read=942,000,000 kept=31,404,874
+read=943,000,000 kept=31,470,008
+read=944,000,000 kept=31,501,505
+read=945,000,000 kept=31,521,090
+read=946,000,000 kept=31,534,227
+read=947,000,000 kept=31,586,499
+read=948,000,000 kept=31,620,573
+read=949,000,000 kept=31,645,424
+read=950,000,000 kept=31,662,560
+read=951,000,000 kept=31,677,189
+read=952,000,000 kept=31,730,507
+read=953,000,000 kept=31,765,086
+read=954,000,000 kept=31,786,000
+read=955,000,000 kept=31,802,693
+done: read=955,648,474 kept=31,814,348
+Transferred:   	          0 B / 3.127 GiB, 0%, 0 B/s, ETA -
+Transferred:            0 / 1, 0%
+Elapsed time:         0.9s
+Transferring:
+ *                         WebQSP_FilterFreebase:  0% /3.127Gi, 0/s, -Transferred:   	    6.090 MiB / 3.127 GiB, 0%, 0 B/s, ETA -
+Transferred:            0 / 1, 0%
+Elapsed time:         1.4s
+Transferring:
+ *                         WebQSP_FilterFreebase:  0% /3.127Gi, 0/s, -Transferred:   	   21.715 MiB / 3.127 GiB, 1%, 7.992 MiB/s, ETA 6m37s
+Transferred:            0 / 1, 0%
+Elapsed time:         1.9s
+Transferring:
+ *                         WebQSP_FilterFreebase:  0% /3.127Gi, 7.992Mi/s, 6m37sTransferred:   	   35.996 MiB / 3.127 GiB, 1%, 7.992 MiB/s, ETA 6m36s
+Transferred:            0 / 1, 0%
+Elapsed time:         2.4s
+Transferring:
+ *                         WebQSP_FilterFreebase:  1% /3.127Gi, 7.992Mi/s, 6m36sTransferred:   	   53.621 MiB / 3.127 GiB, 2%, 19.995 MiB/s, ETA 2m37s
+Transferred:            0 / 1, 0%
+Elapsed time:         2.9s
+Transferring:
+ *                         WebQSP_FilterFreebase:  1% /3.127Gi, 19.995Mi/s, 2m37Transferred:   	   67.996 MiB / 3.127 GiB, 2%, 19.995 MiB/s, ETA 2m36s
+Transferred:            0 / 1, 0%
+Elapsed time:         3.4s
+Transferring:
+ *                         WebQSP_FilterFreebase:  2% /3.127Gi, 19.995Mi/s, 2m36Transferred:   	       80 MiB / 3.127 GiB, 2%, 24.004 MiB/s, ETA 2m10s
+Transferred:            0 / 1, 0%
+Elapsed time:         3.9s
+Transferring:
+ *                         WebQSP_FilterFreebase:  2% /3.127Gi, 24.004Mi/s, 2m10Transferred:   	       96 MiB / 3.127 GiB, 3%, 24.004 MiB/s, ETA 2m9s
+Transferred:            0 / 1, 0%
+Elapsed time:         4.4s
+Transferring:
+ *                         WebQSP_FilterFreebase:  2% /3.127Gi, 24.004Mi/s, 2m9sTransferred:   	      112 MiB / 3.127 GiB, 3%, 25.770 MiB/s, ETA 1m59s
+Transferred:            0 / 1, 0%
+Elapsed time:         4.9s
+Transferring:
+ *                         WebQSP_FilterFreebase:  3% /3.127Gi, 25.770Mi/s, 1m59Transferred:   	  123.996 MiB / 3.127 GiB, 4%, 25.770 MiB/s, ETA 1m59s
+Transferred:            0 / 1, 0%
+Elapsed time:         5.4s
+Transferring:
+ *                         WebQSP_FilterFreebase:  3% /3.127Gi, 25.770Mi/s, 1m59Transferred:   	  139.996 MiB / 3.127 GiB, 4%, 25.601 MiB/s, ETA 1m59s
+Transferred:            0 / 1, 0%
+Elapsed time:         5.9s
+Transferring:
+ *                         WebQSP_FilterFreebase:  4% /3.127Gi, 25.601Mi/s, 1m59Transferred:   	      152 MiB / 3.127 GiB, 5%, 25.601 MiB/s, ETA 1m59s
+Transferred:            0 / 1, 0%
+Elapsed time:         6.4s
+Transferring:
+ *                         WebQSP_FilterFreebase:  4% /3.127Gi, 25.601Mi/s, 1m59Transferred:   	      168 MiB / 3.127 GiB, 5%, 26.670 MiB/s, ETA 1m53s
+Transferred:            0 / 1, 0%
+Elapsed time:         6.9s
+Transferring:
+ *                         WebQSP_FilterFreebase:  5% /3.127Gi, 26.670Mi/s, 1m53Transferred:   	      184 MiB / 3.127 GiB, 6%, 26.670 MiB/s, ETA 1m53s
+Transferred:            0 / 1, 0%
+Elapsed time:         7.4s
+Transferring:
+ *                         WebQSP_FilterFreebase:  5% /3.127Gi, 26.670Mi/s, 1m53Transferred:   	  199.965 MiB / 3.127 GiB, 6%, 26.858 MiB/s, ETA 1m51s
+Transferred:            0 / 1, 0%
+Elapsed time:         7.9s
+Transferring:
+ *                         WebQSP_FilterFreebase:  6% /3.127Gi, 26.858Mi/s, 1m51Transferred:   	  215.496 MiB / 3.127 GiB, 7%, 26.858 MiB/s, ETA 1m51s
+Transferred:            0 / 1, 0%
+Elapsed time:         8.4s
+Transferring:
+ *                         WebQSP_FilterFreebase:  6% /3.127Gi, 26.858Mi/s, 1m51Transferred:   	  227.996 MiB / 3.127 GiB, 7%, 27.002 MiB/s, ETA 1m50s
+Transferred:            0 / 1, 0%
+Elapsed time:         8.9s
+Transferring:
+ *                         WebQSP_FilterFreebase:  7% /3.127Gi, 27.002Mi/s, 1m50Transferred:   	      240 MiB / 3.127 GiB, 7%, 27.002 MiB/s, ETA 1m49s
+Transferred:            0 / 1, 0%
+Elapsed time:         9.4s
+Transferring:
+ *                         WebQSP_FilterFreebase:  7% /3.127Gi, 27.002Mi/s, 1m49Transferred:   	      256 MiB / 3.127 GiB, 8%, 27.552 MiB/s, ETA 1m46s
+Transferred:            0 / 1, 0%
+Elapsed time:         9.9s
+Transferring:
+ *                         WebQSP_FilterFreebase:  7% /3.127Gi, 27.552Mi/s, 1m46Transferred:   	      272 MiB / 3.127 GiB, 8%, 27.552 MiB/s, ETA 1m46s
+Transferred:            0 / 1, 0%
+Elapsed time:        10.4s
+Transferring:
+ *                         WebQSP_FilterFreebase:  8% /3.127Gi, 27.552Mi/s, 1m46Transferred:   	      288 MiB / 3.127 GiB, 9%, 27.914 MiB/s, ETA 1m44s
+Transferred:            0 / 1, 0%
+Elapsed time:        10.9s
+Transferring:
+ *                         WebQSP_FilterFreebase:  8% /3.127Gi, 27.914Mi/s, 1m44Transferred:   	      304 MiB / 3.127 GiB, 9%, 27.914 MiB/s, ETA 1m43s
+Transferred:            0 / 1, 0%
+Elapsed time:        11.4s
+Transferring:
+ *                         WebQSP_FilterFreebase:  9% /3.127Gi, 27.914Mi/s, 1m43Transferred:   	      320 MiB / 3.127 GiB, 10%, 28.150 MiB/s, ETA 1m42s
+Transferred:            0 / 1, 0%
+Elapsed time:        11.9s
+Transferring:
+ *                         WebQSP_FilterFreebase:  9% /3.127Gi, 28.150Mi/s, 1m42Transferred:   	  335.496 MiB / 3.127 GiB, 10%, 28.150 MiB/s, ETA 1m41s
+Transferred:            0 / 1, 0%
+Elapsed time:        12.4s
+Transferring:
+ *                         WebQSP_FilterFreebase: 10% /3.127Gi, 28.150Mi/s, 1m41Transferred:   	  349.840 MiB / 3.127 GiB, 11%, 28.333 MiB/s, ETA 1m40s
+Transferred:            0 / 1, 0%
+Elapsed time:        12.9s
+Transferring:
+ *                         WebQSP_FilterFreebase: 10% /3.127Gi, 28.333Mi/s, 1m40Transferred:   	  365.715 MiB / 3.127 GiB, 11%, 28.333 MiB/s, ETA 1m40s
+Transferred:            0 / 1, 0%
+Elapsed time:        13.4s
+Transferring:
+ *                         WebQSP_FilterFreebase: 11% /3.127Gi, 28.333Mi/s, 1m40Transferred:   	  379.996 MiB / 3.127 GiB, 12%, 28.309 MiB/s, ETA 1m39s
+Transferred:            0 / 1, 0%
+Elapsed time:        13.9s
+Transferring:
+ *                         WebQSP_FilterFreebase: 11% /3.127Gi, 28.309Mi/s, 1m39Transferred:   	  395.996 MiB / 3.127 GiB, 12%, 28.309 MiB/s, ETA 1m39s
+Transferred:            0 / 1, 0%
+Elapsed time:        14.4s
+Transferring:
+ *                         WebQSP_FilterFreebase: 12% /3.127Gi, 28.309Mi/s, 1m39Transferred:   	  411.965 MiB / 3.127 GiB, 13%, 28.572 MiB/s, ETA 1m37s
+Transferred:            0 / 1, 0%
+Elapsed time:        14.9s
+Transferring:
+ *                         WebQSP_FilterFreebase: 12% /3.127Gi, 28.572Mi/s, 1m37Transferred:   	      424 MiB / 3.127 GiB, 13%, 28.572 MiB/s, ETA 1m37s
+Transferred:            0 / 1, 0%
+Elapsed time:        15.4s
+Transferring:
+ *                         WebQSP_FilterFreebase: 13% /3.127Gi, 28.572Mi/s, 1m37Transferred:   	      440 MiB / 3.127 GiB, 14%, 28.726 MiB/s, ETA 1m36s
+Transferred:            0 / 1, 0%
+Elapsed time:        15.9s
+Transferring:
+ *                         WebQSP_FilterFreebase: 13% /3.127Gi, 28.726Mi/s, 1m36Transferred:   	      456 MiB / 3.127 GiB, 14%, 28.726 MiB/s, ETA 1m35s
+Transferred:            0 / 1, 0%
+Elapsed time:        16.4s
+Transferring:
+ *                         WebQSP_FilterFreebase: 14% /3.127Gi, 28.726Mi/s, 1m35Transferred:   	      472 MiB / 3.127 GiB, 15%, 28.876 MiB/s, ETA 1m34s
+Transferred:            0 / 1, 0%
+Elapsed time:        16.9s
+Transferring:
+ *                         WebQSP_FilterFreebase: 14% /3.127Gi, 28.876Mi/s, 1m34Transferred:   	      488 MiB / 3.127 GiB, 15%, 28.876 MiB/s, ETA 1m33s
+Transferred:            0 / 1, 0%
+Elapsed time:        17.4s
+Transferring:
+ *                         WebQSP_FilterFreebase: 15% /3.127Gi, 28.876Mi/s, 1m33Transferred:   	      504 MiB / 3.127 GiB, 16%, 29.041 MiB/s, ETA 1m32s
+Transferred:            0 / 1, 0%
+Elapsed time:        17.9s
+Transferring:
+ *                         WebQSP_FilterFreebase: 15% /3.127Gi, 29.041Mi/s, 1m32Transferred:   	  519.590 MiB / 3.127 GiB, 16%, 29.041 MiB/s, ETA 1m32s
+Transferred:            0 / 1, 0%
+Elapsed time:        18.4s
+Transferring:
+ *                         WebQSP_FilterFreebase: 16% /3.127Gi, 29.041Mi/s, 1m32Transferred:   	  533.340 MiB / 3.127 GiB, 17%, 28.880 MiB/s, ETA 1m32s
+Transferred:            0 / 1, 0%
+Elapsed time:        18.9s
+Transferring:
+ *                         WebQSP_FilterFreebase: 16% /3.127Gi, 28.880Mi/s, 1m32Transferred:   	  549.465 MiB / 3.127 GiB, 17%, 28.880 MiB/s, ETA 1m31s
+Transferred:            0 / 1, 0%
+Elapsed time:        19.4s
+Transferring:
+ *                         WebQSP_FilterFreebase: 17% /3.127Gi, 28.880Mi/s, 1m31Transferred:   	  563.996 MiB / 3.127 GiB, 18%, 29.076 MiB/s, ETA 1m30s
+Transferred:            0 / 1, 0%
+Elapsed time:        19.9s
+Transferring:
+ *                         WebQSP_FilterFreebase: 17% /3.127Gi, 29.076Mi/s, 1m30Transferred:   	      576 MiB / 3.127 GiB, 18%, 29.076 MiB/s, ETA 1m30s
+Transferred:            0 / 1, 0%
+Elapsed time:        20.4s
+Transferring:
+ *                         WebQSP_FilterFreebase: 17% /3.127Gi, 29.076Mi/s, 1m30Transferred:   	      592 MiB / 3.127 GiB, 18%, 29.227 MiB/s, ETA 1m29s
+Transferred:            0 / 1, 0%
+Elapsed time:        20.9s
+Transferring:
+ *                         WebQSP_FilterFreebase: 18% /3.127Gi, 29.227Mi/s, 1m29Transferred:   	      608 MiB / 3.127 GiB, 19%, 29.227 MiB/s, ETA 1m28s
+Transferred:            0 / 1, 0%
+Elapsed time:        21.4s
+Transferring:
+ *                         WebQSP_FilterFreebase: 18% /3.127Gi, 29.227Mi/s, 1m28Transferred:   	  621.465 MiB / 3.127 GiB, 19%, 29.182 MiB/s, ETA 1m28s
+Transferred:            0 / 1, 0%
+Elapsed time:        21.9s
+Transferring:
+ *                         WebQSP_FilterFreebase: 19% /3.127Gi, 29.182Mi/s, 1m28Transferred:   	  638.996 MiB / 3.127 GiB, 20%, 29.182 MiB/s, ETA 1m27s
+Transferred:            0 / 1, 0%
+Elapsed time:        22.4s
+Transferring:
+ *                         WebQSP_FilterFreebase: 19% /3.127Gi, 29.182Mi/s, 1m27Transferred:   	  655.121 MiB / 3.127 GiB, 20%, 29.358 MiB/s, ETA 1m26s
+Transferred:            0 / 1, 0%
+Elapsed time:        22.9s
+Transferring:
+ *                         WebQSP_FilterFreebase: 20% /3.127Gi, 29.358Mi/s, 1m26Transferred:   	  669.402 MiB / 3.127 GiB, 21%, 29.358 MiB/s, ETA 1m26s
+Transferred:            0 / 1, 0%
+Elapsed time:        23.4s
+Transferring:
+ *                         WebQSP_FilterFreebase: 20% /3.127Gi, 29.358Mi/s, 1m26Transferred:   	  683.996 MiB / 3.127 GiB, 21%, 29.274 MiB/s, ETA 1m26s
+Transferred:            0 / 1, 0%
+Elapsed time:        23.9s
+Transferring:
+ *                         WebQSP_FilterFreebase: 21% /3.127Gi, 29.274Mi/s, 1m26Transferred:   	      696 MiB / 3.127 GiB, 22%, 29.274 MiB/s, ETA 1m25s
+Transferred:            0 / 1, 0%
+Elapsed time:        24.4s
+Transferring:
+ *                         WebQSP_FilterFreebase: 21% /3.127Gi, 29.274Mi/s, 1m25Transferred:   	      712 MiB / 3.127 GiB, 22%, 29.393 MiB/s, ETA 1m24s
+Transferred:            0 / 1, 0%
+Elapsed time:        24.9s
+Transferring:
+ *                         WebQSP_FilterFreebase: 22% /3.127Gi, 29.393Mi/s, 1m24Transferred:   	  723.996 MiB / 3.127 GiB, 23%, 29.393 MiB/s, ETA 1m24s
+Transferred:            0 / 1, 0%
+Elapsed time:        25.4s
+Transferring:
+ *                         WebQSP_FilterFreebase: 22% /3.127Gi, 29.393Mi/s, 1m24Transferred:   	  739.996 MiB / 3.127 GiB, 23%, 29.107 MiB/s, ETA 1m24s
+Transferred:            0 / 1, 0%
+Elapsed time:        25.9s
+Transferring:
+ *                         WebQSP_FilterFreebase: 23% /3.127Gi, 29.107Mi/s, 1m24Transferred:   	      752 MiB / 3.127 GiB, 23%, 29.107 MiB/s, ETA 1m24s
+Transferred:            0 / 1, 0%
+Elapsed time:        26.4s
+Transferring:
+ *                         WebQSP_FilterFreebase: 23% /3.127Gi, 29.107Mi/s, 1m24Transferred:   	      768 MiB / 3.127 GiB, 24%, 29.260 MiB/s, ETA 1m23s
+Transferred:            0 / 1, 0%
+Elapsed time:        26.9s
+Transferring:
+ *                         WebQSP_FilterFreebase: 23% /3.127Gi, 29.260Mi/s, 1m23Transferred:   	  783.590 MiB / 3.127 GiB, 24%, 29.260 MiB/s, ETA 1m22s
+Transferred:            0 / 1, 0%
+Elapsed time:        27.4s
+Transferring:
+ *                         WebQSP_FilterFreebase: 24% /3.127Gi, 29.260Mi/s, 1m22Transferred:   	  795.996 MiB / 3.127 GiB, 25%, 28.959 MiB/s, ETA 1m23s
+Transferred:            0 / 1, 0%
+Elapsed time:        27.9s
+Transferring:
+ *                         WebQSP_FilterFreebase: 24% /3.127Gi, 28.959Mi/s, 1m23Transferred:   	      808 MiB / 3.127 GiB, 25%, 28.959 MiB/s, ETA 1m22s
+Transferred:            0 / 1, 0%
+Elapsed time:        28.4s
+Transferring:
+ *                         WebQSP_FilterFreebase: 25% /3.127Gi, 28.959Mi/s, 1m22Transferred:   	      824 MiB / 3.127 GiB, 26%, 29.085 MiB/s, ETA 1m21s
+Transferred:            0 / 1, 0%
+Elapsed time:        28.9s
+Transferring:
+ *                         WebQSP_FilterFreebase: 25% /3.127Gi, 29.085Mi/s, 1m21Transferred:   	  839.496 MiB / 3.127 GiB, 26%, 29.085 MiB/s, ETA 1m21s
+Transferred:            0 / 1, 0%
+Elapsed time:        29.4s
+Transferring:
+ *                         WebQSP_FilterFreebase: 26% /3.127Gi, 29.085Mi/s, 1m21Transferred:   	  853.715 MiB / 3.127 GiB, 27%, 29.080 MiB/s, ETA 1m20s
+Transferred:            0 / 1, 0%
+Elapsed time:        29.9s
+Transferring:
+ *                         WebQSP_FilterFreebase: 26% /3.127Gi, 29.080Mi/s, 1m20Transferred:   	  869.402 MiB / 3.127 GiB, 27%, 29.080 MiB/s, ETA 1m20s
+Transferred:            0 / 1, 0%
+Elapsed time:        30.4s
+Transferring:
+ *                         WebQSP_FilterFreebase: 27% /3.127Gi, 29.080Mi/s, 1m20Transferred:   	      880 MiB / 3.127 GiB, 27%, 29.014 MiB/s, ETA 1m20s
+Transferred:            0 / 1, 0%
+Elapsed time:        30.9s
+Transferring:
+ *                         WebQSP_FilterFreebase: 27% /3.127Gi, 29.014Mi/s, 1m20Transferred:   	      896 MiB / 3.127 GiB, 28%, 29.014 MiB/s, ETA 1m19s
+Transferred:            0 / 1, 0%
+Elapsed time:        31.4s
+Transferring:
+ *                         WebQSP_FilterFreebase: 27% /3.127Gi, 29.014Mi/s, 1m19Transferred:   	  911.246 MiB / 3.127 GiB, 28%, 29.060 MiB/s, ETA 1m18s
+Transferred:            0 / 1, 0%
+Elapsed time:        31.9s
+Transferring:
+ *                         WebQSP_FilterFreebase: 28% /3.127Gi, 29.060Mi/s, 1m18Transferred:   	  925.777 MiB / 3.127 GiB, 29%, 29.060 MiB/s, ETA 1m18s
+Transferred:            0 / 1, 0%
+Elapsed time:        32.4s
+Transferring:
+ *                         WebQSP_FilterFreebase: 28% /3.127Gi, 29.060Mi/s, 1m18Transferred:   	  939.996 MiB / 3.127 GiB, 29%, 28.884 MiB/s, ETA 1m18s
+Transferred:            0 / 1, 0%
+Elapsed time:        32.9s
+Transferring:
+ *                         WebQSP_FilterFreebase: 29% /3.127Gi, 28.884Mi/s, 1m18Transferred:   	  955.996 MiB / 3.127 GiB, 30%, 28.884 MiB/s, ETA 1m17s
+Transferred:            0 / 1, 0%
+Elapsed time:        33.4s
+Transferring:
+ *                         WebQSP_FilterFreebase: 29% /3.127Gi, 28.884Mi/s, 1m17Transferred:   	      968 MiB / 3.127 GiB, 30%, 29.078 MiB/s, ETA 1m16s
+Transferred:            0 / 1, 0%
+Elapsed time:        33.9s
+Transferring:
+ *                         WebQSP_FilterFreebase: 30% /3.127Gi, 29.078Mi/s, 1m16Transferred:   	      984 MiB / 3.127 GiB, 31%, 29.078 MiB/s, ETA 1m16s
+Transferred:            0 / 1, 0%
+Elapsed time:        34.4s
+Transferring:
+ *                         WebQSP_FilterFreebase: 30% /3.127Gi, 29.078Mi/s, 1m16Transferred:   	     1000 MiB / 3.127 GiB, 31%, 29.099 MiB/s, ETA 1m15s
+Transferred:            0 / 1, 0%
+Elapsed time:        34.9s
+Transferring:
+ *                         WebQSP_FilterFreebase: 31% /3.127Gi, 29.099Mi/s, 1m15Transferred:   	 1011.996 MiB / 3.127 GiB, 32%, 29.099 MiB/s, ETA 1m15s
+Transferred:            0 / 1, 0%
+Elapsed time:        35.4s
+Transferring:
+ *                         WebQSP_FilterFreebase: 31% /3.127Gi, 29.099Mi/s, 1m15Transferred:   	        1 GiB / 3.127 GiB, 32%, 28.942 MiB/s, ETA 1m15s
+Transferred:            0 / 1, 0%
+Elapsed time:        35.9s
+Transferring:
+ *                         WebQSP_FilterFreebase: 31% /3.127Gi, 28.942Mi/s, 1m15Transferred:   	    1.016 GiB / 3.127 GiB, 32%, 28.942 MiB/s, ETA 1m14s
+Transferred:            0 / 1, 0%
+Elapsed time:        36.4s
+Transferring:
+ *                         WebQSP_FilterFreebase: 32% /3.127Gi, 28.942Mi/s, 1m14Transferred:   	    1.031 GiB / 3.127 GiB, 33%, 28.990 MiB/s, ETA 1m14s
+Transferred:            0 / 1, 0%
+Elapsed time:        36.9s
+Transferring:
+ *                         WebQSP_FilterFreebase: 32% /3.127Gi, 28.990Mi/s, 1m14Transferred:   	    1.047 GiB / 3.127 GiB, 33%, 28.990 MiB/s, ETA 1m13s
+Transferred:            0 / 1, 0%
+Elapsed time:        37.4s
+Transferring:
+ *                         WebQSP_FilterFreebase: 33% /3.127Gi, 28.990Mi/s, 1m13Transferred:   	    1.062 GiB / 3.127 GiB, 34%, 29.070 MiB/s, ETA 1m12s
+Transferred:            0 / 1, 0%
+Elapsed time:        37.9s
+Transferring:
+ *                         WebQSP_FilterFreebase: 33% /3.127Gi, 29.070Mi/s, 1m12Transferred:   	    1.074 GiB / 3.127 GiB, 34%, 29.070 MiB/s, ETA 1m12s
+Transferred:            0 / 1, 0%
+Elapsed time:        38.4s
+Transferring:
+ *                         WebQSP_FilterFreebase: 34% /3.127Gi, 29.070Mi/s, 1m12Transferred:   	    1.086 GiB / 3.127 GiB, 35%, 29.005 MiB/s, ETA 1m12s
+Transferred:            0 / 1, 0%
+Elapsed time:        38.9s
+Transferring:
+ *                         WebQSP_FilterFreebase: 34% /3.127Gi, 29.005Mi/s, 1m12Transferred:   	    1.102 GiB / 3.127 GiB, 35%, 29.005 MiB/s, ETA 1m11s
+Transferred:            0 / 1, 0%
+Elapsed time:        39.4s
+Transferring:
+ *                         WebQSP_FilterFreebase: 35% /3.127Gi, 29.005Mi/s, 1m11Transferred:   	    1.115 GiB / 3.127 GiB, 36%, 28.941 MiB/s, ETA 1m11s
+Transferred:            0 / 1, 0%
+Elapsed time:        39.9s
+Transferring:
+ *                         WebQSP_FilterFreebase: 35% /3.127Gi, 28.941Mi/s, 1m11Transferred:   	    1.130 GiB / 3.127 GiB, 36%, 28.941 MiB/s, ETA 1m10s
+Transferred:            0 / 1, 0%
+Elapsed time:        40.4s
+Transferring:
+ *                         WebQSP_FilterFreebase: 36% /3.127Gi, 28.941Mi/s, 1m10Transferred:   	    1.141 GiB / 3.127 GiB, 36%, 28.884 MiB/s, ETA 1m10s
+Transferred:            0 / 1, 0%
+Elapsed time:        40.9s
+Transferring:
+ *                         WebQSP_FilterFreebase: 36% /3.127Gi, 28.884Mi/s, 1m10Transferred:   	    1.156 GiB / 3.127 GiB, 37%, 28.884 MiB/s, ETA 1m9s
+Transferred:            0 / 1, 0%
+Elapsed time:        41.4s
+Transferring:
+ *                         WebQSP_FilterFreebase: 36% /3.127Gi, 28.884Mi/s, 1m9sTransferred:   	    1.172 GiB / 3.127 GiB, 37%, 28.969 MiB/s, ETA 1m9s
+Transferred:            0 / 1, 0%
+Elapsed time:        41.9s
+Transferring:
+ *                         WebQSP_FilterFreebase: 37% /3.127Gi, 28.969Mi/s, 1m9sTransferred:   	    1.187 GiB / 3.127 GiB, 38%, 28.969 MiB/s, ETA 1m8s
+Transferred:            0 / 1, 0%
+Elapsed time:        42.4s
+Transferring:
+ *                         WebQSP_FilterFreebase: 37% /3.127Gi, 28.969Mi/s, 1m8sTransferred:   	    1.199 GiB / 3.127 GiB, 38%, 29.017 MiB/s, ETA 1m8s
+Transferred:            0 / 1, 0%
+Elapsed time:        42.9s
+Transferring:
+ *                         WebQSP_FilterFreebase: 38% /3.127Gi, 29.017Mi/s, 1m8sTransferred:   	    1.211 GiB / 3.127 GiB, 39%, 29.017 MiB/s, ETA 1m7s
+Transferred:            0 / 1, 0%
+Elapsed time:        43.4s
+Transferring:
+ *                         WebQSP_FilterFreebase: 38% /3.127Gi, 29.017Mi/s, 1m7sTransferred:   	    1.227 GiB / 3.127 GiB, 39%, 28.909 MiB/s, ETA 1m7s
+Transferred:            0 / 1, 0%
+Elapsed time:        43.9s
+Transferring:
+ *                         WebQSP_FilterFreebase: 39% /3.127Gi, 28.909Mi/s, 1m7sTransferred:   	    1.242 GiB / 3.127 GiB, 40%, 28.909 MiB/s, ETA 1m6s
+Transferred:            0 / 1, 0%
+Elapsed time:        44.4s
+Transferring:
+ *                         WebQSP_FilterFreebase: 39% /3.127Gi, 28.909Mi/s, 1m6sTransferred:   	    1.258 GiB / 3.127 GiB, 40%, 28.992 MiB/s, ETA 1m6s
+Transferred:            0 / 1, 0%
+Elapsed time:        44.9s
+Transferring:
+ *                         WebQSP_FilterFreebase: 40% /3.127Gi, 28.992Mi/s, 1m6sTransferred:   	    1.273 GiB / 3.127 GiB, 41%, 28.992 MiB/s, ETA 1m5s
+Transferred:            0 / 1, 0%
+Elapsed time:        45.4s
+Transferring:
+ *                         WebQSP_FilterFreebase: 40% /3.127Gi, 28.992Mi/s, 1m5sTransferred:   	    1.285 GiB / 3.127 GiB, 41%, 28.834 MiB/s, ETA 1m5s
+Transferred:            0 / 1, 0%
+Elapsed time:        45.9s
+Transferring:
+ *                         WebQSP_FilterFreebase: 41% /3.127Gi, 28.834Mi/s, 1m5sTransferred:   	    1.301 GiB / 3.127 GiB, 42%, 28.834 MiB/s, ETA 1m4s
+Transferred:            0 / 1, 0%
+Elapsed time:        46.4s
+Transferring:
+ *                         WebQSP_FilterFreebase: 41% /3.127Gi, 28.834Mi/s, 1m4sTransferred:   	    1.312 GiB / 3.127 GiB, 42%, 29.033 MiB/s, ETA 1m3s
+Transferred:            0 / 1, 0%
+Elapsed time:        46.9s
+Transferring:
+ *                         WebQSP_FilterFreebase: 41% /3.127Gi, 29.033Mi/s, 1m3sTransferred:   	    1.328 GiB / 3.127 GiB, 42%, 29.033 MiB/s, ETA 1m3s
+Transferred:            0 / 1, 0%
+Elapsed time:        47.4s
+Transferring:
+ *                         WebQSP_FilterFreebase: 42% /3.127Gi, 29.033Mi/s, 1m3sTransferred:   	    1.343 GiB / 3.127 GiB, 43%, 29.066 MiB/s, ETA 1m2s
+Transferred:            0 / 1, 0%
+Elapsed time:        47.9s
+Transferring:
+ *                         WebQSP_FilterFreebase: 42% /3.127Gi, 29.067Mi/s, 1m2sTransferred:   	    1.352 GiB / 3.127 GiB, 43%, 29.066 MiB/s, ETA 1m2s
+Transferred:            0 / 1, 0%
+Elapsed time:        48.4s
+Transferring:
+ *                         WebQSP_FilterFreebase: 43% /3.127Gi, 29.067Mi/s, 1m2sTransferred:   	    1.359 GiB / 3.127 GiB, 43%, 28.874 MiB/s, ETA 1m2s
+Transferred:            0 / 1, 0%
+Elapsed time:        48.9s
+Transferring:
+ *                         WebQSP_FilterFreebase: 43% /3.127Gi, 28.874Mi/s, 1m2sTransferred:   	    1.373 GiB / 3.127 GiB, 44%, 28.874 MiB/s, ETA 1m2s
+Transferred:            0 / 1, 0%
+Elapsed time:        49.4s
+Transferring:
+ *                         WebQSP_FilterFreebase: 43% /3.127Gi, 28.874Mi/s, 1m2sTransferred:   	    1.383 GiB / 3.127 GiB, 44%, 28.096 MiB/s, ETA 1m3s
+Transferred:            0 / 1, 0%
+Elapsed time:        49.9s
+Transferring:
+ *                         WebQSP_FilterFreebase: 44% /3.127Gi, 28.096Mi/s, 1m3sTransferred:   	    1.398 GiB / 3.127 GiB, 45%, 28.096 MiB/s, ETA 1m3s
+Transferred:            0 / 1, 0%
+Elapsed time:        50.4s
+Transferring:
+ *                         WebQSP_FilterFreebase: 44% /3.127Gi, 28.096Mi/s, 1m3sTransferred:   	    1.412 GiB / 3.127 GiB, 45%, 28.091 MiB/s, ETA 1m2s
+Transferred:            0 / 1, 0%
+Elapsed time:        50.9s
+Transferring:
+ *                         WebQSP_FilterFreebase: 45% /3.127Gi, 28.091Mi/s, 1m2sTransferred:   	    1.422 GiB / 3.127 GiB, 45%, 28.091 MiB/s, ETA 1m2s
+Transferred:            0 / 1, 0%
+Elapsed time:        51.4s
+Transferring:
+ *                         WebQSP_FilterFreebase: 45% /3.127Gi, 28.091Mi/s, 1m2sTransferred:   	    1.438 GiB / 3.127 GiB, 46%, 28.051 MiB/s, ETA 1m1s
+Transferred:            0 / 1, 0%
+Elapsed time:        51.9s
+Transferring:
+ *                         WebQSP_FilterFreebase: 45% /3.127Gi, 28.051Mi/s, 1m1sTransferred:   	    1.453 GiB / 3.127 GiB, 46%, 28.051 MiB/s, ETA 1m1s
+Transferred:            0 / 1, 0%
+Elapsed time:        52.4s
+Transferring:
+ *                         WebQSP_FilterFreebase: 46% /3.127Gi, 28.051Mi/s, 1m1sTransferred:   	    1.466 GiB / 3.127 GiB, 47%, 28.082 MiB/s, ETA 1m
+Transferred:            0 / 1, 0%
+Elapsed time:        52.9s
+Transferring:
+ *                         WebQSP_FilterFreebase: 46% /3.127Gi, 28.082Mi/s, 1m0sTransferred:   	    1.477 GiB / 3.127 GiB, 47%, 28.082 MiB/s, ETA 1m
+Transferred:            0 / 1, 0%
+Elapsed time:        53.4s
+Transferring:
+ *                         WebQSP_FilterFreebase: 47% /3.127Gi, 28.082Mi/s, 1m0sTransferred:   	    1.492 GiB / 3.127 GiB, 48%, 28.078 MiB/s, ETA 59s
+Transferred:            0 / 1, 0%
+Elapsed time:        53.9s
+Transferring:
+ *                         WebQSP_FilterFreebase: 47% /3.127Gi, 28.076Mi/s, 59sTransferred:   	    1.507 GiB / 3.127 GiB, 48%, 28.078 MiB/s, ETA 59s
+Transferred:            0 / 1, 0%
+Elapsed time:        54.4s
+Transferring:
+ *                         WebQSP_FilterFreebase: 48% /3.127Gi, 28.076Mi/s, 59sTransferred:   	    1.521 GiB / 3.127 GiB, 49%, 27.823 MiB/s, ETA 59s
+Transferred:            0 / 1, 0%
+Elapsed time:        54.9s
+Transferring:
+ *                         WebQSP_FilterFreebase: 48% /3.127Gi, 27.822Mi/s, 59sTransferred:   	    1.535 GiB / 3.127 GiB, 49%, 27.823 MiB/s, ETA 58s
+Transferred:            0 / 1, 0%
+Elapsed time:        55.4s
+Transferring:
+ *                         WebQSP_FilterFreebase: 49% /3.127Gi, 27.822Mi/s, 58sTransferred:   	    1.547 GiB / 3.127 GiB, 49%, 28.083 MiB/s, ETA 57s
+Transferred:            0 / 1, 0%
+Elapsed time:        55.9s
+Transferring:
+ *                         WebQSP_FilterFreebase: 49% /3.127Gi, 28.083Mi/s, 57sTransferred:   	    1.562 GiB / 3.127 GiB, 50%, 28.083 MiB/s, ETA 57s
+Transferred:            0 / 1, 0%
+Elapsed time:        56.4s
+Transferring:
+ *                         WebQSP_FilterFreebase: 49% /3.127Gi, 28.083Mi/s, 57sTransferred:   	    1.578 GiB / 3.127 GiB, 50%, 28.078 MiB/s, ETA 56s
+Transferred:            0 / 1, 0%
+Elapsed time:        56.9s
+Transferring:
+ *                         WebQSP_FilterFreebase: 50% /3.127Gi, 28.078Mi/s, 56sTransferred:   	    1.592 GiB / 3.127 GiB, 51%, 28.078 MiB/s, ETA 55s
+Transferred:            0 / 1, 0%
+Elapsed time:        57.4s
+Transferring:
+ *                         WebQSP_FilterFreebase: 50% /3.127Gi, 28.078Mi/s, 55sTransferred:   	    1.605 GiB / 3.127 GiB, 51%, 28.074 MiB/s, ETA 55s
+Transferred:            0 / 1, 0%
+Elapsed time:        57.9s
+Transferring:
+ *                         WebQSP_FilterFreebase: 51% /3.127Gi, 28.074Mi/s, 55sTransferred:   	    1.617 GiB / 3.127 GiB, 52%, 28.074 MiB/s, ETA 55s
+Transferred:            0 / 1, 0%
+Elapsed time:        58.4s
+Transferring:
+ *                         WebQSP_FilterFreebase: 51% /3.127Gi, 28.074Mi/s, 55sTransferred:   	    1.633 GiB / 3.127 GiB, 52%, 28.318 MiB/s, ETA 54s
+Transferred:            0 / 1, 0%
+Elapsed time:        58.9s
+Transferring:
+ *                         WebQSP_FilterFreebase: 52% /3.127Gi, 28.318Mi/s, 54sTransferred:   	    1.648 GiB / 3.127 GiB, 53%, 28.318 MiB/s, ETA 53s
+Transferred:            0 / 1, 0%
+Elapsed time:        59.4s
+Transferring:
+ *                         WebQSP_FilterFreebase: 52% /3.127Gi, 28.318Mi/s, 53sTransferred:   	    1.663 GiB / 3.127 GiB, 53%, 28.299 MiB/s, ETA 52s
+Transferred:            0 / 1, 0%
+Elapsed time:        59.9s
+Transferring:
+ *                         WebQSP_FilterFreebase: 53% /3.127Gi, 28.297Mi/s, 52sTransferred:   	    1.678 GiB / 3.127 GiB, 54%, 28.299 MiB/s, ETA 52s
+Transferred:            0 / 1, 0%
+Elapsed time:       1m0.4s
+Transferring:
+ *                         WebQSP_FilterFreebase: 53% /3.127Gi, 28.297Mi/s, 52sTransferred:   	    1.688 GiB / 3.127 GiB, 54%, 28.280 MiB/s, ETA 52s
+Transferred:            0 / 1, 0%
+Elapsed time:       1m0.9s
+Transferring:
+ *                         WebQSP_FilterFreebase: 53% /3.127Gi, 28.280Mi/s, 52sTransferred:   	    1.703 GiB / 3.127 GiB, 54%, 28.280 MiB/s, ETA 51s
+Transferred:            0 / 1, 0%
+Elapsed time:       1m1.4s
+Transferring:
+ *                         WebQSP_FilterFreebase: 54% /3.127Gi, 28.280Mi/s, 51sTransferred:   	    1.719 GiB / 3.127 GiB, 55%, 28.450 MiB/s, ETA 50s
+Transferred:            0 / 1, 0%
+Elapsed time:       1m1.9s
+Transferring:
+ *                         WebQSP_FilterFreebase: 54% /3.127Gi, 28.450Mi/s, 50sTransferred:   	    1.734 GiB / 3.127 GiB, 55%, 28.450 MiB/s, ETA 50s
+Transferred:            0 / 1, 0%
+Elapsed time:       1m2.4s
+Transferring:
+ *                         WebQSP_FilterFreebase: 55% /3.127Gi, 28.450Mi/s, 50sTransferred:   	    1.746 GiB / 3.127 GiB, 56%, 28.235 MiB/s, ETA 50s
+Transferred:            0 / 1, 0%
+Elapsed time:       1m2.9s
+Transferring:
+ *                         WebQSP_FilterFreebase: 55% /3.127Gi, 28.235Mi/s, 50sTransferred:   	    1.758 GiB / 3.127 GiB, 56%, 28.235 MiB/s, ETA 49s
+Transferred:            0 / 1, 0%
+Elapsed time:       1m3.4s
+Transferring:
+ *                         WebQSP_FilterFreebase: 56% /3.127Gi, 28.235Mi/s, 49sTransferred:   	    1.773 GiB / 3.127 GiB, 57%, 28.406 MiB/s, ETA 48s
+Transferred:            0 / 1, 0%
+Elapsed time:       1m3.9s
+Transferring:
+ *                         WebQSP_FilterFreebase: 56% /3.127Gi, 28.406Mi/s, 48sTransferred:   	    1.787 GiB / 3.127 GiB, 57%, 28.406 MiB/s, ETA 48s
+Transferred:            0 / 1, 0%
+Elapsed time:       1m4.4s
+Transferring:
+ *                         WebQSP_FilterFreebase: 57% /3.127Gi, 28.406Mi/s, 48sTransferred:   	    1.801 GiB / 3.127 GiB, 58%, 28.193 MiB/s, ETA 48s
+Transferred:            0 / 1, 0%
+Elapsed time:       1m4.9s
+Transferring:
+ *                         WebQSP_FilterFreebase: 57% /3.127Gi, 28.193Mi/s, 48sTransferred:   	    1.812 GiB / 3.127 GiB, 58%, 28.193 MiB/s, ETA 47s
+Transferred:            0 / 1, 0%
+Elapsed time:       1m5.4s
+Transferring:
+ *                         WebQSP_FilterFreebase: 57% /3.127Gi, 28.193Mi/s, 47sTransferred:   	    1.828 GiB / 3.127 GiB, 58%, 28.277 MiB/s, ETA 47s
+Transferred:            0 / 1, 0%
+Elapsed time:       1m5.9s
+Transferring:
+ *                         WebQSP_FilterFreebase: 58% /3.127Gi, 28.277Mi/s, 47sTransferred:   	    1.844 GiB / 3.127 GiB, 59%, 28.277 MiB/s, ETA 46s
+Transferred:            0 / 1, 0%
+Elapsed time:       1m6.4s
+Transferring:
+ *                         WebQSP_FilterFreebase: 58% /3.127Gi, 28.277Mi/s, 46sTransferred:   	    1.855 GiB / 3.127 GiB, 59%, 28.415 MiB/s, ETA 45s
+Transferred:            0 / 1, 0%
+Elapsed time:       1m6.9s
+Transferring:
+ *                         WebQSP_FilterFreebase: 59% /3.127Gi, 28.415Mi/s, 45sTransferred:   	    1.867 GiB / 3.127 GiB, 60%, 28.415 MiB/s, ETA 45s
+Transferred:            0 / 1, 0%
+Elapsed time:       1m7.4s
+Transferring:
+ *                         WebQSP_FilterFreebase: 59% /3.127Gi, 28.415Mi/s, 45sTransferred:   	    1.883 GiB / 3.127 GiB, 60%, 28.389 MiB/s, ETA 44s
+Transferred:            0 / 1, 0%
+Elapsed time:       1m7.9s
+Transferring:
+ *                         WebQSP_FilterFreebase: 60% /3.127Gi, 28.389Mi/s, 44sTransferred:   	    1.897 GiB / 3.127 GiB, 61%, 28.389 MiB/s, ETA 44s
+Transferred:            0 / 1, 0%
+Elapsed time:       1m8.4s
+Transferring:
+ *                         WebQSP_FilterFreebase: 60% /3.127Gi, 28.389Mi/s, 44sTransferred:   	    1.910 GiB / 3.127 GiB, 61%, 28.115 MiB/s, ETA 44s
+Transferred:            0 / 1, 0%
+Elapsed time:       1m8.9s
+Transferring:
+ *                         WebQSP_FilterFreebase: 61% /3.127Gi, 28.115Mi/s, 44sTransferred:   	    1.922 GiB / 3.127 GiB, 61%, 28.115 MiB/s, ETA 43s
+Transferred:            0 / 1, 0%
+Elapsed time:       1m9.4s
+Transferring:
+ *                         WebQSP_FilterFreebase: 61% /3.127Gi, 28.115Mi/s, 43sTransferred:   	    1.938 GiB / 3.127 GiB, 62%, 28.358 MiB/s, ETA 42s
+Transferred:            0 / 1, 0%
+Elapsed time:       1m9.9s
+Transferring:
+ *                         WebQSP_FilterFreebase: 61% /3.127Gi, 28.358Mi/s, 42sTransferred:   	    1.953 GiB / 3.127 GiB, 62%, 28.358 MiB/s, ETA 42s
+Transferred:            0 / 1, 0%
+Elapsed time:      1m10.4s
+Transferring:
+ *                         WebQSP_FilterFreebase: 62% /3.127Gi, 28.358Mi/s, 42sTransferred:   	    1.966 GiB / 3.127 GiB, 63%, 28.335 MiB/s, ETA 41s
+Transferred:            0 / 1, 0%
+Elapsed time:      1m10.9s
+Transferring:
+ *                         WebQSP_FilterFreebase: 62% /3.127Gi, 28.335Mi/s, 41sTransferred:   	    1.980 GiB / 3.127 GiB, 63%, 28.335 MiB/s, ETA 41s
+Transferred:            0 / 1, 0%
+Elapsed time:      1m11.4s
+Transferring:
+ *                         WebQSP_FilterFreebase: 63% /3.127Gi, 28.335Mi/s, 41sTransferred:   	    1.992 GiB / 3.127 GiB, 64%, 28.315 MiB/s, ETA 41s
+Transferred:            0 / 1, 0%
+Elapsed time:      1m11.9s
+Transferring:
+ *                         WebQSP_FilterFreebase: 63% /3.127Gi, 28.315Mi/s, 41sTransferred:   	    2.008 GiB / 3.127 GiB, 64%, 28.315 MiB/s, ETA 40s
+Transferred:            0 / 1, 0%
+Elapsed time:      1m12.4s
+Transferring:
+ *                         WebQSP_FilterFreebase: 64% /3.127Gi, 28.315Mi/s, 40sTransferred:   	    2.023 GiB / 3.127 GiB, 65%, 28.294 MiB/s, ETA 39s
+Transferred:            0 / 1, 0%
+Elapsed time:      1m12.9s
+Transferring:
+ *                         WebQSP_FilterFreebase: 64% /3.127Gi, 28.294Mi/s, 39sTransferred:   	    2.035 GiB / 3.127 GiB, 65%, 28.294 MiB/s, ETA 39s
+Transferred:            0 / 1, 0%
+Elapsed time:      1m13.4s
+Transferring:
+ *                         WebQSP_FilterFreebase: 65% /3.127Gi, 28.294Mi/s, 39sTransferred:   	    2.047 GiB / 3.127 GiB, 65%, 28.276 MiB/s, ETA 39s
+Transferred:            0 / 1, 0%
+Elapsed time:      1m13.9s
+Transferring:
+ *                         WebQSP_FilterFreebase: 65% /3.127Gi, 28.276Mi/s, 39sTransferred:   	    2.062 GiB / 3.127 GiB, 66%, 28.276 MiB/s, ETA 38s
+Transferred:            0 / 1, 0%
+Elapsed time:      1m14.4s
+Transferring:
+ *                         WebQSP_FilterFreebase: 65% /3.127Gi, 28.276Mi/s, 38sTransferred:   	    2.076 GiB / 3.127 GiB, 66%, 28.259 MiB/s, ETA 38s
+Transferred:            0 / 1, 0%
+Elapsed time:      1m14.9s
+Transferring:
+ *                         WebQSP_FilterFreebase: 66% /3.127Gi, 28.258Mi/s, 38sTransferred:   	    2.090 GiB / 3.127 GiB, 67%, 28.259 MiB/s, ETA 37s
+Transferred:            0 / 1, 0%
+Elapsed time:      1m15.4s
+Transferring:
+ *                         WebQSP_FilterFreebase: 66% /3.127Gi, 28.258Mi/s, 37sTransferred:   	    2.102 GiB / 3.127 GiB, 67%, 28.243 MiB/s, ETA 37s
+Transferred:            0 / 1, 0%
+Elapsed time:      1m15.9s
+Transferring:
+ *                         WebQSP_FilterFreebase: 67% /3.127Gi, 28.243Mi/s, 37sTransferred:   	    2.115 GiB / 3.127 GiB, 68%, 28.243 MiB/s, ETA 36s
+Transferred:            0 / 1, 0%
+Elapsed time:      1m16.4s
+Transferring:
+ *                         WebQSP_FilterFreebase: 67% /3.127Gi, 28.243Mi/s, 36sTransferred:   	    2.129 GiB / 3.127 GiB, 68%, 27.977 MiB/s, ETA 36s
+Transferred:            0 / 1, 0%
+Elapsed time:      1m16.9s
+Transferring:
+ *                         WebQSP_FilterFreebase: 68% /3.127Gi, 27.977Mi/s, 36sTransferred:   	    2.141 GiB / 3.127 GiB, 68%, 27.977 MiB/s, ETA 36s
+Transferred:            0 / 1, 0%
+Elapsed time:      1m17.4s
+Transferring:
+ *                         WebQSP_FilterFreebase: 68% /3.127Gi, 27.977Mi/s, 36sTransferred:   	    2.156 GiB / 3.127 GiB, 69%, 28.188 MiB/s, ETA 35s
+Transferred:            0 / 1, 0%
+Elapsed time:      1m17.9s
+Transferring:
+ *                         WebQSP_FilterFreebase: 68% /3.127Gi, 28.188Mi/s, 35sTransferred:   	    2.171 GiB / 3.127 GiB, 69%, 28.188 MiB/s, ETA 34s
+Transferred:            0 / 1, 0%
+Elapsed time:      1m18.4s
+Transferring:
+ *                         WebQSP_FilterFreebase: 69% /3.127Gi, 28.188Mi/s, 34sTransferred:   	    2.185 GiB / 3.127 GiB, 70%, 28.217 MiB/s, ETA 34s
+Transferred:            0 / 1, 0%
+Elapsed time:      1m18.9s
+Transferring:
+ *                         WebQSP_FilterFreebase: 69% /3.127Gi, 28.217Mi/s, 34sTransferred:   	    2.195 GiB / 3.127 GiB, 70%, 28.217 MiB/s, ETA 33s
+Transferred:            0 / 1, 0%
+Elapsed time:      1m19.4s
+Transferring:
+ *                         WebQSP_FilterFreebase: 70% /3.127Gi, 28.217Mi/s, 33sTransferred:   	    2.211 GiB / 3.127 GiB, 71%, 28.172 MiB/s, ETA 33s
+Transferred:            0 / 1, 0%
+Elapsed time:      1m19.9s
+Transferring:
+ *                         WebQSP_FilterFreebase: 70% /3.127Gi, 28.172Mi/s, 33sTransferred:   	    2.226 GiB / 3.127 GiB, 71%, 28.172 MiB/s, ETA 32s
+Transferred:            0 / 1, 0%
+Elapsed time:      1m20.4s
+Transferring:
+ *                         WebQSP_FilterFreebase: 71% /3.127Gi, 28.172Mi/s, 32sTransferred:   	    2.234 GiB / 3.127 GiB, 71%, 27.943 MiB/s, ETA 32s
+Transferred:            0 / 1, 0%
+Elapsed time:      1m20.9s
+Transferring:
+ *                         WebQSP_FilterFreebase: 71% /3.127Gi, 27.943Mi/s, 32sTransferred:   	    2.250 GiB / 3.127 GiB, 72%, 27.943 MiB/s, ETA 32s
+Transferred:            0 / 1, 0%
+Elapsed time:      1m21.4s
+Transferring:
+ *                         WebQSP_FilterFreebase: 71% /3.127Gi, 27.943Mi/s, 32sTransferred:   	    2.263 GiB / 3.127 GiB, 72%, 27.947 MiB/s, ETA 31s
+Transferred:            0 / 1, 0%
+Elapsed time:      1m21.9s
+Transferring:
+ *                         WebQSP_FilterFreebase: 72% /3.127Gi, 27.947Mi/s, 31sTransferred:   	    2.273 GiB / 3.127 GiB, 73%, 27.947 MiB/s, ETA 31s
+Transferred:            0 / 1, 0%
+Elapsed time:      1m22.4s
+Transferring:
+ *                         WebQSP_FilterFreebase: 72% /3.127Gi, 27.947Mi/s, 31sTransferred:   	    2.289 GiB / 3.127 GiB, 73%, 27.950 MiB/s, ETA 30s
+Transferred:            0 / 1, 0%
+Elapsed time:      1m22.9s
+Transferring:
+ *                         WebQSP_FilterFreebase: 73% /3.127Gi, 27.950Mi/s, 30sTransferred:   	    2.302 GiB / 3.127 GiB, 74%, 27.950 MiB/s, ETA 30s
+Transferred:            0 / 1, 0%
+Elapsed time:      1m23.4s
+Transferring:
+ *                         WebQSP_FilterFreebase: 73% /3.127Gi, 27.950Mi/s, 30sTransferred:   	    2.314 GiB / 3.127 GiB, 74%, 27.703 MiB/s, ETA 30s
+Transferred:            0 / 1, 0%
+Elapsed time:      1m23.9s
+Transferring:
+ *                         WebQSP_FilterFreebase: 73% /3.127Gi, 27.703Mi/s, 30sTransferred:   	    2.328 GiB / 3.127 GiB, 74%, 27.703 MiB/s, ETA 29s
+Transferred:            0 / 1, 0%
+Elapsed time:      1m24.4s
+Transferring:
+ *                         WebQSP_FilterFreebase: 74% /3.127Gi, 27.703Mi/s, 29sTransferred:   	    2.344 GiB / 3.127 GiB, 75%, 27.897 MiB/s, ETA 28s
+Transferred:            0 / 1, 0%
+Elapsed time:      1m24.9s
+Transferring:
+ *                         WebQSP_FilterFreebase: 74% /3.127Gi, 27.898Mi/s, 28sTransferred:   	    2.359 GiB / 3.127 GiB, 75%, 27.897 MiB/s, ETA 28s
+Transferred:            0 / 1, 0%
+Elapsed time:      1m25.4s
+Transferring:
+ *                         WebQSP_FilterFreebase: 75% /3.127Gi, 27.898Mi/s, 28sTransferred:   	    2.375 GiB / 3.127 GiB, 76%, 27.977 MiB/s, ETA 27s
+Transferred:            0 / 1, 0%
+Elapsed time:      1m25.9s
+Transferring:
+ *                         WebQSP_FilterFreebase: 75% /3.127Gi, 27.977Mi/s, 27sTransferred:   	    2.389 GiB / 3.127 GiB, 76%, 27.977 MiB/s, ETA 27s
+Transferred:            0 / 1, 0%
+Elapsed time:      1m26.4s
+Transferring:
+ *                         WebQSP_FilterFreebase: 76% /3.127Gi, 27.977Mi/s, 27sTransferred:   	    2.398 GiB / 3.127 GiB, 77%, 27.980 MiB/s, ETA 26s
+Transferred:            0 / 1, 0%
+Elapsed time:      1m26.9s
+Transferring:
+ *                         WebQSP_FilterFreebase: 76% /3.127Gi, 27.980Mi/s, 26sTransferred:   	    2.414 GiB / 3.127 GiB, 77%, 27.980 MiB/s, ETA 26s
+Transferred:            0 / 1, 0%
+Elapsed time:      1m27.4s
+Transferring:
+ *                         WebQSP_FilterFreebase: 77% /3.127Gi, 27.980Mi/s, 26sTransferred:   	    2.430 GiB / 3.127 GiB, 78%, 28.104 MiB/s, ETA 25s
+Transferred:            0 / 1, 0%
+Elapsed time:      1m27.9s
+Transferring:
+ *                         WebQSP_FilterFreebase: 77% /3.127Gi, 28.102Mi/s, 25sTransferred:   	    2.444 GiB / 3.127 GiB, 78%, 28.104 MiB/s, ETA 24s
+Transferred:            0 / 1, 0%
+Elapsed time:      1m28.4s
+Transferring:
+ *                         WebQSP_FilterFreebase: 78% /3.127Gi, 28.102Mi/s, 24sTransferred:   	    2.459 GiB / 3.127 GiB, 79%, 28.223 MiB/s, ETA 24s
+Transferred:            0 / 1, 0%
+Elapsed time:      1m28.9s
+Transferring:
+ *                         WebQSP_FilterFreebase: 78% /3.127Gi, 28.223Mi/s, 24sTransferred:   	    2.473 GiB / 3.127 GiB, 79%, 28.223 MiB/s, ETA 23s
+Transferred:            0 / 1, 0%
+Elapsed time:      1m29.4s
+Transferring:
+ *                         WebQSP_FilterFreebase: 79% /3.127Gi, 28.223Mi/s, 23sTransferred:   	    2.488 GiB / 3.127 GiB, 80%, 28.211 MiB/s, ETA 23s
+Transferred:            0 / 1, 0%
+Elapsed time:      1m29.9s
+Transferring:
+ *                         WebQSP_FilterFreebase: 79% /3.127Gi, 28.211Mi/s, 23sTransferred:   	    2.500 GiB / 3.127 GiB, 80%, 28.211 MiB/s, ETA 22s
+Transferred:            0 / 1, 0%
+Elapsed time:      1m30.4s
+Transferring:
+ *                         WebQSP_FilterFreebase: 79% /3.127Gi, 28.211Mi/s, 22sTransferred:   	    2.515 GiB / 3.127 GiB, 80%, 28.301 MiB/s, ETA 22s
+Transferred:            0 / 1, 0%
+Elapsed time:      1m30.9s
+Transferring:
+ *                         WebQSP_FilterFreebase: 80% /3.127Gi, 28.299Mi/s, 22sTransferred:   	    2.531 GiB / 3.127 GiB, 81%, 28.301 MiB/s, ETA 21s
+Transferred:            0 / 1, 0%
+Elapsed time:      1m31.4s
+Transferring:
+ *                         WebQSP_FilterFreebase: 80% /3.127Gi, 28.299Mi/s, 21sTransferred:   	    2.543 GiB / 3.127 GiB, 81%, 28.179 MiB/s, ETA 21s
+Transferred:            0 / 1, 0%
+Elapsed time:      1m31.9s
+Transferring:
+ *                         WebQSP_FilterFreebase: 81% /3.127Gi, 28.179Mi/s, 21sTransferred:   	    2.555 GiB / 3.127 GiB, 82%, 28.179 MiB/s, ETA 20s
+Transferred:            0 / 1, 0%
+Elapsed time:      1m32.4s
+Transferring:
+ *                         WebQSP_FilterFreebase: 81% /3.127Gi, 28.179Mi/s, 20sTransferred:   	    2.570 GiB / 3.127 GiB, 82%, 28.416 MiB/s, ETA 20s
+Transferred:            0 / 1, 0%
+Elapsed time:      1m32.9s
+Transferring:
+ *                         WebQSP_FilterFreebase: 82% /3.127Gi, 28.416Mi/s, 20sTransferred:   	    2.586 GiB / 3.127 GiB, 83%, 28.416 MiB/s, ETA 19s
+Transferred:            0 / 1, 0%
+Elapsed time:      1m33.4s
+Transferring:
+ *                         WebQSP_FilterFreebase: 82% /3.127Gi, 28.416Mi/s, 19sTransferred:   	    2.602 GiB / 3.127 GiB, 83%, 28.390 MiB/s, ETA 18s
+Transferred:            0 / 1, 0%
+Elapsed time:      1m33.9s
+Transferring:
+ *                         WebQSP_FilterFreebase: 83% /3.127Gi, 28.390Mi/s, 18sTransferred:   	    2.615 GiB / 3.127 GiB, 84%, 28.390 MiB/s, ETA 18s
+Transferred:            0 / 1, 0%
+Elapsed time:      1m34.4s
+Transferring:
+ *                         WebQSP_FilterFreebase: 83% /3.127Gi, 28.390Mi/s, 18sTransferred:   	    2.629 GiB / 3.127 GiB, 84%, 28.366 MiB/s, ETA 17s
+Transferred:            0 / 1, 0%
+Elapsed time:      1m34.9s
+Transferring:
+ *                         WebQSP_FilterFreebase: 84% /3.127Gi, 28.366Mi/s, 17sTransferred:   	    2.641 GiB / 3.127 GiB, 84%, 28.366 MiB/s, ETA 17s
+Transferred:            0 / 1, 0%
+Elapsed time:      1m35.4s
+Transferring:
+ *                         WebQSP_FilterFreebase: 84% /3.127Gi, 28.366Mi/s, 17sTransferred:   	    2.656 GiB / 3.127 GiB, 85%, 28.575 MiB/s, ETA 16s
+Transferred:            0 / 1, 0%
+Elapsed time:      1m35.9s
+Transferring:
+ *                         WebQSP_FilterFreebase: 84% /3.127Gi, 28.575Mi/s, 16sTransferred:   	    2.672 GiB / 3.127 GiB, 85%, 28.575 MiB/s, ETA 16s
+Transferred:            0 / 1, 0%
+Elapsed time:      1m36.4s
+Transferring:
+ *                         WebQSP_FilterFreebase: 85% /3.127Gi, 28.575Mi/s, 16sTransferred:   	    2.687 GiB / 3.127 GiB, 86%, 28.556 MiB/s, ETA 15s
+Transferred:            0 / 1, 0%
+Elapsed time:      1m36.9s
+Transferring:
+ *                         WebQSP_FilterFreebase: 85% /3.127Gi, 28.556Mi/s, 15sTransferred:   	    2.699 GiB / 3.127 GiB, 86%, 28.556 MiB/s, ETA 15s
+Transferred:            0 / 1, 0%
+Elapsed time:      1m37.4s
+Transferring:
+ *                         WebQSP_FilterFreebase: 86% /3.127Gi, 28.556Mi/s, 15sTransferred:   	    2.711 GiB / 3.127 GiB, 87%, 28.522 MiB/s, ETA 14s
+Transferred:            0 / 1, 0%
+Elapsed time:      1m37.9s
+Transferring:
+ *                         WebQSP_FilterFreebase: 86% /3.127Gi, 28.522Mi/s, 14sTransferred:   	    2.726 GiB / 3.127 GiB, 87%, 28.522 MiB/s, ETA 14s
+Transferred:            0 / 1, 0%
+Elapsed time:      1m38.4s
+Transferring:
+ *                         WebQSP_FilterFreebase: 87% /3.127Gi, 28.522Mi/s, 14sTransferred:   	    2.741 GiB / 3.127 GiB, 88%, 28.239 MiB/s, ETA 13s
+Transferred:            0 / 1, 0%
+Elapsed time:      1m38.9s
+Transferring:
+ *                         WebQSP_FilterFreebase: 87% /3.127Gi, 28.239Mi/s, 13sTransferred:   	    2.754 GiB / 3.127 GiB, 88%, 28.239 MiB/s, ETA 13s
+Transferred:            0 / 1, 0%
+Elapsed time:      1m39.4s
+Transferring:
+ *                         WebQSP_FilterFreebase: 88% /3.127Gi, 28.239Mi/s, 13sTransferred:   	    2.766 GiB / 3.127 GiB, 88%, 28.475 MiB/s, ETA 12s
+Transferred:            0 / 1, 0%
+Elapsed time:      1m39.9s
+Transferring:
+ *                         WebQSP_FilterFreebase: 88% /3.127Gi, 28.475Mi/s, 12sTransferred:   	    2.781 GiB / 3.127 GiB, 89%, 28.475 MiB/s, ETA 12s
+Transferred:            0 / 1, 0%
+Elapsed time:      1m40.4s
+Transferring:
+ *                         WebQSP_FilterFreebase: 88% /3.127Gi, 28.475Mi/s, 12sTransferred:   	    2.797 GiB / 3.127 GiB, 89%, 28.541 MiB/s, ETA 11s
+Transferred:            0 / 1, 0%
+Elapsed time:      1m40.9s
+Transferring:
+ *                         WebQSP_FilterFreebase: 89% /3.127Gi, 28.541Mi/s, 11sTransferred:   	    2.811 GiB / 3.127 GiB, 90%, 28.541 MiB/s, ETA 11s
+Transferred:            0 / 1, 0%
+Elapsed time:      1m41.4s
+Transferring:
+ *                         WebQSP_FilterFreebase: 89% /3.127Gi, 28.541Mi/s, 11sTransferred:   	    2.826 GiB / 3.127 GiB, 90%, 28.412 MiB/s, ETA 10s
+Transferred:            0 / 1, 0%
+Elapsed time:      1m41.9s
+Transferring:
+ *                         WebQSP_FilterFreebase: 90% /3.127Gi, 28.412Mi/s, 10sTransferred:   	    2.836 GiB / 3.127 GiB, 91%, 28.412 MiB/s, ETA 10s
+Transferred:            0 / 1, 0%
+Elapsed time:      1m42.4s
+Transferring:
+ *                         WebQSP_FilterFreebase: 90% /3.127Gi, 28.412Mi/s, 10sTransferred:   	    2.852 GiB / 3.127 GiB, 91%, 28.613 MiB/s, ETA 9s
+Transferred:            0 / 1, 0%
+Elapsed time:      1m42.9s
+Transferring:
+ *                         WebQSP_FilterFreebase: 91% /3.127Gi, 28.613Mi/s, 9sTransferred:   	    2.867 GiB / 3.127 GiB, 92%, 28.613 MiB/s, ETA 9s
+Transferred:            0 / 1, 0%
+Elapsed time:      1m43.4s
+Transferring:
+ *                         WebQSP_FilterFreebase: 91% /3.127Gi, 28.613Mi/s, 9sTransferred:   	    2.880 GiB / 3.127 GiB, 92%, 28.347 MiB/s, ETA 8s
+Transferred:            0 / 1, 0%
+Elapsed time:      1m43.9s
+Transferring:
+ *                         WebQSP_FilterFreebase: 92% /3.127Gi, 28.347Mi/s, 8sTransferred:   	    2.895 GiB / 3.127 GiB, 93%, 28.347 MiB/s, ETA 8s
+Transferred:            0 / 1, 0%
+Elapsed time:      1m44.4s
+Transferring:
+ *                         WebQSP_FilterFreebase: 92% /3.127Gi, 28.347Mi/s, 8sTransferred:   	    2.906 GiB / 3.127 GiB, 93%, 28.576 MiB/s, ETA 7s
+Transferred:            0 / 1, 0%
+Elapsed time:      1m44.9s
+Transferring:
+ *                         WebQSP_FilterFreebase: 92% /3.127Gi, 28.576Mi/s, 7sTransferred:   	    2.922 GiB / 3.127 GiB, 93%, 28.576 MiB/s, ETA 7s
+Transferred:            0 / 1, 0%
+Elapsed time:      1m45.4s
+Transferring:
+ *                         WebQSP_FilterFreebase: 93% /3.127Gi, 28.576Mi/s, 7sTransferred:   	    2.938 GiB / 3.127 GiB, 94%, 28.650 MiB/s, ETA 6s
+Transferred:            0 / 1, 0%
+Elapsed time:      1m45.9s
+Transferring:
+ *                         WebQSP_FilterFreebase: 93% /3.127Gi, 28.650Mi/s, 6sTransferred:   	    2.952 GiB / 3.127 GiB, 94%, 28.650 MiB/s, ETA 6s
+Transferred:            0 / 1, 0%
+Elapsed time:      1m46.4s
+Transferring:
+ *                         WebQSP_FilterFreebase: 94% /3.127Gi, 28.650Mi/s, 6sTransferred:   	    2.965 GiB / 3.127 GiB, 95%, 28.500 MiB/s, ETA 5s
+Transferred:            0 / 1, 0%
+Elapsed time:      1m46.9s
+Transferring:
+ *                         WebQSP_FilterFreebase: 94% /3.127Gi, 28.500Mi/s, 5sTransferred:   	    2.977 GiB / 3.127 GiB, 95%, 28.500 MiB/s, ETA 5s
+Transferred:            0 / 1, 0%
+Elapsed time:      1m47.4s
+Transferring:
+ *                         WebQSP_FilterFreebase: 95% /3.127Gi, 28.500Mi/s, 5sTransferred:   	    2.992 GiB / 3.127 GiB, 96%, 28.670 MiB/s, ETA 4s
+Transferred:            0 / 1, 0%
+Elapsed time:      1m47.9s
+Transferring:
+ *                         WebQSP_FilterFreebase: 95% /3.127Gi, 28.670Mi/s, 4sTransferred:   	    3.008 GiB / 3.127 GiB, 96%, 28.670 MiB/s, ETA 4s
+Transferred:            0 / 1, 0%
+Elapsed time:      1m48.4s
+Transferring:
+ *                         WebQSP_FilterFreebase: 96% /3.127Gi, 28.670Mi/s, 4sTransferred:   	    3.023 GiB / 3.127 GiB, 97%, 28.677 MiB/s, ETA 3s
+Transferred:            0 / 1, 0%
+Elapsed time:      1m48.9s
+Transferring:
+ *                         WebQSP_FilterFreebase: 96% /3.127Gi, 28.675Mi/s, 3sTransferred:   	    3.035 GiB / 3.127 GiB, 97%, 28.677 MiB/s, ETA 3s
+Transferred:            0 / 1, 0%
+Elapsed time:      1m49.4s
+Transferring:
+ *                         WebQSP_FilterFreebase: 97% /3.127Gi, 28.675Mi/s, 3sTransferred:   	    3.047 GiB / 3.127 GiB, 97%, 28.634 MiB/s, ETA 2s
+Transferred:            0 / 1, 0%
+Elapsed time:      1m49.9s
+Transferring:
+ *                         WebQSP_FilterFreebase: 97% /3.127Gi, 28.634Mi/s, 2sTransferred:   	    3.062 GiB / 3.127 GiB, 98%, 28.634 MiB/s, ETA 2s
+Transferred:            0 / 1, 0%
+Elapsed time:      1m50.4s
+Transferring:
+ *                         WebQSP_FilterFreebase: 97% /3.127Gi, 28.634Mi/s, 2sTransferred:   	    3.076 GiB / 3.127 GiB, 98%, 28.595 MiB/s, ETA 1s
+Transferred:            0 / 1, 0%
+Elapsed time:      1m50.9s
+Transferring:
+ *                         WebQSP_FilterFreebase: 98% /3.127Gi, 28.595Mi/s, 1sTransferred:   	    3.090 GiB / 3.127 GiB, 99%, 28.595 MiB/s, ETA 1s
+Transferred:            0 / 1, 0%
+Elapsed time:      1m51.4s
+Transferring:
+ *                         WebQSP_FilterFreebase: 98% /3.127Gi, 28.595Mi/s, 1sTransferred:   	    3.102 GiB / 3.127 GiB, 99%, 28.557 MiB/s, ETA 0s
+Transferred:            0 / 1, 0%
+Elapsed time:      1m51.9s
+Transferring:
+ *                         WebQSP_FilterFreebase: 99% /3.127Gi, 28.557Mi/s, 0sTransferred:   	    3.117 GiB / 3.127 GiB, 100%, 28.557 MiB/s, ETA 0s
+Transferred:            0 / 1, 0%
+Elapsed time:      1m52.4s
+Transferring:
+ *                         WebQSP_FilterFreebase: 99% /3.127Gi, 28.557Mi/s, 0sTransferred:   	    3.127 GiB / 3.127 GiB, 100%, 28.522 MiB/s, ETA 0s
+Transferred:            0 / 1, 0%
+Elapsed time:      1m52.9s
+Transferring:
+ *                         WebQSP_FilterFreebase:100% /3.127Gi, 28.523Mi/s, 0sTransferred:   	    3.127 GiB / 3.127 GiB, 100%, 28.522 MiB/s, ETA 0s
+Transferred:            0 / 1, 0%
+Elapsed time:      1m53.4s
+Transferring:
+ *                         WebQSP_FilterFreebase:100% /3.127Gi, 28.523Mi/s, 0sTransferred:   	    3.127 GiB / 3.127 GiB, 100%, 27.120 MiB/s, ETA 0s
+Transferred:            0 / 1, 0%
+Elapsed time:      1m53.9s
+Transferring:
+ *                         WebQSP_FilterFreebase:100% /3.127Gi, 27.120Mi/s, 0sTransferred:   	    3.127 GiB / 3.127 GiB, 100%, 27.120 MiB/s, ETA 0s
+Transferred:            1 / 1, 100%
+Elapsed time:      1m54.0s
