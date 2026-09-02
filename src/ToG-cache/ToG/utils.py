@@ -153,6 +153,21 @@ def clean_relations_bm25_sent(topn_relations, topn_scores, entity_id, head_relat
     return True, relations
 
 
+# ToG routes every stage -- relation pruning, entity pruning, the sufficiency
+# check, the final answer -- through run_llm, so one model serves planning and
+# answering. Printed once per process so a run's log states which model that
+# actually was: an omitted --model resolves to the vendor preset in silence, and
+# a run tag naming a different one is not evidence it was used.
+_ANNOUNCED_MODEL = None
+
+
+def _announce_model(vendor, model):
+    global _ANNOUNCED_MODEL
+    if _ANNOUNCED_MODEL != (vendor, model):
+        _ANNOUNCED_MODEL = (vendor, model)
+        print(f"[llm] all stages using {vendor}/{model}", flush=True)
+
+
 def run_llm(prompt, temperature, max_tokens, opeani_api_keys, engine="gpt-3.5-turbo", vendor=None, model=None):
     global _LLM_CALLS
     _LLM_CALLS += 1
@@ -160,6 +175,7 @@ def run_llm(prompt, temperature, max_tokens, opeani_api_keys, engine="gpt-3.5-tu
     model = model or None  # normalise "" -> None so the preset default wins
     if vendor == "tamu":
         config = resolve_llm_config(vendor="tamu", model=model)
+        _announce_model(config.vendor, config.model)
         http_client = LLMChatClient(config, timeout_s=180.0)
         messages = [
             ChatMessage(role="system", content="You are an AI assistant that helps people find information."),
@@ -171,6 +187,7 @@ def run_llm(prompt, temperature, max_tokens, opeani_api_keys, engine="gpt-3.5-tu
         return result
 
     engine = model or engine  # openai/google: the model id is the engine
+    _announce_model(vendor or "openai", engine)
     if "llama" in engine.lower():
         client = OpenAI(api_key="EMPTY", base_url="http://localhost:8000/v1")
         engine = client.models.list().data[0].id

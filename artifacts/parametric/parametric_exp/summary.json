@@ -1,0 +1,39 @@
+{
+  "ts": "2026-09-02T04:38:05.982773+00:00",
+  "condition": "parametric",
+  "dataset": "webqsp",
+  "vendor": "tamu",
+  "model": "protected.gemini-3.1-flash-lite",
+  "questions": 1639,
+  "answered": 1639,
+  "unanswered_after_failure": 0,
+  "hits1": 61.6229,
+  "f1": 45.9675,
+  "precision": 58.6567,
+  "recall": 45.8952,
+  "timing": {
+    "hits": 0,
+    "misses": 1639,
+    "failed": 0,
+    "timed_hits": 0,
+    "timed_misses": 1639,
+    "hit_total_s": 0,
+    "miss_total_s": 1296.912,
+    "avg_hit_s": 0.0,
+    "avg_miss_s": 0.791,
+    "baseline_miss_s": 0.791,
+    "cache_overhead_s": 0.0,
+    "speedup_x": null,
+    "full_speedup_x": 1.0,
+    "estimated_time_saved_s": 0.0
+  },
+  "run": {
+    "n_questions": 1639,
+    "hit_rate": 0.0,
+    "llm_calls": 1639,
+    "llm_calls_saved": 0,
+    "avg_miss_llm_calls": 1.0,
+    "wall_s_total": 1296.912
+  },
+  "answers": "/home/stanic/KG_cash/artifacts/parametric/parametric_exp/parametric.jsonl"
+}

@@ -1,11 +1,11 @@
 {
     "dataset": "webqsp",
     "method": "ToG",
-    "Exact Match": 0.7175106772422208,
-    "Right Samples": 1176,
-    "Error Sampels": 463,
-    "Hits@1": 0.6351433801098231,
-    "F1": 0.5163873766764359,
-    "Precision": 1.2944756771937982,
-    "Recall": 0.4554735183551905
+    "Exact Match": 0.4197681513117755,
+    "Right Samples": 688,
+    "Error Sampels": 951,
+    "Hits@1": 0.37156802928615007,
+    "F1": 0.2447925682037172,
+    "Precision": 0.7343920797520361,
+    "Recall": 0.2500630888951436
 }

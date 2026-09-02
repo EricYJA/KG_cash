@@ -35,18 +35,25 @@ from datetime import datetime, timezone
 
 import datasets
 from datasets import load_dataset
+
+# Before any load_dataset call: the image's datasets is older than the one
+# that may have written the shared HF cache. See datasets_compat.
+import datasets_compat  # noqa: F401,E402
 from tqdm import tqdm
 
 import utils
 
 datasets.disable_progress_bar()
 
-from llm_client import ChatMessage, LLMChatClient  # noqa: E402  (ToG's client, reused)
+from llm_client import (ChatMessage, LLMChatClient,  # noqa: E402  (ToG's client, reused)
+                        LLMKeyPoolExhaustedError)
 from llm_config import resolve_llm_config  # noqa: E402
 from rog_e2e_metrics import (  # noqa: E402  (ToG's sidecar helpers, reused)
+    aggregate_run_metrics,
     append_question_metrics,
     metrics_sidecar_path,
 )
+from sparql_kg import add_kg_args, kg_from_args  # noqa: E402
 from rog_question_cache import (  # noqa: E402
     TracingQuestionCache,
     extract_oracle_answer_key,
@@ -132,13 +139,22 @@ def candidate_relations(graph, q_entities, max_hop):
     return sorted(relations)
 
 
-def build_prompt(sample, max_hop, n_beam):
-    """Return (prompt_text, n_candidate_relations); prompt is None if unusable."""
-    graph = utils.build_graph(sample["graph"])
+def build_prompt(sample, max_hop, n_beam, kg=None):
+    """Return (prompt_text, n_candidate_relations); prompt is None if unusable.
+
+    With `kg` the relation menu comes from the live endpoint instead of the row's
+    bundled subgraph. Everything downstream -- prompt wording, the n_beam cap, the
+    empty-menu skip -- is identical, so the only thing that moves between the two
+    backends is which relations the planner is allowed to choose from.
+    """
     q_entities = sample["q_entity"]
     if isinstance(q_entities, str):
         q_entities = [q_entities]
-    relations = candidate_relations(graph, q_entities, max_hop)
+    if kg is not None:
+        relations = kg.relations_within(q_entities, max_hop)
+    else:
+        relations = candidate_relations(utils.build_graph(sample["graph"]),
+                                        q_entities, max_hop)
     if not relations:
         # No q_entity in the subgraph => nothing to ground against. Upstream would
         # still call the model; we skip the spend and record an empty prediction.
@@ -155,8 +171,18 @@ def build_prompt(sample, max_hop, n_beam):
     )
 
 
-def ground_paths_for(sample):
-    """Gold relation paths, exactly as gen_rule_path.py computes them."""
+def ground_paths_for(sample, kg=None, max_hop=2):
+    """Gold relation paths, exactly as gen_rule_path.py computes them.
+
+    With `kg` the shortest q_entity->a_entity connections are searched in the live
+    KG (bounded to `max_hop`; see sparql_kg.shortest_rules) rather than inside the
+    bundled subgraph. This field is metadata for the runs here -- stage 2 only
+    reads it under --use_true, and run_rog_eval.py's planner sanity check scores
+    predictions against it -- but it is exactly the field that reveals whether the
+    bundled subgraph was doing the retrieving, so it has to follow the backend.
+    """
+    if kg is not None:
+        return kg.shortest_rules(sample["q_entity"], sample["a_entity"], max_hop)
     graph = utils.build_graph(sample["graph"])
     paths = utils.get_truth_paths(sample["q_entity"], sample["a_entity"], graph)
     return [list(t) for t in {tuple(p[1] for p in path) for path in paths}]
@@ -200,7 +226,13 @@ def main():
     ap.add_argument("--question-cache-path", default="cache/rog_question_cache.json")
     ap.add_argument("--embedder-model", default="all-MiniLM-L6-v2")
     ap.add_argument("--timing-log", default=None, help="append a JSON timing record here")
+    # KG
+    add_kg_args(ap)
     args = ap.parse_args()
+
+    # Built once and shared by the whole pass: it holds only a name->mid memo, so
+    # reusing it costs nothing the run should be paying per question.
+    kg = kg_from_args(args)
 
     config = resolve_llm_config(vendor=args.vendor, model=args.model)
     client = LLMChatClient.from_connection_config(config, timeout_s=args.timeout_s)
@@ -231,6 +263,7 @@ def main():
     # Timing is split by hit/miss so the summary can report time actually saved
     # rather than a modelled estimate.
     hits = misses = 0
+    failed = 0  # questions whose planner call could not be completed
     hit_total_s = miss_total_s = 0.0
     wall_start = time.time()
 
@@ -261,18 +294,44 @@ def main():
                 "similarity": cache.last_hit["similarity"],
             }
         else:
-            prompt, n_relations = build_prompt(sample, args.max_hop, args.n_beam)
+            prompt, n_relations = build_prompt(sample, args.max_hop, args.n_beam, kg)
+            planner_error = None
             if prompt is None:
                 rel_paths, text = [], ""
             else:
-                text = client.complete_json(
-                    [
-                        ChatMessage(role="system", content=SYSTEM_PROMPT),
-                        ChatMessage(role="user", content=prompt),
-                    ],
-                    temperature=0.0,
-                )
-                rel_paths = parse_prediction(text)[: args.n_beam]
+                try:
+                    text = client.complete_json(
+                        [
+                            ChatMessage(role="system", content=SYSTEM_PROMPT),
+                            ChatMessage(role="user", content=prompt),
+                        ],
+                        temperature=0.0,
+                    )
+                except LLMKeyPoolExhaustedError as exc:
+                    # Every key in the pool was tried for this one request and
+                    # every one failed, so nothing is left to plan the next
+                    # question with either. Each remaining question would be
+                    # written with no paths and scored as a miss, so a dead key
+                    # pool would come back as a plausible-looking accuracy
+                    # number. Stop instead.
+                    raise SystemExit(
+                        f"\nEvery API key failed on one planner request, so no "
+                        f"further question can be planned. Stopping.\n"
+                        f"Cause: {exc}"
+                    ) from exc
+                except RuntimeError as exc:
+                    # The client already retried and rotated keys, so this call is
+                    # not coming back. One question must not end a run of 1600:
+                    # record it with no paths, exactly as an unpromptable question
+                    # above is recorded. Stage 2 then answers it without rules and
+                    # stage 3 scores it as a miss, so the failure lands in the
+                    # numbers instead of quietly shrinking the split.
+                    print(f"  [warn] planner call failed for {qid}: {exc}", flush=True)
+                    planner_error = str(exc)
+                    failed += 1
+                    rel_paths, text = [], ""
+                else:
+                    rel_paths = parse_prediction(text)[: args.n_beam]
             raw_output = {
                 # No beam search behind an API: there are no sequence scores to
                 # report, and inventing them would be a lie. Kept for schema parity
@@ -282,11 +341,15 @@ def main():
                 "norm_scores": None,
                 "text": text,
                 "n_candidate_relations": n_relations,
+                "error": planner_error,
             }
             elapsed = time.time() - t0
             misses += 1
             miss_total_s += elapsed
-            if cache is not None:
+            # A failed call produced no plan. Caching the empty result would
+            # serve it to every later question that matches this one, turning one
+            # transient failure into a run-wide accuracy hole.
+            if cache is not None and planner_error is None:
                 cache.put(question, rel_paths, oracle_key=oracle_key)
             cache_info = {"hit": False, "kind": None, "source_question": None, "similarity": None}
 
@@ -301,7 +364,7 @@ def main():
                     "id": qid,
                     "question": question,
                     "prediction": rel_paths,
-                    "ground_paths": ground_paths_for(sample),
+                    "ground_paths": ground_paths_for(sample, kg, args.max_hop),
                     "input": prompt,
                     "raw_output": raw_output,
                     "cache": cache_info,
@@ -322,37 +385,45 @@ def main():
                 "cache_hit_type": cache_info["kind"],
                 "elapsed_s": elapsed,
                 "llm_calls": 0 if cache_info["hit"] else 1,
+                # Counted as a question (the split must not shrink) but kept out
+                # of the miss average: a question that died in the client's retry
+                # loop times the vendor being down, not what a planner call costs,
+                # and every speedup here is priced against that average.
+                "failed": planner_error is not None,
             },
         )
     fout.close()
 
-    wall_s = time.time() - wall_start
-    n = hits + misses
-    timing = {
-        "hits": hits,
-        "misses": misses,
-        "hit_total_s": round(hit_total_s, 3),
-        "miss_total_s": round(miss_total_s, 3),
-        "avg_hit_s": round(hit_total_s / hits, 3) if hits else 0.0,
-        "avg_miss_s": round(miss_total_s / misses, 3) if misses else 0.0,
-        "estimated_time_saved_s": round(hits * (miss_total_s / misses), 3) if (hits and misses) else 0.0,
-        "speedup_x": None,
-        "planner_full_speedup_x": None,
-    }
-    if hits and misses:
-        would_have_been = timing["estimated_time_saved_s"] + wall_s
-        timing["speedup_x"] = round(would_have_been / wall_s, 3) if wall_s else None
-        # PLANNER-STAGE ONLY -- not a full-system speedup. Every second measured
-        # here is inside this script's per-question timer (cache lookup, or prompt
-        # build + one planner call); stage 2's grounding and reasoner call are in
-        # another process entirely and are absent from both terms. Without the
-        # cache every request would have been a miss, so the amortised no-cache
-        # stage-1 time is n*avg_miss against the actual hit+miss stage-1 time.
-        # The real end-to-end number comes from rog_e2e_metrics.py, which joins
-        # the sidecar below with stage 2's; it is strictly lower than this one.
-        served_s = hit_total_s + miss_total_s
-        baseline_s = n * (miss_total_s / misses)
-        timing["planner_full_speedup_x"] = round(baseline_s / served_s, 3) if served_s else None
+    process_wall_s = time.time() - wall_start
+
+    # Rebuilt from the per-question sidecar, NOT from the counters above. Those
+    # live in one process, so an interrupted policy that was resumed reported only
+    # the questions its last invocation happened to handle -- 400 of 1628, with a
+    # hit rate and an LLM-call count to match -- and cache_stats.json is what
+    # summarize_rog_cache.py and _rog_common.assert_stages_agree read. The sidecar
+    # holds every question ever recorded for this output, so this is correct after
+    # any number of restarts. It is also ToG's own aggregator, so a planner number
+    # and an end-to-end one come out of one function and one set of definitions.
+    timing, run_summary, breakdown, _per_loop = aggregate_run_metrics(metrics_path)
+
+    # PLANNER-STAGE ONLY -- renamed on the way out so neither can be read as a
+    # system-level result. Stage 2's grounding and reasoner call happen in another
+    # process and are absent from every term here; the cache never touches them,
+    # and they run on hits and misses alike. The bare names are reserved for the
+    # whole-question numbers summarize_rog_cache.py joins in from stage 2, and the
+    # planner figure is strictly the more flattering of the two.
+    #
+    #   planner_speedup_x       per question: a cold planner call over a served one
+    #   planner_full_speedup_x  whole run: n*avg_miss over what stage 1 actually cost
+    #
+    # `estimated_time_saved_s` now comes from the aggregator too, which nets out
+    # what serving the hits cost (hits*avg_miss - hit_total_s). The local formula
+    # this replaces omitted that subtraction and reported gross avoided time, so
+    # the same column name meant two different things depending on which half of
+    # summary.csv you read it from.
+    timing["planner_speedup_x"] = timing.pop("speedup_x", None)
+    timing["planner_full_speedup_x"] = timing.pop("full_speedup_x", None)
+    n = run_summary["n_questions"]
 
     record = {
         "ts": datetime.now(timezone.utc).isoformat(),
@@ -362,8 +433,19 @@ def main():
         "policy": "off" if cache is None else args.cache_policy,
         "similarity_threshold": args.similarity_threshold,
         "capacity": args.question_cache_capacity,
+        # Recorded because the run tag cannot be trusted to carry it: every
+        # artifacts/rog_cache/*_virtuoso_* run predating this flag was named for a
+        # backend it never queried, since RoG had no SPARQL path at all.
+        "kg_backend": args.kg_backend,
+        "kg_endpoint": kg.endpoint if kg is not None else None,
+        "kg_sparql_queries": kg.n_queries if kg is not None else 0,
         "timing": timing,
+        # cache.stats() counts what THIS process saw and is left as-is: it is the
+        # cache object's own view, and on a resume it describes the tail of the
+        # run. The breakdown beside it is rebuilt from the sidecar, so that is the
+        # one to read for per-policy hit counts over the whole split.
         "cache_stats": cache.stats() if cache is not None else None,
+        "cache_hit_breakdown": breakdown,
     }
     if args.timing_log:
         os.makedirs(os.path.dirname(args.timing_log) or ".", exist_ok=True)
@@ -376,10 +458,18 @@ def main():
             "split": args.split,
             "n_beam": args.n_beam,
             "n_questions": n,
-            "planner_llm_calls": misses,
-            "planner_llm_calls_saved": hits,
-            "hit_rate": (hits / n) if n else 0.0,
-            "wall_s_total": round(wall_s, 2),
+            "planner_llm_calls": run_summary["llm_calls"],
+            # Exactly one planner call per question, so a hit saves exactly one --
+            # no estimator needed (ToG has to average, because a ToG miss costs a
+            # variable number of calls).
+            "planner_llm_calls_saved": timing["hits"],
+            "hit_rate": run_summary["hit_rate"],
+            # Sum of per-question times, which is well defined across a resume --
+            # unlike this process's clock, which also covers work the per-question
+            # timer excludes (the ground_paths lookup). The raw clock is kept
+            # beside it for operational reference and nothing computes from it.
+            "wall_s_total": run_summary["wall_s_total"],
+            "process_wall_s": round(process_wall_s, 2),
             "prediction_file": prediction_file,
             "stage1_metrics_file": metrics_path,
             "vendor": config.vendor,
@@ -390,9 +480,24 @@ def main():
         json.dump(stats, f, indent=2)
 
     print(
-        f"\nplanner done: {n} questions, {misses} LLM calls, {hits} saved by cache "
-        f"(hit rate {100 * stats['hit_rate']:.1f}%), {wall_s:.1f}s"
+        f"\nplanner done: {n} questions, {stats['planner_llm_calls']} LLM calls, "
+        f"{timing['hits']} saved by cache (hit rate {100 * stats['hit_rate']:.1f}%), "
+        f"{stats['wall_s_total']:.1f}s"
     )
+    if hits + misses != n:
+        # A resume: the line above covers the whole split (from the sidecar), this
+        # one covers only what this invocation did.
+        print(
+            f"  this pass: {hits + misses} questions, {misses} LLM calls, "
+            f"{hits} served from cache, {process_wall_s:.1f}s wall"
+        )
+    if failed:
+        print(
+            f"WARNING: {failed}/{hits + misses} questions in this pass have no plan "
+            f"because the planner call failed; they are recorded with an empty "
+            f"prediction, marked failed in the sidecar so they do not price a miss, "
+            f"and score as misses."
+        )
     return prediction_file
 
 

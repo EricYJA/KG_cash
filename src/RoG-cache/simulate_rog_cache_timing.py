@@ -46,6 +46,8 @@ import random
 import sys
 from pathlib import Path
 
+import datasets_compat  # noqa: F401  (read caches written by a newer datasets)
+
 _TOG_DIR = os.environ.get("TOG_CACHE_DIR")
 if not _TOG_DIR or not os.path.isdir(_TOG_DIR):
     _candidate = Path(__file__).resolve().parents[1] / "ToG-cache" / "ToG"

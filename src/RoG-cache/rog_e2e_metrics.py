@@ -51,6 +51,7 @@ except ImportError:  # pragma: no cover - host-side convenience
 # Re-exported so both RoG stages import their sidecar helpers from one place
 # and cannot drift onto a second, RoG-local copy of ToG's record format.
 __all__ = [
+    "aggregate_run_metrics",
     "append_question_metrics",
     "metrics_sidecar_path",
     "load_sidecar",
@@ -114,6 +115,13 @@ def merge_stage_records(stage1_path, stage2_path):
                 # the whole ToG question.
                 "cache_hit": bool(s1.get("cache_hit")),
                 "cache_hit_type": s1.get("cache_hit_type"),
+                # Either stage dying in the client's retry loop makes the whole
+                # question's elapsed time a measurement of the vendor being down.
+                # Propagated so the aggregator still counts it as a question but
+                # keeps it out of the averages the speedups are priced against;
+                # a sidecar written before the flag existed carries no `failed`
+                # key and comes through as it always did.
+                "failed": bool(s1.get("failed") or s2.get("failed")),
                 "elapsed_s": s1_elapsed + s2_elapsed,
                 "llm_calls": int(s1.get("llm_calls", 0) or 0)
                 + int(s2.get("llm_calls", 0) or 0),

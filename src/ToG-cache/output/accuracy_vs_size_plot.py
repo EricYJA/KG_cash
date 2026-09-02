@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Accuracy-vs-cache-size line chart for the Gemini runs (ToG and RoG).
+"""Accuracy-vs-cache-size bar chart for the Gemini runs (ToG and RoG, WebQSP and CWQ).
 
 Companion to accuracy_plot.py (which stays a per-policy bar chart). This one
 sweeps the cache *capacity* instead:
@@ -10,26 +10,55 @@ sweeps the cache *capacity* instead:
 4096 is plotted as "inf": the whole workload (~1.6k questions) fits under that
 capacity, so nothing is ever evicted and it is an effectively unbounded cache.
 
-Both systems are plotted as separate series, so the chart shows how much the
-end-to-end answer quality moves as the semantic cache grows.
+One cluster per (dataset, system), so the chart shows how much end-to-end answer
+quality moves as the semantic cache grows, and whether that holds on the harder
+multi-hop split.
 
-Sources (gemini, virtuoso backend by default):
-  RoG  artifacts/rog_cache/gemini_rog_cache_<backend>_test[_<size>]/summary.json
-  ToG  artifacts/tog_cache/gemini_tog_cache_<backend>_test_pass1/summary.json
-       (first cold pass; the 128/512 sweeps have no loop runs, so those fall
-        back to src/ToG-cache/output/compare_results/<run>_<size>/summary.json)
+Sources -- gemini, and the live end-to-end runs on both datasets (--pipeline live,
+the default):
+  WebQSP  RoG  artifacts/rog_cache/rog_live_virt_gemini[_<size>]/summary.json
+          ToG  compare_results/tog_rerun_live_virt_gemini/summary.json at size
+               0 and 4096, compare_results/tog_live_virt_gemini_<size> at 128
+               and 512 -- ToG spells the unsized run with `rerun_` and the sized
+               ones without it, same configuration either way
+  CWQ     RoG  artifacts/rog_cache/rog_cwq_live_virt_gemini[_<size>]/summary.json
+          ToG  compare_results/tog_cwq_live_virt_gemini[_<size>]/summary.json
+
+`--pipeline replay` swaps WebQSP for the replayed sweep instead
+(gemini_<sys>_cache_<backend>_test[_<size>], ToG preferring the run's first cold
+pass), which is what this chart plotted before. It covers WebQSP only: the replay
+family has no `none` for ToG on CWQ (compare_results/gemini_tog_cache_virtuoso_cwq
+holds semantic_lfu and semantic_lru only), so there is no uncached run to anchor
+size 0 against, and asking for both is refused rather than quietly mixing the two.
+
+One pipeline across both datasets is the point of the default: the WebQSP and CWQ
+clusters then differ in the dataset and the question count (1628/1639 against 400)
+rather than in the dataset, the count AND how the runs were produced. The
+per-point provenance printed underneath still names the run and its n for each
+bar, because 400 questions is a wide interval to read a 1-point difference in.
+
+A capacity a cluster never swept gets no slot at all -- the remaining bars pack
+up and centre, rather than standing beside an empty space. Nothing is filled in
+from a neighbouring capacity, so the only record of what is missing is the
+provenance printed under the figure, where it reads `-- not run`. CWQ has no 512
+run on either system, and no 128 run on ToG.
 
     python src/ToG-cache/output/accuracy_vs_size_plot.py
-    python src/ToG-cache/output/accuracy_vs_size_plot.py --metric hit --backend oxi
+    python src/ToG-cache/output/accuracy_vs_size_plot.py --datasets webqsp
+    python src/ToG-cache/output/accuracy_vs_size_plot.py --metric hit
+    python src/ToG-cache/output/accuracy_vs_size_plot.py \
+        --pipeline replay --datasets webqsp --backend oxi
 """
 from __future__ import annotations
 
 import argparse
 import json
+import math
 from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib.transforms import blended_transform_factory
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 ART = {
@@ -49,15 +78,33 @@ METRIC_LABELS = {"accuracy": "Accuracy", "hit": "Hits@1", "f1": "F1"}
 COMPARE_KEYS = {"accuracy": "recall", "hit": "hits1", "f1": "f1"}
 
 SYSTEM_LABELS = {"tog": "ToG", "rog": "RoG"}
+# Cluster centre-to-centre spacing, and the extra room between dataset blocks.
+# The bars in a group span at most 0.68, so the pitch is what sets the gap.
+CLUSTER_PITCH = 0.98
+BLOCK_GAP = 0.40
+DATASET_LABELS = {"webqsp": "WebQSP", "cwq": "CWQ"}
 # Same palette/hatch order as accuracy_plot.py, so the two charts read as a pair.
 COLORS = ['#999999', '#56B4E9', '#E69F00', '#009E73']
 HATCHES = ['', '/', '\\', '++']
 
 
-def run_tag(system: str, backend: str, size: int) -> str:
-    """Run directory name for a system/backend/capacity."""
-    base = f"gemini_{system}_cache_{backend}_test"
-    return base if size in (0, DEFAULT_CAPACITY) else f"{base}_{size}"
+def run_tag(system: str, backend: str, dataset: str, size: int,
+            pipeline: str = "live") -> str:
+    """Run directory name for a system/backend/dataset/capacity."""
+    if dataset == "cwq":
+        # Only ever run live, and only against Virtuoso -- see the note at the
+        # top of this file for why the replay family cannot stand in.
+        base = sized = f"{system}_cwq_live_virt_gemini"
+    elif pipeline == "live":
+        # ToG's unsized live run is on disk as `tog_rerun_live_virt_gemini` while
+        # its capacity sweeps are `tog_live_virt_gemini_<size>`; RoG uses the one
+        # spelling for both. Same configuration either way -- scripts/
+        # average_replicates.py checks the pair against run_config.json.
+        base = "tog_rerun_live_virt_gemini" if system == "tog" else "rog_live_virt_gemini"
+        sized = f"{system}_live_virt_gemini"
+    else:
+        base = sized = f"gemini_{system}_cache_{backend}_test"
+    return base if size in (0, DEFAULT_CAPACITY) else f"{sized}_{size}"
 
 
 def read_artifact_summary(path: Path, metric: str) -> dict[str, tuple[float, int]]:
@@ -79,15 +126,24 @@ def read_compare_summary(path: Path, metric: str) -> dict[str, tuple[float, int]
     }
 
 
-def load_point(system: str, backend: str, size: int, metric: str) -> tuple[float, int, Path]:
-    """(percent, n_questions, source path) for one (system, size) point."""
-    tag = run_tag(system, backend, size)
+def load_point(system: str, backend: str, dataset: str, size: int, metric: str,
+               pipeline: str = "live") -> tuple[float, int, Path] | None:
+    """(percent, n_questions, source path) for one bar, or None if it was never run."""
+    tag = run_tag(system, backend, dataset, size, pipeline)
     policy = BASELINE_POLICY if size == 0 else CACHED_POLICY
 
     candidates: list[tuple[Path, callable]] = []
     if system == "tog":
         # Prefer the 1st (cold) pass of a loop run, matching accuracy_plot.py.
         candidates.append((ART["tog"] / f"{tag}_pass1" / "summary.json", read_artifact_summary))
+        # Then the rescored summary, ahead of the run's own. ToG's stock extractor
+        # (eval/utils.py clean_results) scans to the FIRST braced span, which on a
+        # live run is the `{Yes}` sufficiency marker rather than the answer -- worth
+        # ~29 Hits@1 points on tog_rerun_live_virt_gemini (36.7 stored, 66.3
+        # rescored). scripts/rescore_tog.py writes the corrected summary; the loop
+        # runs above are unaffected (they move by ~0.3) so their cold pass still wins.
+        candidates.append((COMPARE_RESULTS / f"{tag}_rescored" / "summary.json",
+                           read_compare_summary))
         candidates.append((COMPARE_RESULTS / tag / "summary.json", read_compare_summary))
     candidates.append((ART[system] / tag / "summary.json", read_artifact_summary))
 
@@ -98,21 +154,27 @@ def load_point(system: str, backend: str, size: int, metric: str) -> tuple[float
         if policy in recs:
             value, n = recs[policy]
             return value, n, path
-    looked = ", ".join(str(p) for p, _ in candidates)
-    raise SystemExit(f"no {policy!r} record for {system} size {size} (looked for {looked})")
+    return None
 
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--backend", default="virtuoso", choices=["virtuoso", "oxi"],
-                    help="SPARQL backend the runs used (default: virtuoso)")
+                    help="SPARQL backend the WebQSP runs used (default: virtuoso). "
+                         "CWQ was only run against Virtuoso.")
     ap.add_argument("--metric", default="accuracy", choices=list(METRIC_LABELS),
                     help="which measured metric to plot (default: accuracy)")
     ap.add_argument("--sizes", default="0,128,512,4096",
                     help="comma-separated cache capacities on the x axis")
     ap.add_argument("--systems", default="tog,rog",
                     help="comma-separated systems to plot (tog, rog)")
+    ap.add_argument("--datasets", default="webqsp,cwq",
+                    help="comma-separated datasets to plot (webqsp, cwq)")
+    ap.add_argument("--pipeline", default="live", choices=["live", "replay"],
+                    help="which WebQSP runs to plot (default: live, the same "
+                         "pipeline CWQ is measured on). `replay` is the replayed "
+                         "sweep this chart used to plot, and covers WebQSP only.")
     ap.add_argument("-o", "--output",
                     default=str(Path(__file__).resolve().parent / "cache_vs_accuracy_gemini.pdf"),
                     help="output PDF path")
@@ -120,22 +182,52 @@ def main() -> None:
 
     sizes = [int(s) for s in args.sizes.split(",") if s.strip()]
     systems = [s.strip() for s in args.systems.split(",") if s.strip()]
+    datasets = [d.strip() for d in args.datasets.split(",") if d.strip()]
+    for dataset in datasets:
+        if dataset not in DATASET_LABELS:
+            raise SystemExit(f"unknown dataset {dataset!r}; "
+                             f"choose from {', '.join(DATASET_LABELS)}")
+    if "cwq" in datasets and args.pipeline != "live":
+        raise SystemExit("CWQ has no replayed sweep with an uncached baseline; "
+                         "use --pipeline live or drop --datasets cwq")
+    if args.backend != "virtuoso" and (args.pipeline == "live" or "cwq" in datasets):
+        raise SystemExit("the live sweeps were only run against the virtuoso "
+                         "backend; --backend oxi needs --pipeline replay "
+                         "--datasets webqsp")
 
-    series: dict[str, list[float]] = {}
+    # One cluster per (dataset, system), datasets kept together on the axis.
+    clusters = [(dataset, system) for dataset in datasets for system in systems]
+
+    series: dict[tuple[str, str], list[float]] = {}
     provenance: list[str] = []
-    for system in systems:
+    for dataset, system in clusters:
         values = []
         for size in sizes:
-            value, n, path = load_point(system, args.backend, size, args.metric)
-            values.append(value / 100.0)
             policy = BASELINE_POLICY if size == 0 else CACHED_POLICY
-            provenance.append(f"  {system:>3} size={size:>5} {policy:<13} "
-                              f"{value:6.2f}  n={n:<5} {path.relative_to(REPO_ROOT)}")
-        series[system] = values
+            point = load_point(system, args.backend, dataset, size, args.metric,
+                               args.pipeline)
+            if point is None:
+                # A capacity that was never swept on this dataset. Left as a hole
+                # in the cluster rather than borrowed from another capacity.
+                values.append(math.nan)
+                provenance.append(f"  {dataset:>6} {system:>3} size={size:>5} "
+                                  f"{policy:<13}     --  not run")
+                continue
+            value, n, path = point
+            values.append(value / 100.0)
+            mark = " [rescored]" if path.parent.name.endswith("_rescored") else ""
+            provenance.append(f"  {dataset:>6} {system:>3} size={size:>5} "
+                              f"{policy:<13} {value:6.2f}  n={n:<5} "
+                              f"{path.relative_to(REPO_ROOT)}{mark}")
+        if all(math.isnan(v) for v in values):
+            raise SystemExit(f"no runs found for {system} on {dataset} at any of "
+                             f"{args.sizes}")
+        series[(dataset, system)] = values
 
     # Journal (single-column body) style: the figure spans the ~6.5in text block
     # and is printed at 100%, so fonts match body text instead of being inflated
     # for an IEEE two-column shrink.
+    fig_w = 6.0 if len(clusters) <= 2 else 6.9
     plt.rcParams.update({
         'font.size': 9,
         'font.family': 'serif',
@@ -144,38 +236,72 @@ def main() -> None:
         'xtick.labelsize': 8.5,
         'ytick.labelsize': 8.5,
         'legend.fontsize': 8.5,
-        'figure.figsize': (6.0, 3.0),
+        'figure.figsize': (fig_w, 3.0),
         'figure.dpi': 300,
     })
 
-    fig, ax = plt.subplots(figsize=(6.0, 3.0))
-    # One cluster per system, one bar per cache size inside it.
-    group_pos = np.arange(len(systems)) * 1.15
+    fig, ax = plt.subplots(figsize=(fig_w, 3.0))
+    # One cluster per (dataset, system), one bar per cache size inside it, with
+    # a wider gap between datasets than between the systems within one.
+    group_pos: list[float] = []
+    x = 0.0
+    for i, (dataset, _system) in enumerate(clusters):
+        if i and dataset != clusters[i - 1][0]:
+            x += BLOCK_GAP
+        group_pos.append(x)
+        x += CLUSTER_PITCH
+    group_pos = np.array(group_pos)
     width = 0.68 / len(sizes)
 
+    # Only the capacities a cluster actually swept get a slot, packed together and
+    # centred on the cluster. A capacity that was never run leaves no gap: the bar
+    # width is constant across clusters, so a 128 bar is the same bar everywhere,
+    # and the provenance printed underneath is where the missing runs are named.
+    present = {c: [i for i in range(len(sizes)) if not math.isnan(series[c][i])]
+               for c in clusters}
+    offsets = {}
+    for c in clusters:
+        run_here = present[c]
+        for j, i in enumerate(run_here):
+            offsets[(c, i)] = (j - (len(run_here) - 1) / 2) * width
+
     for i, size in enumerate(sizes):
-        offset = (i - (len(sizes) - 1) / 2) * width
-        values = [series[system][i] for system in systems]
-        bars = ax.bar(group_pos + offset, values, width=width * 0.92,
-                      color=COLORS[i % len(COLORS)], edgecolor='#555555',
-                      linewidth=0.6,
-                      hatch=HATCHES[i % len(HATCHES)],
-                      label=SIZE_LABELS.get(size, str(size)))
-        for bar, v in zip(bars, values):
+        drawn = [(group_pos[k] + offsets[(c, i)], series[c][i])
+                 for k, c in enumerate(clusters) if (c, i) in offsets]
+        if not drawn:
+            continue
+        xs, ys = zip(*drawn)
+        ax.bar(xs, ys, width=width * 0.92,
+               color=COLORS[i % len(COLORS)], edgecolor='#555555',
+               linewidth=0.6,
+               hatch=HATCHES[i % len(HATCHES)],
+               label=SIZE_LABELS.get(size, str(size)))
+        for xc, v in drawn:
             # Value labels on top -- accuracy spreads across sizes are small.
-            ax.annotate(f"{100 * v:.1f}", (bar.get_x() + bar.get_width() / 2, v),
+            ax.annotate(f"{100 * v:.1f}", (xc, v),
                         xytext=(0, 4), textcoords='offset points',
                         ha='center', va='bottom', fontsize=7.5, rotation=90)
 
-    ax.set_xlabel('System')
     ax.set_ylabel(f'{METRIC_LABELS[args.metric]} (%)')
     ax.set_xticks(group_pos)
-    ax.set_xticklabels([SYSTEM_LABELS.get(s, s.upper()) for s in systems],
+    ax.set_xticklabels([SYSTEM_LABELS.get(s, s.upper()) for _d, s in clusters],
                        fontweight='bold')
+    if len(datasets) > 1:
+        # Dataset named once under the block of systems it covers, so the x axis
+        # carries both levels without repeating "ToG (WebQSP)" on every tick.
+        ax.set_xlabel('')
+        span = blended_transform_factory(ax.transData, ax.transAxes)
+        for dataset in datasets:
+            xs = [p for p, (d, _s) in zip(group_pos, clusters) if d == dataset]
+            ax.text(sum(xs) / len(xs), -0.20, DATASET_LABELS[dataset],
+                    transform=span, ha='center', va='top', fontsize=9)
+        ax.tick_params(axis='x', length=0)
+    else:
+        ax.set_xlabel('System')
     ax.set_yticks([0.0, 0.2, 0.4, 0.6])
     ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda value, _: f'{100 * value:.0f}'))
 
-    max_v = max(v for vals in series.values() for v in vals)
+    max_v = max(v for vals in series.values() for v in vals if not math.isnan(v))
     ax.set_ylim(0, max_v * 1.12)
     ax.yaxis.grid(True, linestyle='--', linewidth=0.7, alpha=0.4)
     ax.set_axisbelow(True)
@@ -188,7 +314,8 @@ def main() -> None:
     plt.tight_layout()
 
     plt.savefig(args.output, format='pdf')
-    print(f"wrote {args.output}  [gemini, {args.backend}, {args.metric}]")
+    print(f"wrote {args.output}  [gemini, {args.backend}, {args.metric}, "
+          f"{'+'.join(datasets)}, {args.pipeline}]")
     print("\n".join(provenance))
 
 

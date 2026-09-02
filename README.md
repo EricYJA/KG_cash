@@ -25,7 +25,7 @@ reusing a planned path and nothing else.
 
 ## Key findings
 
-![RoG cache results on WebQSP](artifacts/plots/rog_cache_results_speedup.pdf)
+![Cache speedup on WebQSP and CWQ, live runs](artifacts/plots/rog_cache_results_speedup.pdf)
 
 **Exact-match caching is worthless here.** Across every system, backend, and
 model we tested, exact string matching on the question produced a **0.0% hit
@@ -98,6 +98,10 @@ Requires Docker with the NVIDIA runtime (for the RoG model server).
 ```bash
 # 0. Configure credentials — see .env.example for every supported variable
 cp .env.example .env      # then set LLM_API_KEY, and HF_TOKEN for RoG runs
+
+# Optional: put several keys in .env_keys (TAMUS_API_KEY1=..., TAMUS_API_KEY2=...)
+# and a run that hits a 400/5xx moves to the next key instead of dying, stopping
+# only once every key has failed.
 
 # 1. Fetch the RoG submodule and apply the local patches it needs.
 #    The patches add the --load_in_8bit / --load_in_4bit flags the runners

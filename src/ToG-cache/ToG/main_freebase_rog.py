@@ -171,6 +171,12 @@ if __name__ == "__main__":
         help="path to save jsonl results. Defaults to ../output/RoG_<dataset>.jsonl.",
     )
     parser.add_argument(
+        "--model",
+        type=str,
+        default="",
+        help="Override the vendor's default model id (empty = use vendor preset default).",
+    )
+    parser.add_argument(
         "--vendor",
         type=str,
         default="tamu",

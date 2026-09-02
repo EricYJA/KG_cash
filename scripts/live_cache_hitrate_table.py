@@ -36,6 +36,7 @@ from __future__ import annotations
 
 import argparse
 import importlib.util
+import re
 import sys
 from pathlib import Path
 
@@ -70,13 +71,31 @@ VARIANT_ORDER = [("Gemini", "Oxi"), ("Gemini", "Virt"),
                  ("Haiku", "Oxi"), ("Haiku", "Virt")]
 
 
+# A trailing power of two is the cache CAPACITY, not another configuration:
+# `rog_live_virt_gemini_512` is the same run at a smaller cache. One table is one
+# capacity, so the sweep variants stay out of it (scripts/plot_rog_cache_results.py
+# is where the capacity axis belongs).
+CAPACITY_TAG_RE = re.compile(r"_(?:64|128|256|512|1024|2048|4096)$")
+
+
 def parse_tag(tag: str) -> tuple[str, str, str]:
     """(system, model, backend) parsed from a run tag; mirrors plot.pretty_label."""
     t = tag.lower()
     system = "tog" if "tog" in t else "rog"
     model = "Gemini" if "gemini" in t else "Haiku"
-    backend = "Virt" if "virtuoso" in t else "Oxi" if "oxi" in t else "?"
+    backend = "Virt" if "virt" in t else "Oxi" if "oxi" in t else "?"
     return system, model, backend
+
+
+def dataset_of(tag: str) -> str:
+    """Dataset a run tag names. WebQSP is the unmarked default in this repo.
+
+    Live tags carry the dataset only by convention -- `*_cwq*` for CWQ, nothing
+    for WebQSP -- so this is what keeps a 3531-question CWQ run out of a WebQSP
+    table. Before, --dataset set the caption and nothing else, and the two
+    datasets' runs competed for the same column.
+    """
+    return "cwq" if "cwq" in tag.lower() else "webqsp"
 
 
 def first_pass_records(system: str, tag: str) -> dict[str, dict]:
@@ -88,9 +107,19 @@ def first_pass_records(system: str, tag: str) -> dict[str, dict]:
     return plot.load_run(base / tag / "summary.json")
 
 
-def _fmt_hr(rec: dict | None) -> str:
-    """Hit rate as a LaTeX percentage; '--' when the run/policy is missing."""
+def _fmt_hr(rec: dict | None, floor: int = 0) -> str:
+    """Hit rate as a LaTeX percentage; '--' when the run/policy is missing.
+
+    `floor` is the question count a policy must reach to be printed. A policy
+    that ran a prefix of the split is not a measurement of that split -- the
+    published version of this table drew 12.3% from 179 questions and 12.6% from
+    494, against ~7.7% once each ran the full 1628 -- and a policy that ran
+    nothing at all stores hit_rate 0.0, which prints as a hard `0.0%` and reads
+    as a cache that never hit. Both become '--' here.
+    """
     if not rec or not isinstance(rec.get("hit_rate"), (int, float)):
+        return "--"
+    if (rec.get("n_questions") or 0) < max(floor, 1):
         return "--"
     return f"{100 * rec['hit_rate']:.1f}\\%"
 
@@ -116,14 +145,23 @@ def time_saved_s(rec: dict) -> float | None:
         return None
     if not hits:
         return 0.0
+    # hit_total_s / miss_total_s cover only the questions that were actually
+    # timed: a question whose LLM calls failed counts toward hits/misses (the
+    # split it was scored against) but is kept out of the averages, so the
+    # divisor for a total is timed_*, not hits/misses. Equal unless a run had
+    # failures, and absent from summaries written before they were split.
+    timed_hits = rec.get("timed_hits", hits)
+    timed_misses = rec.get("timed_misses", misses)
+    if not timed_misses:
+        return None
     # From the totals rather than the rounded avg_miss_s, which is stored to 3dp
     # and is multiplied by the hit count here.
     miss_total = rec.get("miss_total_s")
-    avg_miss = (miss_total / misses if isinstance(miss_total, (int, float))
+    avg_miss = (miss_total / timed_misses if isinstance(miss_total, (int, float))
                 else rec.get("avg_miss_s"))
     if not isinstance(avg_miss, (int, float)):
         return None
-    return hits * avg_miss - hit_total
+    return timed_hits * avg_miss - hit_total
 
 
 def _fmt_secs(value) -> str:
@@ -178,23 +216,65 @@ def timing_cells(rec: dict | None) -> list[str]:
     ]
 
 
-def discover_runs() -> dict[tuple[str, str, str], str]:
-    """{(system, model, backend): tag} for every whole-run summary on disk."""
-    runs: dict[tuple[str, str, str], str] = {}
+def coverage(system: str, tag: str, policies: list[str]) -> tuple[int, int]:
+    """(questions the THINNEST policy recorded, questions the fullest did).
+
+    A run summary keeps whatever each policy got through, and an interrupted
+    sweep leaves them wildly uneven -- `rog_cache_virtuoso_test` recorded 1628
+    questions for LFU and 179 for LRU. The first number is what makes a run
+    usable as a table column: every cell in it rests on the same questions only
+    when the thinnest policy is as deep as the rest.
+    """
+    try:
+        recs = first_pass_records(system, tag)
+    except (OSError, ValueError):
+        return 0, 0
+    counts = [recs.get(p, {}).get("n_questions") or 0 for p in policies]
+    return (min(counts), max(counts)) if counts else (0, 0)
+
+
+def discover_runs(dataset: str, policies: list[str]) -> dict[tuple[str, str, str], str]:
+    """{(system, model, backend): tag}: the best run per column, for one dataset.
+
+    Best = the run whose thinnest requested policy is deepest, then the fullest,
+    then the latest tag. Picking on coverage rather than on tag order is the
+    point: the old rule kept whichever tag sorted last and so handed the RoG
+    Gemini/Virtuoso column to a capacity-sweep run with two empty policies, while
+    a complete 1628-question run sat next to it.
+    """
+    best: dict[tuple[str, str, str], tuple[int, int, str]] = {}
     for base in (plot.ROG_DIR, plot.TOG_DIR):
         for tag in plot.glob_runs(base):          # skips GPT and per-pass summaries
-            runs[parse_tag(tag)] = tag
-    return runs
+            if dataset_of(tag) != dataset or CAPACITY_TAG_RE.search(tag):
+                continue
+            key = parse_tag(tag)
+            rank = (*coverage(key[0], tag, policies), tag)
+            if key not in best or rank > best[key]:
+                best[key] = rank
+    return {k: v[2] for k, v in best.items()}
 
 
 def build_table(dataset: str, systems: list[str], variants: list[tuple[str, str]],
                 policies: list[str],
-                cells: dict[tuple[str, str, tuple[str, str]], str]) -> str:
-    """Render the LaTeX table: System | Policy | one column per (model, backend)."""
+                cells: dict[tuple[str, str, tuple[str, str]], str],
+                counts: dict[tuple[str, tuple[str, str]], int] | None = None) -> str:
+    """Render the LaTeX table: System | Policy | one column per (model, backend).
+
+    The caption carries each column's question count. Percentages alone hide the
+    denominator, and the columns of this table are not obliged to share one: on
+    CWQ the RoG run covers 3531 questions and the ToG run 400, which a reader
+    comparing 2.4% against 2.5% has to be told.
+    """
     colspec = "ll" + "r" * len(variants)
     dlabel = DATASET_LABELS.get(dataset.lower(), dataset.upper())
     caption = (f"Measured First-Pass Semantic Cache Hit Rate by Policy and "
                f"Configuration on {dlabel} (live runs)")
+    if counts:
+        ns = "; ".join(f"{SYSTEM_LABELS[sy]} {m} ({b}) {counts[(sy, (m, b))]}"
+                       for sy in systems for m, b in variants
+                       if (sy, (m, b)) in counts)
+        if ns:
+            caption += f". Questions recorded per run: {ns}"
     col_heads = " & ".join(rf"\textbf{{{m} ({b})}}" for m, b in variants)
     header = rf"\textbf{{System}} & \textbf{{Policy}} & {col_heads} \\"
 
@@ -295,6 +375,15 @@ def main() -> None:
                     help="comma-separated policies (rows)")
     ap.add_argument("-s", "--systems", default="rog,tog",
                     help="comma-separated systems: rog, tog")
+    ap.add_argument("-r", "--run", action="append", default=[], metavar="SPEC",
+                    help="pin a column to a run tag instead of discovering it, as "
+                         "system:model:backend=tag (e.g. "
+                         "-r tog:Haiku:Oxi=tog_rerun_live_oxi). Repeatable.")
+    ap.add_argument("--min-coverage", type=float, default=0.9, metavar="FRAC",
+                    help="a policy must have recorded this fraction of its run's "
+                         "fullest policy to be printed, else '--' (default: 0.9). "
+                         "Stops a partial policy sweep from reading as a "
+                         "measurement of the split. Pass 0 to print everything.")
     ap.add_argument("-o", "--output", type=Path, default=None,
                     help="write the .tex here (default: stdout)")
     args = ap.parse_args()
@@ -305,9 +394,22 @@ def main() -> None:
         if s not in SYSTEM_LABELS:
             sys.exit(f"unknown system: {s!r} (choose from {tuple(SYSTEM_LABELS)})")
 
-    runs = discover_runs()
+    runs = discover_runs(args.dataset.lower(), policies)
+    for spec in args.run:
+        key, _, tag = spec.partition("=")
+        parts = [x.strip() for x in key.split(":")]
+        if not tag or len(parts) != 3:
+            sys.exit(f"bad --run {spec!r}; expected system:model:backend=tag")
+        system, model, backend = parts[0].lower(), parts[1], parts[2]
+        if system not in SYSTEM_LABELS:
+            sys.exit(f"bad --run {spec!r}: unknown system {system!r}")
+        base = plot.ROG_DIR if system == "rog" else plot.TOG_DIR
+        if not (base / tag / "summary.json").exists():
+            sys.exit(f"bad --run {spec!r}: no summary at {base / tag / 'summary.json'}")
+        runs[(system, model, backend)] = tag
     if not runs:
-        sys.exit("no live run summaries found under artifacts/{rog,tog}_cache/")
+        sys.exit(f"no {args.dataset} run summaries under artifacts/{{rog,tog}}_cache/ "
+                 f"(tags are matched by name: '*cwq*' is CWQ, anything else WebQSP)")
 
     # Only keep configuration columns that actually exist for some requested system.
     variants = [v for v in VARIANT_ORDER
@@ -323,8 +425,10 @@ def main() -> None:
                       file=sys.stderr)
                 continue
             loaded[(system, variant)] = first_pass_records(system, tag)
-            print(f"[live] {SYSTEM_LABELS[system]} {variant[0]} ({variant[1]}) <- {tag}",
-                  file=sys.stderr)
+            lo, hi = coverage(system, tag, policies)
+            note = "" if lo == hi else f" (thinnest policy {lo} q)"
+            print(f"[live] {SYSTEM_LABELS[system]} {variant[0]} ({variant[1]}) <- {tag} "
+                  f"[{hi} q{note}]", file=sys.stderr)
 
     if args.metric == "timing":
         # One table per configuration: seconds are only comparable within a fixed
@@ -342,9 +446,24 @@ def main() -> None:
                                              cells, stage1_only))
         tex = "\n\n".join(tables) + "\n"
     else:
-        cells = {(system, p, variant): _fmt_hr(loaded.get((system, variant), {}).get(p))
-                 for system in systems for p in policies for variant in variants}
-        tex = build_table(args.dataset, systems, variants, policies, cells) + "\n"
+        cells = {}
+        for system in systems:
+            for variant in variants:
+                recs = loaded.get((system, variant), {})
+                floor = round(args.min_coverage * coverage(
+                    system, runs.get((system, *variant), ""), policies)[1])
+                for p in policies:
+                    rec = recs.get(p)
+                    cells[(system, p, variant)] = _fmt_hr(rec, floor)
+                    if rec and cells[(system, p, variant)] == "--" and floor:
+                        print(f"[live] {SYSTEM_LABELS[system]} {variant[0]} "
+                              f"({variant[1]}) {p}: {rec.get('n_questions') or 0} of "
+                              f"{floor} questions needed -- dropped as partial",
+                              file=sys.stderr)
+        counts = {(sy, v): coverage(sy, runs[(sy, *v)], policies)[1]
+                  for sy in systems for v in variants if (sy, *v) in runs}
+        tex = build_table(args.dataset, systems, variants, policies,
+                          cells, counts) + "\n"
     if args.output:
         out = args.output.resolve()
         out.parent.mkdir(parents=True, exist_ok=True)

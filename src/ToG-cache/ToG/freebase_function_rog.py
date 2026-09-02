@@ -260,6 +260,7 @@ def plan_relation_paths(question: str, topic_entity: Dict[str, str], args) -> Tu
         args.opeani_api_keys,
         args.LLM_type,
         vendor=getattr(args, "vendor", None),
+        model=getattr(args, "model", None),
         reasoning_effort=getattr(args, "reasoning_effort", None),
     )
     paths = parse_relation_paths(raw_output, args.width, args.depth)
@@ -393,6 +394,7 @@ def generate_rog_answer(question: str, reasoning_paths: Sequence[Sequence[Retrie
         args.opeani_api_keys,
         args.LLM_type,
         vendor=getattr(args, "vendor", None),
+        model=getattr(args, "model", None),
         reasoning_effort=getattr(args, "reasoning_effort", None),
     )
 

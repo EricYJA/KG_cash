@@ -21,6 +21,8 @@ import sys
 
 from datasets import load_dataset
 
+import datasets_compat  # noqa: F401  (read caches written by a newer datasets)
+
 sys.path.insert(0, os.environ.get("TOG_CACHE_DIR", "/togcache"))
 
 from rog_question_cache import extract_oracle_answer_key  # noqa: E402
