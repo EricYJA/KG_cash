@@ -66,7 +66,7 @@ def relation_search_prune(entity_id, entity_name, pre_relations, pre_head, quest
     
     prompt = construct_relation_prune_prompt(question, entity_name, total_relations, args)
 
-    result = run_llm(prompt, args.temperature_exploration, args.max_length, args.opeani_api_keys, args.LLM_type, vendor=getattr(args, "vendor", None))
+    result = run_llm(prompt, args.temperature_exploration, args.max_length, args.opeani_api_keys, args.LLM_type, vendor=getattr(args, "vendor", None), model=getattr(args, "model", None))
     flag, retrieve_relations_with_scores = clean_relations(result, entity_id, head_relations) 
 
     if flag:
@@ -137,7 +137,7 @@ def entity_score(question, entity_candidates_id, entity_candidates, score, relat
 
     prompt = construct_entity_score_prompt(question, relation, entity_candidates)
 
-    result = run_llm(prompt, args.temperature_exploration, args.max_length, args.opeani_api_keys, args.LLM_type, vendor=getattr(args, "vendor", None))
+    result = run_llm(prompt, args.temperature_exploration, args.max_length, args.opeani_api_keys, args.LLM_type, vendor=getattr(args, "vendor", None), model=getattr(args, "model", None))
     entity_scores = clean_scores(result, entity_candidates)
     if all_zero(entity_scores):
         return [1/len(entity_candidates) * score] * len(entity_candidates), entity_candidates, entity_candidates_id
@@ -176,7 +176,7 @@ def generate_answer(question, cluster_chain_of_entities, args):
     prompt = answer_prompt_wiki + question + '\n'
     chain_prompt = '\n'.join([', '.join([str(x) for x in chain]) for sublist in cluster_chain_of_entities for chain in sublist])
     prompt += "\nKnowledge Triplets: " + chain_prompt + 'A: '
-    result = run_llm(prompt, args.temperature_reasoning, args.max_length, args.opeani_api_keys, args.LLM_type, vendor=getattr(args, "vendor", None))
+    result = run_llm(prompt, args.temperature_reasoning, args.max_length, args.opeani_api_keys, args.LLM_type, vendor=getattr(args, "vendor", None), model=getattr(args, "model", None))
     return result
 
 
@@ -207,7 +207,7 @@ def reasoning(question, cluster_chain_of_entities, args):
     chain_prompt = '\n'.join([', '.join([str(x) for x in chain]) for sublist in cluster_chain_of_entities for chain in sublist])
     prompt += "\nKnowledge Triplets: " + chain_prompt + 'A: '
 
-    response = run_llm(prompt, args.temperature_reasoning, args.max_length, args.opeani_api_keys, args.LLM_type, vendor=getattr(args, "vendor", None))
+    response = run_llm(prompt, args.temperature_reasoning, args.max_length, args.opeani_api_keys, args.LLM_type, vendor=getattr(args, "vendor", None), model=getattr(args, "model", None))
     
     result = extract_answer(response)
     if if_true(result):
@@ -236,7 +236,7 @@ def half_stop(question, cluster_chain_of_entities, args):
 
 def generate_without_explored_paths(question, args):
     prompt = generate_directly + "\n\nQ: " + question + "\nA:"
-    response = run_llm(prompt, args.temperature_reasoning, args.max_length, args.opeani_api_keys, args.LLM_type, vendor=getattr(args, "vendor", None))
+    response = run_llm(prompt, args.temperature_reasoning, args.max_length, args.opeani_api_keys, args.LLM_type, vendor=getattr(args, "vendor", None), model=getattr(args, "model", None))
     return response
 
 _LCQUAD_QID_RE = re.compile(r'\bwd:(Q\d+)')

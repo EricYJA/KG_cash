@@ -50,7 +50,8 @@ OUT_DIR = REPO_ROOT / "artifacts" / "tog_cache"
 
 # cache_metrics is stdlib-only, so importing it here pulls in no ML deps.
 sys.path.insert(0, str(TOG_ROOT))
-from cache_metrics import aggregate_run_metrics, metrics_sidecar_path  # noqa: E402
+from cache_metrics import (aggregate_run_metrics, metrics_sidecar_path,  # noqa: E402
+                           speedup_fields)
 
 
 def load_eval_utils():
@@ -104,33 +105,38 @@ def accuracy_from_records(records, eu):
     }
 
 
-def cache_from_per_loop(pl, base_miss_s):
+def cache_from_per_loop(pl, run_baseline_s):
     """RoG-schema cache/timing fields for a single pass (one per_loop entry).
 
-    `base_miss_s` is the run's overall average miss (cold) time -- the cost of a
-    question with no cache. Using it as the no-cache reference makes a warm pass's
-    speedup well defined even when that pass has zero misses (all hits), which is
-    exactly the pass where speedup is largest.
+    Speedups come from cache_metrics.speedup_fields -- the same function the
+    combined summary uses -- so a run's per-pass and whole-run numbers are the
+    same quantity rather than two similar-looking formulas that disagree at the
+    edges (the old pair differed on the uncached baseline, which came out 1.0
+    here and null there).
+
+    The no-cache reference is this pass's own uncached miss cost, falling back
+    to the whole run's (`run_baseline_s`) when the pass has no miss to price
+    against -- which is exactly the fully warm pass where the speedup is largest
+    and most worth reporting.
     """
     hits, misses = pl["hits"], pl["misses"]
+    timed_hits = pl.get("timed_hits", hits)
+    timed_misses = pl.get("timed_misses", misses)
     hit_s, miss_s = pl["hit_total_s"], pl["miss_total_s"]
     n = hits + misses
-    actual_s = hit_s + miss_s
-    avg_hit = (hit_s / hits) if hits else 0.0
-    avg_miss = (miss_s / misses) if misses else 0.0
-    # speedup vs a no-cache run where every question cost base_miss_s.
-    speedup = (base_miss_s / avg_hit) if (hits and avg_hit > 0 and base_miss_s > 0) else None
-    full_speedup = ((n * base_miss_s) / actual_s
-                    if (n and actual_s > 0 and base_miss_s > 0) else None)
-    return {
+    baseline = pl.get("baseline_miss_s") or run_baseline_s
+    row = {
         "hits": hits, "misses": misses,
+        "timed_hits": timed_hits, "timed_misses": timed_misses,
         "hit_total_s": round(hit_s, 3), "miss_total_s": round(miss_s, 3),
-        "avg_hit_s": round(avg_hit, 3), "avg_miss_s": round(avg_miss, 3),
-        "speedup_x": round(speedup, 2) if speedup is not None else None,
-        "full_speedup_x": round(full_speedup, 2) if full_speedup is not None else None,
+        "avg_hit_s": round((hit_s / timed_hits) if timed_hits else 0.0, 3),
+        "avg_miss_s": round((miss_s / timed_misses) if timed_misses else 0.0, 3),
+        "baseline_miss_s": round(baseline, 3),
         "n_questions": n,
         "hit_rate": (hits / n) if n else 0.0,
     }
+    row.update(speedup_fields(hit_s, miss_s, timed_hits, timed_misses, baseline))
+    return row
 
 
 def passes_present(comp_rows):
@@ -146,8 +152,9 @@ def build_pass_row(cfg, policy, tag, pass_idx, eu):
     """RoG-schema row for one policy on one pass."""
     out = cfg.get("output")
     overall, _s, _b, per_loop = aggregate_run_metrics(metrics_sidecar_path(out) if out else None)
-    # Cold-cost reference: the run's overall avg miss time (pass 1 dominates misses).
-    base_miss_s = overall.get("avg_miss_s") or 0.0
+    # Cold-cost reference: the run's uncached miss cost (pass 1 dominates
+    # misses), used only for a pass that has no miss of its own to price against.
+    base_miss_s = overall.get("baseline_miss_s") or overall.get("avg_miss_s") or 0.0
     pl = next((x for x in per_loop if x["loop"] == pass_idx), None)
     row = {"policy": policy, "tag": f"{tag}_pass{pass_idx + 1}",
            "config": cfg.get("config"), "loop": pass_idx}

@@ -1,0 +1,7 @@
+{
+  "identity": {
+    "dataset": "webqsp",
+    "vendor": "tamu",
+    "model": "protected.gemini-3.1-flash-lite"
+  }
+}

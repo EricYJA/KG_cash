@@ -33,6 +33,7 @@ import json
 import os
 import random
 import threading
+import time
 from collections import OrderedDict
 
 
@@ -207,8 +208,38 @@ class PersistentQuestionCache:
         self.semantic_random_hits = 0
         self.semantic_belady_hits = 0
         self.semantic_oracle_hits = 0
+        # Seconds spent inside the cache itself, split by the two things it does.
+        # A no-cache run pays neither, so the miss side of this is what has to
+        # come back out before a hit can be priced against a miss -- see
+        # cache_metrics.baseline_miss_seconds. Cumulative, because a caller
+        # brackets a whole question rather than a single call.
+        self.lookup_total_s = 0.0
+        self.store_total_s = 0.0
         self._embedder: "_Embedder | None" = None
         self._load()
+
+    @property
+    def overhead_total_s(self) -> float:
+        """Total seconds this cache has spent on lookups and stores.
+
+        Read before and after a question to charge that question its share.
+        """
+        return self.lookup_total_s + self.store_total_s
+
+    def warm_embedder(self) -> None:
+        """Load the sentence embedder now rather than inside the first question.
+
+        The model load costs seconds and lands entirely on whichever question
+        happens to be first, where it would be charged as that question's cache
+        overhead and subtracted from its (much smaller) traversal time. Paying it
+        up front keeps every measured question comparable.
+        """
+        if self.policy not in _USES_EMBEDDING:
+            return
+        try:
+            self._embed("warmup")
+        except Exception as e:
+            print(f"[question_cache] embedder warm-up failed, continuing: {e}")
 
     def _embed(self, q: str):
         if self._embedder is None:
@@ -362,7 +393,18 @@ class PersistentQuestionCache:
 
         `oracle_key`: only consulted under policy="semantic_oracle". Iterable
         of canonical gold-answer strings for the query.
+
+        Timed: under a semantic policy the lookup embeds the query and scans
+        every cached embedding, which is a real per-question cost that a
+        no-cache run does not pay.
         """
+        started = time.perf_counter()
+        try:
+            return self._get(question, oracle_key)
+        finally:
+            self.lookup_total_s += time.perf_counter() - started
+
+    def _get(self, question: str, oracle_key=None):
         key = _normalize(question)
         with self._lock:
             # Kind of the most recent get() ("exact"/"semantic_lru"/... or None on
@@ -421,6 +463,20 @@ class PersistentQuestionCache:
             return _normalize(question) in self._store
 
     def put(self, question: str, chain, oracle_key=None) -> None:
+        """Store one question's chain and persist the cache.
+
+        Timed for the same reason as get(): embedding the key and rewriting the
+        cache file are the cache's own cost, charged to the miss that triggered
+        them, and have to be taken back out before that miss can stand in for
+        what an uncached run would have spent.
+        """
+        started = time.perf_counter()
+        try:
+            self._put(question, chain, oracle_key)
+        finally:
+            self.store_total_s += time.perf_counter() - started
+
+    def _put(self, question: str, chain, oracle_key=None) -> None:
         key = _normalize(question)
         with self._lock:
             existed = key in self._store
@@ -439,6 +495,47 @@ class PersistentQuestionCache:
             while len(self._store) > self.capacity:
                 self._evict_one()
             self._flush()
+
+    def restore_many(self, items) -> int:
+        """Re-insert entries a previous process stored but this one cannot see.
+
+        `items` is an iterable of (question, chain, oracle_key). Only questions
+        the store does not already hold are inserted, in the order given, so a
+        cache file that survived is left exactly as it was.
+
+        This is the resume path for the one failure the answers file cannot
+        absorb on its own: the results JSONL says a thousand questions are done
+        while the cache that was built alongside them is gone (wiped by hand, on
+        another mount, lost to a kill between the flush and the next write).
+        Without it the resumed run looks up those thousand questions against an
+        empty cache and reports a hit rate for a cache that never existed.
+
+        Not routed through put(): put() flushes on every call, which would
+        rewrite the whole file once per restored entry, and its timing counters
+        would charge the rebuild to the first question of the resumed run.
+        """
+        restored = 0
+        with self._lock:
+            for question, chain, oracle_key in items:
+                key = _normalize(question)
+                if key in self._store:
+                    continue
+                self._store[key] = chain
+                self._freq[key] = self._freq.get(key, 0) + 1
+                if self.policy in _USES_EMBEDDING:
+                    try:
+                        self._embeddings[key] = self._embed(key)
+                    except Exception as e:
+                        print(f"[question_cache] embed failed while restoring, "
+                              f"storing without embedding: {e}")
+                if self.policy == "semantic_oracle" and oracle_key:
+                    self._oracle_keys[key] = sorted({str(x) for x in oracle_key})
+                restored += 1
+                while len(self._store) > self.capacity:
+                    self._evict_one()
+            if restored:
+                self._flush()
+        return restored
 
     def stats(self) -> dict:
         with self._lock:
@@ -462,6 +559,71 @@ class PersistentQuestionCache:
                 "similarity_threshold": self.similarity_threshold if uses_emb else None,
                 "embedder_model": self.embedder_model if uses_emb else None,
             }
+
+
+def restore_cache_from_answers(cache, answers_path, metrics_path,
+                               oracle_key_by_question=None) -> int:
+    """Top `cache` back up from a resumed run's own answers file.
+
+    A resumed run skips every question already in the answers JSONL, so any
+    chain the cache lost is never recomputed -- the rest of the run then looks
+    those questions up against a cache that does not hold them and reports a hit
+    rate for a cache that never existed. The answers file already carries what
+    is needed to undo that: each record's `reasoning_chains` is the exact object
+    the live run passed to put().
+
+    Only questions the metrics sidecar recorded as a *miss* are restored. A hit
+    was served a chain belonging to some other question and never entered the
+    cache under its own key, so re-inserting it would make the resumed run
+    behave differently from an uninterrupted one rather than the same.
+
+    Returns the number of entries restored (0 when the cache survived intact,
+    which is the normal case and costs two file reads).
+    """
+    if cache is None or not answers_path or not os.path.exists(answers_path):
+        return 0
+
+    from cache_metrics import read_question_metrics
+
+    chains, order = {}, []
+    with open(answers_path) as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                rec = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            question = rec.get("question")
+            if not isinstance(question, str):
+                continue
+            key = (question.strip(), rec.get("loop_idx"))
+            if key not in chains:
+                order.append(key)
+            chains[key] = rec.get("reasoning_chains")
+    if not order:
+        return 0
+
+    metrics = read_question_metrics(metrics_path)
+    if not metrics:
+        print(f"[question_cache] {len(order)} answered questions in "
+              f"{answers_path} but no metrics sidecar to say which of them "
+              f"missed; not rebuilding the cache. Hit rates from here on will "
+              f"describe a cache that is missing those entries -- pass --fresh "
+              f"to start this config over.")
+        return 0
+
+    missed = {
+        (m["question"].strip(), m.get("loop_idx"))
+        for m in metrics
+        if isinstance(m.get("question"), str)
+        and not m.get("cache_hit") and not m.get("failed")
+    }
+    lookup = oracle_key_by_question or {}
+    items = [(key[0], chains[key], lookup.get(key[0]))
+             for key in order if key in missed]
+    return cache.restore_many(items)
 
 
 def extract_oracle_answer_key(data: dict, dataset: str):

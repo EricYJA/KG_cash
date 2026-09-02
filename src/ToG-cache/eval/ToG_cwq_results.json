@@ -1,12 +1,11 @@
 {
     "dataset": "cwq",
     "method": "ToG",
-    "Exact Match": 0.5918367346938775,
-    "Precision": 0.49489795918367346,
-    "Recall": 0.49489795918367346,
-    "F1": 0.49489795918367346,
-    "Right Samples": 232,
-    "Error Samples": 160,
-    "Evaluated Samples": 392,
-    "Total Samples": 392
+    "Exact Match": 0.2875,
+    "Right Samples": 115,
+    "Error Sampels": 285,
+    "Hits@1": 0.2625,
+    "F1": 0.26125,
+    "Precision": 0.26083333333333336,
+    "Recall": 0.2625
 }

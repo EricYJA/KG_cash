@@ -25,6 +25,8 @@ if __name__ == '__main__':
                         default="gpt-3.5-turbo", help="base LLM model.")
     parser.add_argument("--opeani_api_keys", type=str,
                         default="", help="if the LLM_type is gpt-3.5-turbo or gpt-4, you need add your own openai api keys.")
+    parser.add_argument("--model", type=str, default="",
+                        help="Override the vendor's default model id (empty = use vendor preset default).")
     parser.add_argument("--num_retain_entity", type=int,
                         default=5, help="Number of entities retained during entities search.")
     parser.add_argument("--prune_tools", type=str,

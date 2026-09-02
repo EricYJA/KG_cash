@@ -22,9 +22,21 @@ import subprocess
 import sys
 from pathlib import Path
 
+from cache_metrics import metrics_sidecar_path, read_question_metrics
+
 HERE = Path(__file__).resolve().parent
 EVAL_DIR = HERE.parent / "eval"
 OUTPUT_DIR = HERE.parent / "output"
+
+# What makes two invocations the same experiment. Resuming appends to the
+# per-policy JSONLs, so a run that differs in any of these would interleave
+# records that were never comparable -- a --loop 2 sweep resumed into a --loop 1
+# sweep's output is how a policy ends up half main_freebase.py records and half
+# main_freebase_loop.py records in one file. --policies is deliberately absent:
+# adding a policy to a finished sweep is a legitimate resume, and the new one
+# runs while the old ones skip on their .done markers.
+RUN_IDENTITY = ("dataset", "test_limit", "vendor", "model", "depth", "width",
+                "similarity_threshold", "capacity", "loop")
 
 
 def run(cmd: list[str], cwd: Path) -> str:
@@ -45,6 +57,53 @@ def run(cmd: list[str], cwd: Path) -> str:
     if proc.returncode != 0:
         raise SystemExit(f"command failed (rc={proc.returncode}): {' '.join(cmd)}")
     return "".join(captured)
+
+
+def guard_run_config(results_dir: Path, args) -> None:
+    """Refuse to resume a results dir that a different experiment wrote.
+
+    The per-policy JSONL, its metrics sidecar and the .done marker are all named
+    for the policy alone, so nothing about the file says which dataset, model,
+    threshold or pass count produced it. Reusing a --run-tag after changing one
+    of those silently merges two experiments into one file and one summary. This
+    pins the config on first use and stops the second run instead.
+    """
+    manifest = results_dir / "run_config.json"
+    current = {key: getattr(args, key) for key in RUN_IDENTITY}
+    if not manifest.exists():
+        manifest.write_text(json.dumps({"identity": current,
+                                        "policies": args.policies}, indent=2))
+        return
+    try:
+        previous = json.loads(manifest.read_text()).get("identity", {})
+    except json.JSONDecodeError:
+        previous = {}
+    differing = [k for k in RUN_IDENTITY if previous.get(k) != current[k]]
+    if not differing:
+        return
+    detail = "\n".join(f"    {k}: {previous.get(k)!r} -> {current[k]!r}"
+                        for k in differing)
+    raise SystemExit(
+        f"{results_dir} already holds a different experiment's results:\n{detail}\n"
+        f"Resuming would append these runs to those files and score the mixture.\n"
+        f"Pass --fresh to redo this tag, or use a new --run-tag / --results-dir."
+    )
+
+
+def check_sidecar_coverage(out_path: Path, policy: str) -> None:
+    """Warn when a policy's answers and its per-question metrics disagree.
+
+    The answer is appended before the metrics record, so a process killed
+    between the two leaves a question that eval.py scores and the timing
+    summary never saw. Harmless in ones and twos, and worth knowing about
+    before reading a speedup off a run that was interrupted a lot.
+    """
+    answers = sum(1 for line in out_path.open() if line.strip()) if out_path.exists() else 0
+    metrics = len(read_question_metrics(metrics_sidecar_path(str(out_path))))
+    if answers and metrics != answers:
+        print(f"[warn] policy {policy!r}: {answers} answers but {metrics} "
+              f"per-question metrics records. Accuracy covers all {answers}; "
+              f"hit rate and timing cover {metrics}.")
 
 
 def eval_jsonl(jsonl_path: Path, dataset: str) -> dict:
@@ -107,7 +166,10 @@ def main():
                              "main_freebase.py, matching RoG; >1 uses "
                              "main_freebase_loop.py to warm the cache.")
     parser.add_argument("--cache-dir", default=str(OUTPUT_DIR / "compare_caches"),
-                        help="dir for per-config cache JSON files (cleared on start).")
+                        help="dir for per-config cache JSON files. Kept across "
+                             "runs (resume is the default); cleared only by "
+                             "--fresh, which clears --results-dir with it so the "
+                             "two never drift apart.")
     parser.add_argument("--results-dir", default=str(OUTPUT_DIR / "compare_results"),
                         help="dir for per-config JSONL output files.")
     parser.add_argument("--fresh", action="store_true",
@@ -127,6 +189,7 @@ def main():
                 shutil.rmtree(d)
     cache_dir.mkdir(parents=True, exist_ok=True)
     results_dir.mkdir(parents=True, exist_ok=True)
+    guard_run_config(results_dir, args)
 
     common = [
         "--dataset", args.dataset,
@@ -172,6 +235,7 @@ def main():
             # existing JSONL, skipping questions already answered.
             run(cmd, cwd=HERE)
             done_marker.write_text("")  # mark complete only after the run succeeds
+        check_sidecar_coverage(out_path, name)
         metrics = eval_jsonl(out_path, args.dataset)
         rows.append({"config": name, "policy": name, **metrics, "output": str(out_path)})
 

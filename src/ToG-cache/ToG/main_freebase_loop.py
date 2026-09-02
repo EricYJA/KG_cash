@@ -3,9 +3,15 @@ import argparse
 import json
 import time
 from utils import *
+from llm_client import LLMKeyPoolExhaustedError
 import random
 from client import *
-from question_cache import PersistentQuestionCache, extract_oracle_answer_key
+from question_cache import (PersistentQuestionCache, extract_oracle_answer_key,
+                            restore_cache_from_answers)
+
+# See main_freebase.py: sparse failures are survivable, this many in a row means
+# something is down and the rest of the run would be empty answers.
+MAX_CONSECUTIVE_FAILURES = 20
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -76,6 +82,9 @@ if __name__ == '__main__':
             embedder_model=args.embedder_model,
         )
         print(f"[question_cache] policy={args.cache_policy}, loaded {len(question_cache._store)} entries from {args.question_cache_path}")
+        # Before the first question, so the embedder's one-off load is not
+        # charged to it as cache overhead and subtracted from its traversal time.
+        question_cache.warm_embedder()
 
     per_loop_stats: list = []
 
@@ -98,6 +107,33 @@ if __name__ == '__main__':
                     processed_counts[q.strip()] += 1
         print(f"[resume] {len(processed_counts)} unique questions seen in {output_path}; "
               f"each loop will skip questions that already have results for that pass")
+        # Those passes are never recomputed, so a cache that did not survive with
+        # them would leave the rest of the run measuring an emptier cache than
+        # the one the answers were produced with.
+        restored = restore_cache_from_answers(
+            question_cache, output_path, metrics_path,
+            oracle_key_by_question=(
+                {d[question_string].strip(): extract_oracle_answer_key(d, args.dataset)
+                 for d in datas}
+                if (question_cache is not None
+                    and args.cache_policy == "semantic_oracle") else None),
+        )
+        if restored:
+            print(f"[resume] restored {restored} cache entries from {output_path} "
+                  f"that the cache file no longer held")
+
+    failed = 0               # questions recorded unanswered after an LLM failure
+    consecutive_failures = 0  # trips MAX_CONSECUTIVE_FAILURES when the run is broken
+
+    def cache_overhead_since(mark):
+        """Seconds the cache itself spent on this question; 0.0 with no cache.
+
+        See main_freebase.py: recorded per question so aggregate_run_metrics can
+        take it back out of the miss times before pricing a hit against them.
+        """
+        if question_cache is None:
+            return 0.0
+        return round(question_cache.overhead_total_s - mark, 4)
 
     for loop_idx in range(args.loop):
         if args.loop > 1:
@@ -113,6 +149,11 @@ if __name__ == '__main__':
                 continue
             t_question_start = time.perf_counter()
             calls_start = llm_call_count()
+            overhead_start = (question_cache.overhead_total_s
+                              if question_cache is not None else 0.0)
+            # Set once the cache serves this question, so a failure in the answer
+            # call that follows is still counted as the hit it was.
+            cache_hit_kind = None
 
             record_id = extract_record_id(data, args.dataset)
             ground_truth = extract_ground_truth(data, args.dataset)
@@ -121,118 +162,161 @@ if __name__ == '__main__':
                           if (question_cache is not None and args.cache_policy == "semantic_oracle")
                           else None)
 
-            if question_cache is not None:
-                cached_chain = question_cache.get(question, oracle_key=oracle_key)
-                if cached_chain is not None:
-                    if cached_chain:
-                        cached_results = generate_answer(question, cached_chain, args)
-                    else:
-                        cached_results = generate_without_explored_paths(question, args)
-                    save_2_jsonl(question, cached_results, cached_chain,
-                                 file_name=args.dataset, output_file=args.output_file,
-                                 qid=record_id, ground_truth=ground_truth, loop_idx=loop_idx)
-                    elapsed = time.perf_counter() - t_question_start
-                    loop_hit_times.append(elapsed)
-                    append_question_metrics(metrics_path, {
-                        "id": record_id, "question": question, "loop_idx": loop_idx,
-                        "cache_hit": True,
-                        "cache_hit_type": getattr(question_cache, "last_hit_kind", None),
-                        "elapsed_s": elapsed,
-                        "llm_calls": llm_call_count() - calls_start,
-                    })
-                    continue
-
-            topic_entity = data['topic_entity']
-            cluster_chain_of_entities = []
-            pre_relations = [],
-            pre_heads = [-1] * len(topic_entity)
-            flag_printed = False
-            for depth in range(1, args.depth + 1):
-                current_entity_relations_list = []
-                i = 0
-                for entity in topic_entity:
-                    if entity != "[FINISH_ID]":
-                        retrieve_relations_with_scores = relation_search_prune(entity, topic_entity[entity],
-                                                                               pre_relations, pre_heads[i], question,
-                                                                               args)  # best entity triplet, entitiy_id
-                        current_entity_relations_list.extend(retrieve_relations_with_scores)
-                    i += 1
-                total_candidates = []
-                total_scores = []
-                total_relations = []
-                total_entities_id = []
-                total_topic_entities = []
-                total_head = []
-
-                for entity in current_entity_relations_list:
-                    if entity['head']:
-                        entity_candidates_id = entity_search(entity['entity'], entity['relation'], True)
-                    else:
-                        entity_candidates_id = entity_search(entity['entity'], entity['relation'], False)
-
-                    if len(entity_candidates_id) >= 20:
-                        entity_candidates_id = random.sample(entity_candidates_id, args.num_retain_entity)
-
-                    if len(entity_candidates_id) == 0:
+            try:
+                if question_cache is not None:
+                    cached_chain = question_cache.get(question, oracle_key=oracle_key)
+                    if cached_chain is not None:
+                        cache_hit_kind = getattr(question_cache, "last_hit_kind", None)
+                        if cached_chain:
+                            cached_results = generate_answer(question, cached_chain, args)
+                        else:
+                            cached_results = generate_without_explored_paths(question, args)
+                        save_2_jsonl(question, cached_results, cached_chain,
+                                     file_name=args.dataset, output_file=args.output_file,
+                                     qid=record_id, ground_truth=ground_truth, loop_idx=loop_idx)
+                        elapsed = time.perf_counter() - t_question_start
+                        loop_hit_times.append(elapsed)
+                        append_question_metrics(metrics_path, {
+                            "id": record_id, "question": question, "loop_idx": loop_idx,
+                            "cache_hit": True,
+                            "cache_hit_type": cache_hit_kind,
+                            "elapsed_s": elapsed,
+                            "cache_overhead_s": cache_overhead_since(overhead_start),
+                            "llm_calls": llm_call_count() - calls_start,
+                        })
+                        consecutive_failures = 0
                         continue
 
-                    scores, entity_candidates, entity_candidates_id = entity_score(question, entity_candidates_id,
-                                                                                   entity['score'], entity['relation'],
-                                                                                   args)
+                topic_entity = data['topic_entity']
+                cluster_chain_of_entities = []
+                pre_relations = [],
+                pre_heads = [-1] * len(topic_entity)
+                flag_printed = False
+                for depth in range(1, args.depth + 1):
+                    current_entity_relations_list = []
+                    i = 0
+                    for entity in topic_entity:
+                        if entity != "[FINISH_ID]":
+                            retrieve_relations_with_scores = relation_search_prune(entity, topic_entity[entity],
+                                                                                   pre_relations, pre_heads[i], question,
+                                                                                   args)  # best entity triplet, entitiy_id
+                            current_entity_relations_list.extend(retrieve_relations_with_scores)
+                        i += 1
+                    total_candidates = []
+                    total_scores = []
+                    total_relations = []
+                    total_entities_id = []
+                    total_topic_entities = []
+                    total_head = []
 
-                    total_candidates, total_scores, total_relations, total_entities_id, total_topic_entities, total_head = update_history(
-                        entity_candidates, entity, scores, entity_candidates_id, total_candidates, total_scores,
-                        total_relations, total_entities_id, total_topic_entities, total_head)
+                    for entity in current_entity_relations_list:
+                        if entity['head']:
+                            entity_candidates_id = entity_search(entity['entity'], entity['relation'], True)
+                        else:
+                            entity_candidates_id = entity_search(entity['entity'], entity['relation'], False)
 
-                if len(total_candidates) == 0:
-                    half_stop(question, cluster_chain_of_entities, args, qid=record_id, ground_truth=ground_truth, loop_idx=loop_idx)
-                    flag_printed = True
-                    break
+                        if len(entity_candidates_id) >= 20:
+                            entity_candidates_id = random.sample(entity_candidates_id, args.num_retain_entity)
 
-                flag, chain_of_entities, entities_id, pre_relations, pre_heads = entity_prune(total_entities_id,
-                                                                                              total_relations,
-                                                                                              total_candidates,
-                                                                                              total_topic_entities,
-                                                                                              total_head, total_scores,
-                                                                                              args)
-                cluster_chain_of_entities.append(chain_of_entities)
-                if flag:
-                    stop, results = reasoning(question, cluster_chain_of_entities, args)
-                    if stop:
-                        print("ToG stoped at depth %d." % depth)
-                        save_2_jsonl(question, results, cluster_chain_of_entities, file_name=args.dataset,
-                                     output_file=args.output_file, qid=record_id, ground_truth=ground_truth,
-                                     loop_idx=loop_idx)
+                        if len(entity_candidates_id) == 0:
+                            continue
+
+                        scores, entity_candidates, entity_candidates_id = entity_score(question, entity_candidates_id,
+                                                                                       entity['score'], entity['relation'],
+                                                                                       args)
+
+                        total_candidates, total_scores, total_relations, total_entities_id, total_topic_entities, total_head = update_history(
+                            entity_candidates, entity, scores, entity_candidates_id, total_candidates, total_scores,
+                            total_relations, total_entities_id, total_topic_entities, total_head)
+
+                    if len(total_candidates) == 0:
+                        half_stop(question, cluster_chain_of_entities, args, qid=record_id, ground_truth=ground_truth, loop_idx=loop_idx)
                         flag_printed = True
                         break
+
+                    flag, chain_of_entities, entities_id, pre_relations, pre_heads = entity_prune(total_entities_id,
+                                                                                                  total_relations,
+                                                                                                  total_candidates,
+                                                                                                  total_topic_entities,
+                                                                                                  total_head, total_scores,
+                                                                                                  args)
+                    cluster_chain_of_entities.append(chain_of_entities)
+                    if flag:
+                        stop, results = reasoning(question, cluster_chain_of_entities, args)
+                        if stop:
+                            print("ToG stoped at depth %d." % depth)
+                            save_2_jsonl(question, results, cluster_chain_of_entities, file_name=args.dataset,
+                                         output_file=args.output_file, qid=record_id, ground_truth=ground_truth,
+                                         loop_idx=loop_idx)
+                            flag_printed = True
+                            break
+                        else:
+                            print("depth %d still not find the answer." % depth)
+                            topic_entity = {entity: id2entity_name_or_type(entity) for entity in entities_id}
+                            continue
                     else:
-                        print("depth %d still not find the answer." % depth)
-                        topic_entity = {entity: id2entity_name_or_type(entity) for entity in entities_id}
-                        continue
+                        half_stop(question, cluster_chain_of_entities, args, qid=record_id, ground_truth=ground_truth, loop_idx=loop_idx)
+                        flag_printed = True
+                        break
+
+                if not flag_printed:
+                    results = generate_without_explored_paths(question, args)
+                    save_2_jsonl(question, results, [], file_name=args.dataset, output_file=args.output_file, qid=record_id, ground_truth=ground_truth, loop_idx=loop_idx)
+                    chain_to_cache = []
                 else:
-                    half_stop(question, cluster_chain_of_entities, args, qid=record_id, ground_truth=ground_truth, loop_idx=loop_idx)
-                    flag_printed = True
-                    break
+                    chain_to_cache = cluster_chain_of_entities
 
-            if not flag_printed:
-                results = generate_without_explored_paths(question, args)
-                save_2_jsonl(question, results, [], file_name=args.dataset, output_file=args.output_file, qid=record_id, ground_truth=ground_truth, loop_idx=loop_idx)
-                chain_to_cache = []
-            else:
-                chain_to_cache = cluster_chain_of_entities
+                if question_cache is not None:
+                    question_cache.put(question, chain_to_cache, oracle_key=oracle_key)
 
-            if question_cache is not None:
-                question_cache.put(question, chain_to_cache, oracle_key=oracle_key)
-
-            elapsed = time.perf_counter() - t_question_start
-            loop_miss_times.append(elapsed)
-            append_question_metrics(metrics_path, {
-                "id": record_id, "question": question, "loop_idx": loop_idx,
-                "cache_hit": False,
-                "cache_hit_type": None,
-                "elapsed_s": elapsed,
-                "llm_calls": llm_call_count() - calls_start,
-            })
+                elapsed = time.perf_counter() - t_question_start
+                loop_miss_times.append(elapsed)
+                append_question_metrics(metrics_path, {
+                    "id": record_id, "question": question, "loop_idx": loop_idx,
+                    "cache_hit": False,
+                    "cache_hit_type": None,
+                    "elapsed_s": elapsed,
+                    "cache_overhead_s": cache_overhead_since(overhead_start),
+                    "llm_calls": llm_call_count() - calls_start,
+                })
+                consecutive_failures = 0
+            except LLMKeyPoolExhaustedError as exc:
+                # See main_freebase.py: every key was tried for this one request
+                # and every one failed, so nothing is left to answer the next
+                # question with. Stop before this question is written.
+                raise SystemExit(
+                    f"\nEvery API key failed on one request, so no further question "
+                    f"can be answered -- stopping rather than filling the output "
+                    f"with empty answers. Nothing unanswered was written; fix the "
+                    f"keys and re-run to resume.\nCause: {exc}"
+                ) from exc
+            except RuntimeError as exc:
+                # See main_freebase.py: one question's LLM calls failing must not
+                # end the run. Recorded unanswered (so it scores as wrong rather
+                # than shrinking the split) and never cached.
+                failed += 1
+                consecutive_failures += 1
+                print(f"[warn] question failed, recording it unanswered: {exc}", flush=True)
+                save_2_jsonl(question, "", [], file_name=args.dataset,
+                             output_file=args.output_file, qid=record_id,
+                             ground_truth=ground_truth, loop_idx=loop_idx)
+                append_question_metrics(metrics_path, {
+                    "id": record_id, "question": question, "loop_idx": loop_idx,
+                    # A hit whose answer call failed is still a hit, not a miss.
+                    "cache_hit": cache_hit_kind is not None,
+                    "cache_hit_type": cache_hit_kind,
+                    "elapsed_s": time.perf_counter() - t_question_start,
+                    "cache_overhead_s": cache_overhead_since(overhead_start),
+                    "llm_calls": llm_call_count() - calls_start,
+                    "failed": True, "error": str(exc),
+                })
+                if consecutive_failures >= MAX_CONSECUTIVE_FAILURES:
+                    raise RuntimeError(
+                        f"{consecutive_failures} questions failed in a row -- stopping "
+                        f"rather than filling the output with empty answers. "
+                        f"Last error: {exc}"
+                    ) from exc
+                continue
 
         loop_wall = time.perf_counter() - loop_t_start
         n_lh, n_lm = len(loop_hit_times), len(loop_miss_times)
@@ -247,6 +331,10 @@ if __name__ == '__main__':
             "avg_miss_s": round(avg_lm, 3),
         })
         print(f"[question_cache] loop {loop_idx + 1} timing: " + json.dumps(per_loop_stats[-1]))
+
+    if failed:
+        print(f"WARNING: {failed} questions were recorded unanswered because their "
+              f"LLM calls failed; they score as wrong.")
 
     if question_cache is not None:
         print("[question_cache] stats: " + json.dumps(question_cache.stats()))

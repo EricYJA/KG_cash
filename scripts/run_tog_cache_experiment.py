@@ -31,22 +31,36 @@ also tags the default cache/results dirs so neither run clobbers the other:
 Restartable: re-using a --run-tag RESUMES by default. Completed configs (marked by
 <config>.done) are skipped, and an interrupted config continues where it stopped
 (main_freebase.py / main_freebase_loop.py skip questions already in their JSONL, and
-the semantic cache persists). Pass --fresh (env FRESH=1) to wipe and start over.
+the semantic cache persists -- and is rebuilt from the answers file if the cache
+itself did not survive, so a resumed run measures the cache the answers were
+produced with). Re-using a tag after changing the dataset, model, threshold,
+capacity or --loop is refused rather than merged: those runs are not comparable
+and appending them to one file would score the mixture. Pass --fresh (env
+FRESH=1) to wipe and start over.
 """
 from __future__ import annotations
 
 import argparse
 import os
 
-from _tog_common import REPO_ROOT, TOG_DIR, add_run_args, load_dotenv, resolve_run, run_py
+from _tog_common import (KEYS_PATH, REPO_ROOT, TOG_DIR, add_run_args,
+                         load_dotenv, load_env_keys, add_env_file_arg, preload_dotenv,
+                         resolve_run, run_py)
 
 OUTPUT_DIR = REPO_ROOT / "src" / "ToG-cache" / "output"
 
 
 def main() -> None:
+    # .env carries the documented defaults for --model, --dataset, --run-tag and
+    # the rest (see .env.example). argparse evaluates each default when the
+    # argument is declared, so .env has to be in the environment before the
+    # parser below is built -- otherwise those values are ignored unless the
+    # caller exported them, and `source .env` does not export.
+    preload_dotenv()
     env = os.environ.get
     p = argparse.ArgumentParser(description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
+    add_env_file_arg(p)
     p.add_argument("--conda-env", default=env("CONDA_ENV", "KG_cash"))
     p.add_argument("--dataset", default=env("DATASET", "webqsp"),
                    help="webqsp | cwq | qald | ...")
@@ -75,12 +89,21 @@ def main() -> None:
     add_run_args(p)
     args, extra = p.parse_known_args()
 
-    load_dotenv(required=("LLM_API_KEY",))
+    # .env_keys holds a pool the client rotates through on a 400/5xx; with a pool
+    # present the single LLM_API_KEY in .env is optional.
+    n_keys = load_env_keys()
+    load_dotenv(required=() if n_keys else ("LLM_API_KEY",))
+    if n_keys:
+        print(f"[keys] {n_keys} API keys from {KEYS_PATH.name}; "
+              f"the client falls back to the next one on a 400/5xx")
     endpoint, tag = resolve_run(args)
 
-    # compare_cache_accuracy.py wipes its --cache-dir on startup and rewrites its
-    # --results-dir, so two instances sharing the defaults would destroy each
-    # other's runs mid-flight. Tag both, unless the caller passed their own.
+    # Two instances sharing the default --cache-dir / --results-dir would append
+    # to each other's per-policy files and score the mixture. Tag both, unless
+    # the caller passed their own. (compare_cache_accuracy.py also refuses to
+    # resume a results dir a different config wrote, so a reused tag now stops
+    # the run instead of merging two experiments -- but only one run at a time
+    # can own a tag either way.)
     dir_flags: list[str] = []
     results_dir = "(see --results-dir)"
     if not any(a.startswith("--cache-dir") for a in extra):
