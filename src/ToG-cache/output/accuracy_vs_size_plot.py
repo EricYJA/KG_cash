@@ -37,8 +37,11 @@ rather than in the dataset, the count AND how the runs were produced. The
 per-point provenance printed underneath still names the run and its n for each
 bar, because 400 questions is a wide interval to read a 1-point difference in.
 
-CWQ has no 512 run. That bar is left out rather than filled in from a
-neighbouring capacity; the provenance lists it as `-- not run`.
+A capacity a cluster never swept gets no slot at all -- the remaining bars pack
+up and centre, rather than standing beside an empty space. Nothing is filled in
+from a neighbouring capacity, so the only record of what is missing is the
+provenance printed under the figure, where it reads `-- not run`. CWQ has no 512
+run on either system, and no 128 run on ToG.
 
     python src/ToG-cache/output/accuracy_vs_size_plot.py
     python src/ToG-cache/output/accuracy_vs_size_plot.py --datasets webqsp
@@ -75,6 +78,10 @@ METRIC_LABELS = {"accuracy": "Accuracy", "hit": "Hits@1", "f1": "F1"}
 COMPARE_KEYS = {"accuracy": "recall", "hit": "hits1", "f1": "f1"}
 
 SYSTEM_LABELS = {"tog": "ToG", "rog": "RoG"}
+# Cluster centre-to-centre spacing, and the extra room between dataset blocks.
+# The bars in a group span at most 0.68, so the pitch is what sets the gap.
+CLUSTER_PITCH = 0.98
+BLOCK_GAP = 0.40
 DATASET_LABELS = {"webqsp": "WebQSP", "cwq": "CWQ"}
 # Same palette/hatch order as accuracy_plot.py, so the two charts read as a pair.
 COLORS = ['#999999', '#56B4E9', '#E69F00', '#009E73']
@@ -240,30 +247,38 @@ def main() -> None:
     x = 0.0
     for i, (dataset, _system) in enumerate(clusters):
         if i and dataset != clusters[i - 1][0]:
-            x += 0.55
+            x += BLOCK_GAP
         group_pos.append(x)
-        x += 1.15
+        x += CLUSTER_PITCH
     group_pos = np.array(group_pos)
     width = 0.68 / len(sizes)
 
+    # Only the capacities a cluster actually swept get a slot, packed together and
+    # centred on the cluster. A capacity that was never run leaves no gap: the bar
+    # width is constant across clusters, so a 128 bar is the same bar everywhere,
+    # and the provenance printed underneath is where the missing runs are named.
+    present = {c: [i for i in range(len(sizes)) if not math.isnan(series[c][i])]
+               for c in clusters}
+    offsets = {}
+    for c in clusters:
+        run_here = present[c]
+        for j, i in enumerate(run_here):
+            offsets[(c, i)] = (j - (len(run_here) - 1) / 2) * width
+
     for i, size in enumerate(sizes):
-        offset = (i - (len(sizes) - 1) / 2) * width
-        values = [series[c][i] for c in clusters]
-        bars = ax.bar(group_pos + offset, values, width=width * 0.92,
-                      color=COLORS[i % len(COLORS)], edgecolor='#555555',
-                      linewidth=0.6,
-                      hatch=HATCHES[i % len(HATCHES)],
-                      label=SIZE_LABELS.get(size, str(size)))
-        for bar, v in zip(bars, values):
-            if math.isnan(v):
-                # Say so in the gap: an empty slot alone reads as a zero score.
-                ax.annotate('n/a', (bar.get_x() + bar.get_width() / 2, 0),
-                            xytext=(0, 4), textcoords='offset points',
-                            ha='center', va='bottom', fontsize=6.5,
-                            color='#999999', rotation=90)
-                continue
+        drawn = [(group_pos[k] + offsets[(c, i)], series[c][i])
+                 for k, c in enumerate(clusters) if (c, i) in offsets]
+        if not drawn:
+            continue
+        xs, ys = zip(*drawn)
+        ax.bar(xs, ys, width=width * 0.92,
+               color=COLORS[i % len(COLORS)], edgecolor='#555555',
+               linewidth=0.6,
+               hatch=HATCHES[i % len(HATCHES)],
+               label=SIZE_LABELS.get(size, str(size)))
+        for xc, v in drawn:
             # Value labels on top -- accuracy spreads across sizes are small.
-            ax.annotate(f"{100 * v:.1f}", (bar.get_x() + bar.get_width() / 2, v),
+            ax.annotate(f"{100 * v:.1f}", (xc, v),
                         xytext=(0, 4), textcoords='offset points',
                         ha='center', va='bottom', fontsize=7.5, rotation=90)
 
