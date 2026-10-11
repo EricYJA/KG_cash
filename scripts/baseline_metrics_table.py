@@ -45,14 +45,52 @@ import string
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
+SCRIPTS = Path(__file__).resolve().parent
 TOG_DIR = REPO_ROOT / "src" / "ToG-cache" / "output" / "compare_results"
 TOG_EVAL_DIR = REPO_ROOT / "src" / "ToG-cache" / "eval"
 ROG_DIR = REPO_ROOT / "artifacts" / "rog_cache"
 
+# --live's filters, matching scripts/plot_rog_cache_results.py: a live run is one
+# whose tag carries the `live` marker, minus the capacity sweeps, the replicate
+# repeats, the per-pass splits, and rescore_tog.py's `_rescored` twins (which hold
+# a summary and no answers -- the fixed scorer below re-reads the original JSONL).
+LIVE_TAG_RE = re.compile(r"(?:^|_)live(?:_|$)")
+SKIP_TAG_RE = re.compile(r"(?:_rescored|_pass\d+|_(?:64|128|256|512|1024|2048|4096)|_\d)$")
+
+# Short config names, so the table reads like the paper's: model + backend.
+MODEL_SHORT = {"gemini": "gem", "gpt": "gpt"}
+BACKEND_SHORT = {"virt": "vir", "oxi": "oxi"}
+
 # Columns in report order. 'system'/'config'/'dataset' identify the run; the rest
 # are the metrics. Correct/Total are integer counts; the metrics are percentages.
 COLUMNS = ["system", "config", "dataset", "em", "precision", "recall", "f1",
-           "hits1", "correct", "total"]
+           "hits1", "correct", "total", "tag"]
+
+
+def is_live(tag):
+    """A live-measured run tag, excluding sweeps/repeats/passes/rescored twins."""
+    return bool(LIVE_TAG_RE.search(tag.lower())) and not SKIP_TAG_RE.search(tag)
+
+
+def pretty_config(tag):
+    """`rog_live_virt_gemini` -> `gem-vir`; unknown parts fall back to the tag."""
+    t = tag.lower()
+    model = next((v for k, v in MODEL_SHORT.items() if k in t), "hu")
+    backend = next((v for k, v in BACKEND_SHORT.items() if k in t), None)
+    return f"{model}-{backend}" if backend else tag
+
+
+def load_answer_pickers():
+    """rescore_tog.py's span extractors, so this table and that script agree.
+
+    ToG's own clean_results scans to the FIRST braced span, which in a live run is
+    the `{Yes}` sufficiency marker rather than the answer -- worth ~29 Hits@1
+    points. Importing rather than re-deriving keeps one definition of the fix.
+    """
+    spec = importlib.util.spec_from_file_location("bmt_rescore", SCRIPTS / "rescore_tog.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return {"fixed": mod.answer_fixed, "stock": mod.answer_stock}
 
 
 def _pct(value):
@@ -103,7 +141,7 @@ def load_tog_eval_utils():
     return mod
 
 
-def tog_metrics_from_jsonl(path, eu, first_pass_only=True):
+def tog_metrics_from_jsonl(path, eu, first_pass_only=True, pick=None):
     """Recompute ToG's eval metrics over a per-config output JSONL.
 
     Replicates eval.py's per-record loop exactly (EM via exact_match on the raw
@@ -124,21 +162,18 @@ def tog_metrics_from_jsonl(path, eu, first_pass_only=True):
     for d in records:
         answers = d.get("ground_truth") or []
         results = d.get("results")
-        prediction = eu.prediction_to_list(results)
+        # One extracted span drives every metric, so EM cannot disagree with
+        # Hits@1 about what the model answered. eval.py derived them separately.
+        span = pick(results) if isinstance(results, str) else None
+        if span is None or not span.strip():
+            span = results if isinstance(results, str) else str(results)
+        prediction = [p.strip() for p in span.split("\n") if p.strip()] or [span]
         hit += eu.rog_eval_hit(prediction, answers)
         f1, prec, rec = corrected_prf(prediction, answers)  # corrected precision
         f1s += f1
         precs += prec
         recs += rec
-        # Exact Match, byte-for-byte with eval.py: when check_string(results) is
-        # true and the cleaned result is "NULL", the record scores neither right
-        # nor wrong (it still counts toward n); constraints_refuse's skip never
-        # fires here because it's guarded by check_string in the else branch.
-        if eu.check_string(results):
-            response = eu.clean_results(results)
-            if response != "NULL" and eu.exact_match(response, answers):
-                num_right += 1
-        elif eu.exact_match(results, answers):
+        if eu.exact_match(span, answers):
             num_right += 1
 
     n = len(records)
@@ -153,10 +188,13 @@ def tog_metrics_from_jsonl(path, eu, first_pass_only=True):
     }
 
 
-def collect_tog(tog_dir, policy, first_pass_only=True):
+def collect_tog(tog_dir, policy, first_pass_only=True, only=None, scorer="fixed"):
     eu = load_tog_eval_utils()
+    pick = load_answer_pickers()[scorer]
     out = []
     for summary in sorted(Path(tog_dir).glob("*/summary.json")):
+        if only is not None and summary.parent.name not in only:
+            continue
         doc = load_json(summary)
         if doc is None:
             continue
@@ -167,8 +205,8 @@ def collect_tog(tog_dir, policy, first_pass_only=True):
             row = {"system": "ToG", "config": summary.parent.name,
                    "dataset": norm_dataset(dataset)}
             out_path = r.get("output")
-            metrics = tog_metrics_from_jsonl(out_path, eu, first_pass_only) if out_path \
-                and Path(out_path).exists() else None
+            metrics = tog_metrics_from_jsonl(out_path, eu, first_pass_only, pick) \
+                if out_path and Path(out_path).exists() else None
             if metrics is None:
                 # Fall back to the pre-aggregated summary row (all passes) so the
                 # config still appears; flag it so the caller knows it's not
@@ -281,7 +319,7 @@ def metrics_from_detailed(path):
     }
 
 
-def collect_rog(rog_dir, policy):
+def collect_rog(rog_dir, policy, only=None):
     """One row per (tag, dataset): metrics computed from that run's uncached
     detailed_eval_result.jsonl. Path shape:
         <rog_dir>/<tag>/KGQA/<policy_folder>/<Dataset>/RoG/<split>/.../detailed_eval_result.jsonl
@@ -296,6 +334,8 @@ def collect_rog(rog_dir, policy):
     for tag_dir in sorted(p for p in root.iterdir() if p.is_dir()):
         if tag_dir.name in ("KGQA", "gen_rule_path"):
             continue  # stray top-level eval trees, not run tags
+        if only is not None and tag_dir.name not in only:
+            continue  # skips the rglob entirely -- the whole cost of this scan
         for det in tag_dir.rglob("detailed_eval_result.jsonl"):
             parts = det.parts
             if "KGQA" not in parts:
@@ -355,13 +395,42 @@ def main():
     ap.add_argument("--tog-all-passes", action="store_true",
                     help="score ToG over all loop passes (default: only the first "
                          "pass, loop_idx == 0, so looped runs aren't double-counted)")
+    ap.add_argument("--runs", nargs="+", default=None, metavar="TAG",
+                    help="only these run tags, from either system (default: every "
+                         "run found). Skips the rest before they are scanned, so "
+                         "this is also how you keep the scan short.")
+    ap.add_argument("--live", action="store_true",
+                    help="only the live-measured runs of both systems and both "
+                         "datasets (tags carrying `live`), minus the capacity "
+                         "sweeps, replicate repeats, per-pass splits and "
+                         "`_rescored` twins")
+    ap.add_argument("--scorer", default="fixed", choices=["fixed", "stock"],
+                    help="how a ToG answer is extracted (default: fixed, the "
+                         "last braced span that is not the Yes/No marker -- what "
+                         "scripts/rescore_tog.py applies). `stock` reproduces "
+                         "eval.py's first-span scan, which reads the `{Yes}` "
+                         "sufficiency marker as the answer and costs a live run "
+                         "~29 Hits@1 points. RoG is unaffected either way.")
     ap.add_argument("--csv", type=Path, default=None,
                     help="also write the table to this CSV path")
     args = ap.parse_args()
 
+    only = set(args.runs) if args.runs else None
+    if args.live:
+        live = {d.parent.name for d in Path(args.tog_dir).glob("*/summary.json")
+                if is_live(d.parent.name)}
+        live |= {d.name for d in Path(args.rog_dir).iterdir()
+                 if d.is_dir() and is_live(d.name)}
+        only = live if only is None else (only & live)
+
     first_pass = not args.tog_all_passes
-    rows = (collect_tog(args.tog_dir, args.policy, first_pass_only=first_pass)
-            + collect_rog(args.rog_dir, args.policy))
+    rows = (collect_tog(args.tog_dir, args.policy, first_pass_only=first_pass,
+                        only=only, scorer=args.scorer)
+            + collect_rog(args.rog_dir, args.policy, only=only))
+
+    for r in rows:
+        r["tag"] = r["config"]
+        r["config"] = pretty_config(r["config"])
 
     scope = "all passes" if args.tog_all_passes else "first pass only"
     print(f"\nRaw baseline metrics  (policy = {args.policy!r}, ToG: {scope})")
